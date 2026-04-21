@@ -2,6 +2,7 @@ package com.campus.controller;
 
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.util.StrUtil;
 import com.campus.dto.LoginFormDTO;
 import com.campus.dto.Result;
 import com.campus.dto.UserDTO;
@@ -11,10 +12,13 @@ import com.campus.service.IUserInfoService;
 import com.campus.service.IUserService;
 import com.campus.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpSession;
+
+import static com.campus.utils.RedisConstants.LOGIN_USER_KEY;
 
 /**
  * <p>
@@ -33,6 +37,9 @@ public class UserController {
 
     @Resource
     private IUserInfoService userInfoService;
+
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     /**
      * 发送手机验证码
@@ -58,9 +65,11 @@ public class UserController {
      * @return 无
      */
     @PostMapping("/logout")
-    public Result logout(){
-        // TODO 实现登出功能
-        return Result.fail("功能未完成");
+    public Result logout(@RequestHeader(value = "authorization", required = false) String token){
+        if (StrUtil.isNotBlank(token)) {
+            stringRedisTemplate.delete(LOGIN_USER_KEY + token);
+        }
+        return Result.ok();
     }
 
     @GetMapping("/me")
