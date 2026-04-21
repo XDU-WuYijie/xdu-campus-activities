@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <title>黑马点评</title>
+  <!-- 引入样式 -->
+  <link rel="stylesheet" href="./css/element.css">
+  <link href="./css/main.css" rel="stylesheet">
+  <link href="./css/info.css" rel="stylesheet">
+
+  <style type="text/css">
+
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div class="header-back-btn" @click="goBack" ><i class="el-icon-arrow-left"></i></div>
+    <div class="header-title">资料编辑&nbsp;&nbsp;&nbsp;</div>
+  </div>
+  <div class="edit-container" style="padding: 12px 15px 88px;">
+    <input ref="avatarInput" type="file" accept="image/*" style="display:none" @change="onPickAvatar">
+
+    <div class="info-box">
+      <div class="info-item" style="align-items:center; cursor:pointer;" @click="chooseAvatar">
+        <div class="info-label">头像</div>
+        <div class="info-btn" style="align-items:center;">
+          <img width="38" height="38" style="border-radius:50%;" :src="user.icon || '/imgs/icons/default-icon.png'" alt="">
+          <div style="margin-left:10px; color:#909399;">点击更换</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div style="padding: 10px 0 4px;">
+        <el-form :model="form" label-position="top">
+          <el-form-item label="昵称">
+            <el-input v-model="form.nickName" placeholder="请输入昵称" maxlength="32" show-word-limit></el-input>
+          </el-form-item>
+
+          <el-form-item label="所属学院">
+            <el-input v-model="form.college" placeholder="例如：计算机学院" maxlength="64" show-word-limit></el-input>
+          </el-form-item>
+
+          <el-form-item label="所属年级">
+            <el-input v-model="form.grade" placeholder="例如：2023级" maxlength="32" show-word-limit></el-input>
+          </el-form-item>
+
+          <el-form-item label="导师">
+            <el-input v-model="form.mentor" placeholder="例如：张老师" maxlength="64" show-word-limit></el-input>
+          </el-form-item>
+
+          <el-form-item label="个人介绍">
+            <el-input type="textarea" :rows="3" v-model="form.introduce" placeholder="介绍一下自己" maxlength="128" show-word-limit></el-input>
+          </el-form-item>
+
+          <el-form-item label="性别">
+            <el-select v-model="form.gender" placeholder="选择">
+              <el-option :value="false" label="男"></el-option>
+              <el-option :value="true" label="女"></el-option>
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="城市">
+            <el-input v-model="form.city" placeholder="例如：西安" maxlength="64" show-word-limit></el-input>
+          </el-form-item>
+
+          <el-form-item label="生日">
+            <el-date-picker v-model="form.birthday" type="date" placeholder="选择日期" value-format="yyyy-MM-dd"></el-date-picker>
+          </el-form-item>
+
+          <el-button type="primary" style="width:100%;" :loading="saving" @click="save">保存</el-button>
+        </el-form>
+      </div>
+    </div>
+  </div>
+  <foot-bar :active-btn="4"></foot-bar>
+</div>
+<script src="js/vue.js"></script>
+<script src="js/axios.min.js"></script>
+<!-- 引入组件库 -->
+<script src="js/element.js"></script>
+<script src="js/common.js"></script>
+<script src="js/footer.js"></script>
+<script>
+
+  const app = new Vue({
+    el: "#app",
+    data: {
+      user: {},
+      info: {},
+      form: {
+        nickName: "",
+        introduce: "",
+        gender: null,
+        city: "",
+        birthday: "",
+        college: "",
+        grade: "",
+        mentor: ""
+      },
+      saving: false,
+      uploading: false,
+    },
+    created() {
+      this.load();
+    },
+    methods: {
+      load() {
+        axios.get("/user/me")
+          .then(({data}) => {
+            this.user = data || {};
+            return axios.get("/user/info/" + this.user.id);
+          })
+          .then(({data}) => {
+            this.info = data || {};
+            this.form.nickName = this.user.nickName || "";
+            this.form.introduce = this.info.introduce || "";
+            this.form.gender = (this.info.gender === true || this.info.gender === false) ? this.info.gender : null;
+            this.form.city = this.info.city || "";
+            this.form.birthday = this.info.birthday || "";
+            this.form.college = this.info.college || "";
+            this.form.grade = this.info.grade || "";
+            this.form.mentor = this.info.mentor || "";
+          })
+          .catch(err => {
+            this.$message.error(err);
+            setTimeout(() => location.href = "login.html", 600);
+          });
+      },
+      chooseAvatar() {
+        if (this.uploading) return;
+        this.$refs.avatarInput && this.$refs.avatarInput.click();
+      },
+      onPickAvatar(e) {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append("file", file);
+        this.uploading = true;
+        axios.post("/user/avatar", formData, { headers: { "Content-Type": "multipart/form-data" } })
+          .then(({data}) => {
+            this.user.icon = data;
+            this.$message.success("头像已更新");
+          })
+          .catch(err => this.$message.error(err))
+          .finally(() => {
+            this.uploading = false;
+            // 允许重复选择同一文件也能触发 change
+            e.target.value = "";
+          });
+      },
+      save() {
+        this.saving = true;
+        axios.put("/user/profile", this.form)
+          .then(() => {
+            this.$message.success("已保存");
+            history.back();
+          })
+          .catch(err => this.$message.error(err))
+          .finally(() => this.saving = false);
+      },
+      goBack(){
+        history.back();
+      }
+    },
+
+  })
+</script>
+</body>
+</html>

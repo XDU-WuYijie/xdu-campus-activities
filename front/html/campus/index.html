@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <title>校园活动平台</title>
+  <link rel="stylesheet" href="./css/element.css">
+  <link href="./css/main.css" rel="stylesheet">
+  <style>
+    body { background: #f6f8fb; }
+    .page { padding: 18px 16px 18px; max-width: 960px; margin: 0 auto; }
+    .hero { background: linear-gradient(135deg, #17324d, #2b6cb0); color: #fff; border-radius: 18px; padding: 24px 18px; margin-bottom: 16px; }
+    .hero-title { font-size: 28px; font-weight: 700; line-height: 1.2; margin-bottom: 8px; }
+    .hero-subtitle { opacity: .9; font-size: 14px; line-height: 1.6; }
+    .toolbar { display: grid; grid-template-columns: 1fr auto; gap: 10px; margin: 16px 0 10px; }
+    .category-bar { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 16px; }
+    .category-btn { flex: none; border-radius: 999px; padding: 8px 14px; border: none; background: #e9eef5; color: #17324d; cursor: pointer; }
+    .category-btn.active { background: #17324d; color: #fff; }
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+    .activity-card { background: #fff; border-radius: 18px; overflow: hidden; box-shadow: 0 12px 30px rgba(20,35,60,.08); cursor: pointer; }
+    .activity-cover { width: 100%; height: 170px; object-fit: cover; display: block; }
+    .activity-body { padding: 16px; }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    .tag { border-radius: 999px; padding: 4px 10px; font-size: 12px; background: #edf2f7; color: #2d3748; }
+    .tag.open { background: #d7f5e8; color: #0f8b5f; }
+    .title { font-size: 18px; font-weight: 700; color: #10233d; margin-bottom: 8px; }
+    .summary { font-size: 14px; color: #5b6574; min-height: 44px; line-height: 1.6; margin-bottom: 12px; }
+    .info-line { font-size: 13px; color: #425466; line-height: 1.8; }
+    .empty { background: #fff; border-radius: 16px; padding: 36px 18px; text-align: center; color: #7a8797; }
+    .load-more { margin-top: 16px; text-align: center; }
+  </style>
+</head>
+<body>
+<div id="app" class="page">
+  <section class="hero">
+    <div class="hero-title">校园大型活动报名入口</div>
+    <div class="hero-subtitle">统一查看活动、完成报名、现场签到。首版面向讲座、开放日、志愿服务和招聘会等大型活动。</div>
+  </section>
+
+  <div class="toolbar">
+    <el-input v-model="keyword" clearable placeholder="搜索活动标题" @keyup.enter.native="refreshActivities">
+      <i slot="prefix" class="el-input__icon el-icon-search"></i>
+    </el-input>
+    <el-button type="primary" plain @click="refreshActivities">搜索</el-button>
+  </div>
+
+  <div class="category-bar">
+    <button class="category-btn" :class="{active: selectedCategory === ''}" @click="changeCategory('')">全部</button>
+    <button class="category-btn" v-for="item in categories" :key="item" :class="{active: selectedCategory === item}" @click="changeCategory(item)">{{item}}</button>
+  </div>
+
+  <section class="card-grid" v-if="activities.length">
+    <article class="activity-card" v-for="item in activities" :key="item.id" @click="openDetail(item.id)">
+      <img class="activity-cover" :src="item.coverImage || defaultCover" alt="">
+      <div class="activity-body">
+        <div class="meta-row">
+          <span class="tag">{{item.category}}</span>
+          <span class="tag open" v-if="item.registrationOpen">报名中</span>
+          <span class="tag" v-else>未开放</span>
+          <span class="tag" v-if="item.registered">已报名</span>
+        </div>
+        <div class="title">{{item.title}}</div>
+        <div class="summary">{{item.summary || '暂未填写活动简介'}}</div>
+        <div class="info-line">主办方：{{item.organizerName}}</div>
+        <div class="info-line">地点：{{item.location}}</div>
+        <div class="info-line">活动时间：{{formatTime(item.eventStartTime)}} - {{formatTime(item.eventEndTime)}}</div>
+        <div class="info-line">报名情况：{{item.registeredCount || 0}} / {{item.maxParticipants}}</div>
+      </div>
+    </article>
+  </section>
+
+  <div class="empty" v-else>
+    当前筛选条件下暂无活动。
+  </div>
+
+  <div class="load-more" v-if="activities.length && activities.length < total">
+    <el-button @click="loadMore">加载更多</el-button>
+  </div>
+
+  <foot-bar :active-btn="1"></foot-bar>
+</div>
+
+<script src="js/vue.js"></script>
+<script src="js/axios.min.js"></script>
+<script src="js/element.js"></script>
+<script src="js/common.js"></script>
+<script src="js/footer.js"></script>
+<script>
+  new Vue({
+    el: '#app',
+    data: {
+      categories: [],
+      activities: [],
+      keyword: '',
+      selectedCategory: '',
+      current: 1,
+      pageSize: 6,
+      total: 0,
+      defaultCover: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=1200&q=80'
+    },
+    created() {
+      this.queryCategories();
+      this.queryActivities();
+    },
+    methods: {
+      queryCategories() {
+        axios.get('/activity/public/categories')
+          .then(({data}) => this.categories = data || [])
+          .catch(err => this.$message.error(err));
+      },
+      queryActivities(append) {
+        axios.get('/activity/public/list', {
+          params: {
+            current: this.current,
+            pageSize: this.pageSize,
+            keyword: this.keyword,
+            category: this.selectedCategory
+          }
+        }).then(({data, total}) => {
+          this.total = total || 0;
+          this.activities = append ? this.activities.concat(data || []) : (data || []);
+        }).catch(err => this.$message.error(err));
+      },
+      refreshActivities() {
+        this.current = 1;
+        this.queryActivities(false);
+      },
+      changeCategory(category) {
+        this.selectedCategory = category;
+        this.refreshActivities();
+      },
+      loadMore() {
+        this.current += 1;
+        this.queryActivities(true);
+      },
+      openDetail(id) {
+        location.href = '/shop-detail.html?id=' + id;
+      },
+      formatTime(value) {
+        if (!value) return '待定';
+        return value.replace('T', ' ');
+      }
+    }
+  })
+</script>
+</body>
+</html>

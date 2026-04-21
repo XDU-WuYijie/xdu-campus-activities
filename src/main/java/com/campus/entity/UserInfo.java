@@ -30,13 +30,29 @@ public class UserInfo implements Serializable {
     /**
      * 主键，用户id
      */
-    @TableId(value = "user_id", type = IdType.AUTO)
+    // tb_user_info.user_id 不是自增主键；资料首次保存需要显式写入 userId
+    @TableId(value = "user_id", type = IdType.INPUT)
     private Long userId;
 
     /**
      * 城市名称
      */
     private String city;
+
+    /**
+     * 所属学院
+     */
+    private String college;
+
+    /**
+     * 所属年级
+     */
+    private String grade;
+
+    /**
+     * 导师
+     */
+    private String mentor;
 
     /**
      * 个人介绍，不要超过128个字符

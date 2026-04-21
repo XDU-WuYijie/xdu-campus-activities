@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <title>发起活动</title>
+  <link rel="stylesheet" href="./css/element.css">
+  <link href="./css/main.css" rel="stylesheet">
+  <style>
+    body { background:#f6f8fb; }
+    .page { max-width: 980px; margin: 0 auto; padding: 18px 16px 90px; }
+    .panel { background:#fff; border-radius:20px; padding:18px; box-shadow:0 12px 30px rgba(16,35,61,.08); margin-bottom:16px; }
+    .title { font-size:24px; font-weight:700; color:#10233d; margin-bottom:12px; }
+    .form-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px; }
+    .field label { display:block; font-size:12px; color:#718096; margin-bottom:6px; }
+    .field input, .field textarea { width:100%; border:1px solid #d8e0ea; border-radius:12px; padding:10px 12px; font-size:14px; box-sizing:border-box; }
+    .field textarea { min-height:120px; resize:vertical; }
+    .list-item { border:1px solid #e2e8f0; border-radius:16px; padding:14px; margin-top:12px; }
+    .row { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+    .muted { color:#556273; line-height:1.8; font-size:14px; }
+  </style>
+</head>
+<body>
+<div id="app" class="page">
+  <div class="panel">
+    <div class="row">
+      <div class="title">{{form.id ? '编辑活动' : '发起新活动'}}</div>
+      <el-button type="text" @click="goHome">返回首页</el-button>
+    </div>
+
+    <div class="form-grid">
+      <div class="field">
+        <label>活动标题</label>
+        <input v-model="form.title" placeholder="例如：春季开放日">
+      </div>
+      <div class="field">
+        <label>活动分类</label>
+        <input v-model="form.category" placeholder="例如：讲座 / 志愿服务">
+      </div>
+      <div class="field">
+        <label>主办方名称</label>
+        <input v-model="form.organizerName" placeholder="默认使用当前昵称">
+      </div>
+      <div class="field">
+        <label>活动地点</label>
+        <input v-model="form.location" placeholder="例如：大学生活动中心">
+      </div>
+      <div class="field">
+        <label>封面图 URL</label>
+        <input v-model="form.coverImage" placeholder="可填写活动封面图片地址">
+      </div>
+      <div class="field">
+        <label>报名人数上限</label>
+        <input v-model.number="form.maxParticipants" type="number" min="1">
+      </div>
+      <div class="field">
+        <label>报名开始时间</label>
+        <input v-model="form.registrationStartTime" type="datetime-local">
+      </div>
+      <div class="field">
+        <label>报名结束时间</label>
+        <input v-model="form.registrationEndTime" type="datetime-local">
+      </div>
+      <div class="field">
+        <label>活动开始时间</label>
+        <input v-model="form.eventStartTime" type="datetime-local">
+      </div>
+      <div class="field">
+        <label>活动结束时间</label>
+        <input v-model="form.eventEndTime" type="datetime-local">
+      </div>
+    </div>
+
+    <div class="field" style="margin-top:12px;">
+      <label>活动摘要</label>
+      <textarea v-model="form.summary" placeholder="活动简介，用于列表展示"></textarea>
+    </div>
+    <div class="field" style="margin-top:12px;">
+      <label>活动详情</label>
+      <textarea v-model="form.content" placeholder="报名须知、流程、签到说明等"></textarea>
+    </div>
+
+    <div style="margin-top:16px;">
+      <el-button type="primary" @click="submitForm">{{form.id ? '保存更新' : '创建活动'}}</el-button>
+      <el-button v-if="form.id" @click="resetForm">新建另一场活动</el-button>
+      <el-button v-if="form.id" type="success" plain @click="generateCode">刷新签到码</el-button>
+    </div>
+
+    <div class="muted" v-if="checkInCode" style="margin-top:14px;">
+      当前签到码：<strong>{{checkInCode}}</strong>
+      <span v-if="checkInCodeExpireTime">，有效至 {{checkInCodeExpireTime}}</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="title">我发起的活动</div>
+    <div class="list-item" v-for="item in createdActivities" :key="item.id">
+      <div class="row">
+        <div>
+          <div style="font-size:18px;font-weight:700;color:#10233d;">{{item.title}}</div>
+          <div class="muted">
+            {{item.category}} · {{item.location}}<br>
+            {{formatTime(item.eventStartTime)}} - {{formatTime(item.eventEndTime)}}<br>
+            报名人数：{{item.registeredCount || 0}} / {{item.maxParticipants}}
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <el-button size="mini" type="primary" @click="loadActivity(item.id)">编辑</el-button>
+          <el-button size="mini" plain @click="viewDetail(item.id)">详情</el-button>
+          <el-button size="mini" type="success" plain @click="showRegistrations(item.id)">报名名单</el-button>
+        </div>
+      </div>
+    </div>
+    <div class="muted" v-if="!createdActivities.length">你还没有发起过活动。</div>
+  </div>
+
+  <el-dialog title="报名名单" :visible.sync="dialogVisible" width="90%">
+    <div class="list-item" v-for="item in registrations" :key="item.id" style="margin-top:0;margin-bottom:10px;">
+      <div style="font-size:16px;font-weight:600;color:#10233d;">{{item.userNickName || '匿名用户'}}</div>
+      <div class="muted">
+        手机号：{{item.userPhone || '未公开'}}<br>
+        报名时间：{{formatTime(item.createTime)}}<br>
+        签到状态：{{item.checkInStatus ? '已签到' : '未签到'}}
+      </div>
+    </div>
+    <div class="muted" v-if="!registrations.length">当前还没有报名记录。</div>
+  </el-dialog>
+
+  <foot-bar :active-btn="2"></foot-bar>
+</div>
+
+<script src="js/vue.js"></script>
+<script src="js/axios.min.js"></script>
+<script src="js/element.js"></script>
+<script src="js/common.js"></script>
+<script src="js/footer.js"></script>
+<script>
+  new Vue({
+    el: '#app',
+    data: {
+      form: {
+        title: '',
+        category: '',
+        organizerName: '',
+        location: '',
+        coverImage: '',
+        summary: '',
+        content: '',
+        maxParticipants: 50,
+        registrationStartTime: '',
+        registrationEndTime: '',
+        eventStartTime: '',
+        eventEndTime: '',
+        checkInEnabled: false
+      },
+      createdActivities: [],
+      registrations: [],
+      dialogVisible: false,
+      checkInCode: '',
+      checkInCodeExpireTime: ''
+    },
+    created() {
+      this.queryMine();
+      const id = util.getUrlParam('id');
+      if (id) {
+        this.loadActivity(id);
+      }
+    },
+    methods: {
+      queryMine() {
+        axios.get('/activity/manage/mine')
+          .then(({data}) => this.createdActivities = data || [])
+          .catch(err => this.$message.error(err));
+      },
+      submitForm() {
+        const payload = {
+          id: this.form.id,
+          title: this.form.title,
+          category: this.form.category,
+          organizerName: this.form.organizerName,
+          location: this.form.location,
+          coverImage: this.form.coverImage,
+          summary: this.form.summary,
+          content: this.form.content,
+          maxParticipants: this.form.maxParticipants,
+          registrationStartTime: this.normalizeDate(this.form.registrationStartTime),
+          registrationEndTime: this.normalizeDate(this.form.registrationEndTime),
+          eventStartTime: this.normalizeDate(this.form.eventStartTime),
+          eventEndTime: this.normalizeDate(this.form.eventEndTime),
+          checkInEnabled: !!this.checkInCode
+        };
+        const request = payload.id ? axios.put('/activity', payload) : axios.post('/activity', payload);
+        request.then(({data}) => {
+          this.$message.success(payload.id ? '活动已更新' : '活动已创建');
+          if (!payload.id && data) {
+            this.form.id = data;
+          }
+          this.queryMine();
+        }).catch(err => this.$message.error(err));
+      },
+      loadActivity(id) {
+        axios.get('/activity/public/' + id)
+          .then(({data}) => {
+            this.form = {
+              id: data.id,
+              title: data.title,
+              category: data.category,
+              organizerName: data.organizerName,
+              location: data.location,
+              coverImage: data.coverImage,
+              summary: data.summary,
+              content: data.content,
+              maxParticipants: data.maxParticipants,
+              registrationStartTime: this.toInputDate(data.registrationStartTime),
+              registrationEndTime: this.toInputDate(data.registrationEndTime),
+              eventStartTime: this.toInputDate(data.eventStartTime),
+              eventEndTime: this.toInputDate(data.eventEndTime),
+              checkInEnabled: data.checkInEnabled
+            };
+            this.checkInCode = data.checkInCode || '';
+            this.checkInCodeExpireTime = data.checkInCodeExpireTime || '';
+          })
+          .catch(err => this.$message.error(err));
+      },
+      generateCode() {
+        if (!this.form.id) {
+          this.$message.error('请先保存活动，再生成签到码');
+          return;
+        }
+        axios.post('/activity/manage/' + this.form.id + '/checkin-code', {})
+          .then(({data}) => {
+            this.checkInCode = data.checkInCode || '';
+            this.checkInCodeExpireTime = data.checkInCodeExpireTime || '';
+            this.$message.success('签到码已刷新');
+            this.queryMine();
+          })
+          .catch(err => this.$message.error(err));
+      },
+      showRegistrations(id) {
+        axios.get('/activity/manage/' + id + '/registrations')
+          .then(({data}) => {
+            this.registrations = data || [];
+            this.dialogVisible = true;
+          })
+          .catch(err => this.$message.error(err));
+      },
+      resetForm() {
+        this.form = {
+          title: '',
+          category: '',
+          organizerName: '',
+          location: '',
+          coverImage: '',
+          summary: '',
+          content: '',
+          maxParticipants: 50,
+          registrationStartTime: '',
+          registrationEndTime: '',
+          eventStartTime: '',
+          eventEndTime: '',
+          checkInEnabled: false
+        };
+        this.checkInCode = '';
+        this.checkInCodeExpireTime = '';
+      },
+      goHome() {
+        location.href = '/index.html';
+      },
+      viewDetail(id) {
+        location.href = '/shop-detail.html?id=' + id;
+      },
+      toInputDate(value) {
+        if (!value) return '';
+        return value.replace(' ', 'T').slice(0, 16);
+      },
+      normalizeDate(value) {
+        if (!value) return null;
+        return value.replace('T', ' ') + ':00';
+      },
+      formatTime(value) {
+        return value ? value.replace('T', ' ') : '待定';
+      }
+    }
+  })
+</script>
+</body>
+</html>

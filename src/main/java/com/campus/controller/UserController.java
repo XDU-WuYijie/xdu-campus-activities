@@ -6,19 +6,24 @@ import cn.hutool.core.util.StrUtil;
 import com.campus.dto.LoginFormDTO;
 import com.campus.dto.Result;
 import com.campus.dto.UserDTO;
+import com.campus.dto.UserProfileUpdateDTO;
 import com.campus.entity.User;
 import com.campus.entity.UserInfo;
+import com.campus.service.OssService;
 import com.campus.service.IUserInfoService;
 import com.campus.service.IUserService;
 import com.campus.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpSession;
+import java.util.concurrent.TimeUnit;
 
 import static com.campus.utils.RedisConstants.LOGIN_USER_KEY;
+import static com.campus.utils.RedisConstants.LOGIN_USER_TTL;
 
 /**
  * <p>
@@ -40,6 +45,9 @@ public class UserController {
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+
+    @Resource
+    private OssService ossService;
 
     /**
      * 发送手机验证码
@@ -79,6 +87,49 @@ public class UserController {
         return Result.ok(user);
     }
 
+    @PostMapping("/avatar")
+    public Result uploadAvatar(@RequestHeader(value = "authorization", required = false) String token,
+                               @RequestParam("file") MultipartFile file) {
+        Long userId = UserHolder.getUser().getId();
+        String url = ossService.uploadAvatar(userId, file);
+
+        // 写回用户表（头像字段沿用 tb_user.icon）
+        userService.updateById(new User().setId(userId).setIcon(url));
+
+        // 同步登录态（避免刷新前端仍显示旧头像）
+        syncLoginUserCache(token, "icon", url);
+
+        return Result.ok(url);
+    }
+
+    @PutMapping("/profile")
+    public Result updateProfile(@RequestHeader(value = "authorization", required = false) String token,
+                                @RequestBody UserProfileUpdateDTO dto) {
+        Long userId = UserHolder.getUser().getId();
+
+        if (dto != null && StrUtil.isNotBlank(dto.getNickName())) {
+            userService.updateById(new User().setId(userId).setNickName(dto.getNickName()));
+            syncLoginUserCache(token, "nickName", dto.getNickName());
+        }
+
+        UserInfo info = userInfoService.getById(userId);
+        if (info == null) {
+            info = new UserInfo();
+            info.setUserId(userId);
+        }
+        if (dto != null) {
+            if (dto.getIntroduce() != null) info.setIntroduce(dto.getIntroduce());
+            if (dto.getGender() != null) info.setGender(dto.getGender());
+            if (dto.getCity() != null) info.setCity(dto.getCity());
+            if (dto.getBirthday() != null) info.setBirthday(dto.getBirthday());
+            if (dto.getCollege() != null) info.setCollege(dto.getCollege());
+            if (dto.getGrade() != null) info.setGrade(dto.getGrade());
+            if (dto.getMentor() != null) info.setMentor(dto.getMentor());
+        }
+        userInfoService.saveOrUpdate(info);
+        return Result.ok();
+    }
+
     @GetMapping("/info/{id}")
     public Result info(@PathVariable("id") Long userId){
         // 查询详情
@@ -113,5 +164,14 @@ public class UserController {
     @GetMapping("/sign/count")
     public Result signCount(){
         return userService.signCount();
+    }
+
+    private void syncLoginUserCache(String token, String field, String value) {
+        if (StrUtil.isBlank(token) || StrUtil.isBlank(field) || value == null) {
+            return;
+        }
+        String key = LOGIN_USER_KEY + token;
+        stringRedisTemplate.opsForHash().put(key, field, value);
+        stringRedisTemplate.expire(key, LOGIN_USER_TTL, TimeUnit.MINUTES);
     }
 }

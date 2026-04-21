@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <title>我的活动</title>
+  <link rel="stylesheet" href="./css/element.css">
+  <link href="./css/main.css" rel="stylesheet">
+  <style>
+    body { background: #f6f8fb; }
+    .page { max-width: 960px; margin: 0 auto; padding: 18px 16px 90px; }
+    .profile { background: #17324d; color: #fff; border-radius: 20px; padding: 18px 16px; margin-bottom: 16px; cursor: pointer; }
+    .profile-main { display:flex; align-items:center; gap:14px; }
+    .avatar { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: rgba(255,255,255,.15); border: 2px solid rgba(255,255,255,.25); }
+    .profile-text { flex: 1; min-width: 0; }
+    .name { font-size: 22px; font-weight: 800; line-height: 1.15; }
+    .meta { opacity:.85; font-size: 13px; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .profile-arrow { font-size: 18px; opacity: .9; }
+    .card { background:#fff; border-radius:18px; padding:16px; box-shadow:0 12px 30px rgba(16,35,61,.08); margin-bottom:12px; }
+    .item-title { font-size:18px; font-weight:700; color:#10233d; margin-bottom:6px; }
+    .item-line { color:#556273; font-size:14px; line-height:1.8; }
+    .item-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+    .logout-fixed { margin-top: 18px; }
+  </style>
+</head>
+<body>
+<div id="app" class="page">
+  <section class="profile" @click="goEditProfile">
+    <div class="profile-main">
+      <img class="avatar" :src="user.icon || '/imgs/icons/default-icon.png'" alt="">
+      <div class="profile-text">
+        <div class="name">{{user.nickName || '未登录用户'}}</div>
+        <div class="meta">{{profileMeta}}</div>
+      </div>
+      <i class="el-icon-arrow-right profile-arrow"></i>
+    </div>
+  </section>
+
+  <el-tabs v-model="tab">
+    <el-tab-pane label="我的报名" name="registrations">
+      <div class="card" v-for="item in registrations" :key="item.id">
+        <div class="item-title">{{item.activityTitle}}</div>
+        <div class="item-line">活动分类：{{item.category}}</div>
+        <div class="item-line">活动地点：{{item.location}}</div>
+        <div class="item-line">活动时间：{{formatTime(item.eventStartTime)}} - {{formatTime(item.eventEndTime)}}</div>
+        <div class="item-line">签到状态：{{item.checkInStatus ? '已签到' : '未签到'}}</div>
+        <div class="item-actions">
+          <el-button size="mini" type="primary" plain @click="viewDetail(item.activityId)">查看详情</el-button>
+        </div>
+      </div>
+      <div class="card" v-if="!registrations.length">还没有报名任何活动。</div>
+    </el-tab-pane>
+
+    <el-tab-pane label="我发起的活动" name="created">
+      <div class="card" v-for="item in createdActivities" :key="item.id">
+        <div class="item-title">{{item.title}}</div>
+        <div class="item-line">分类：{{item.category}}</div>
+        <div class="item-line">地点：{{item.location}}</div>
+        <div class="item-line">报名人数：{{item.registeredCount || 0}} / {{item.maxParticipants}}</div>
+        <div class="item-line">签到：{{item.checkInEnabled ? '已开启' : '未开启'}}</div>
+        <div class="item-actions">
+          <el-button size="mini" type="primary" @click="editActivity(item.id)">编辑/管理</el-button>
+          <el-button size="mini" plain @click="viewDetail(item.id)">查看详情</el-button>
+        </div>
+      </div>
+      <div class="card" v-if="!createdActivities.length">你还没有发起任何活动。</div>
+    </el-tab-pane>
+  </el-tabs>
+
+  <div class="logout-fixed">
+    <el-button style="width:100%;" type="danger" plain @click="logout">退出登录</el-button>
+  </div>
+
+  <foot-bar :active-btn="3"></foot-bar>
+</div>
+
+<script src="js/vue.js"></script>
+<script src="js/axios.min.js"></script>
+<script src="js/element.js"></script>
+<script src="js/common.js"></script>
+<script src="js/footer.js"></script>
+<script>
+  new Vue({
+    el: '#app',
+    data: {
+      tab: 'registrations',
+      user: {},
+      profile: {},
+      registrations: [],
+      createdActivities: []
+    },
+    created() {
+      this.queryUser();
+    },
+    computed: {
+      profileMeta() {
+        const grade = this.profile.grade || '';
+        const college = this.profile.college || '';
+        const merged = [grade, college].filter(Boolean).join(' · ');
+        return merged || '点击完善年级与学院信息';
+      }
+    },
+    methods: {
+      queryUser() {
+        axios.get('/user/me')
+          .then(({data}) => {
+            this.user = data || {};
+            this.queryProfile();
+            this.queryRegistrations();
+            this.queryCreatedActivities();
+          })
+          .catch(() => location.href = '/login.html');
+      },
+      queryProfile() {
+        if (!this.user || !this.user.id) return;
+        axios.get('/user/info/' + this.user.id)
+          .then(({data}) => this.profile = data || {})
+          .catch(() => this.profile = {});
+      },
+      queryRegistrations() {
+        axios.get('/activity/registration/mine')
+          .then(({data}) => this.registrations = data || [])
+          .catch(err => this.$message.error(err));
+      },
+      queryCreatedActivities() {
+        axios.get('/activity/manage/mine')
+          .then(({data}) => this.createdActivities = data || [])
+          .catch(err => this.$message.error(err));
+      },
+      goEditProfile() {
+        location.href = '/info-edit.html';
+      },
+      editActivity(id) {
+        location.href = '/blog-edit.html?id=' + id;
+      },
+      viewDetail(id) {
+        location.href = '/shop-detail.html?id=' + id;
+      },
+      logout() {
+        axios.post('/user/logout')
+          .then(() => {
+            sessionStorage.removeItem('token');
+            location.href = '/login.html';
+          })
+          .catch(err => this.$message.error(err));
+      },
+      formatTime(value) {
+        return value ? value.replace('T', ' ') : '待定';
+      }
+    }
+  })
+</script>
+</body>
+</html>

@@ -27,3 +27,12 @@ logging:
     com.campus: debug
   pattern:
     dateformat: mm:ss.SSS
+
+# 阿里云 OSS（头像上传）
+aliyun:
+  oss:
+    endpoint: oss-cn-beijing.aliyuncs.com
+    bucket: xud-campus
+    accessKeyId: ${OSS_ACCESS_KEY_ID}
+    accessKeySecret: ${ALI_OSS_ACCESS_KEY_SECRET}
+    avatarPrefix: avatars/
