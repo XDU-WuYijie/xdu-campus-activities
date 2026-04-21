@@ -24,7 +24,7 @@ import static com.campus.utils.RedisConstants.CACHE_SHOP_KEY;
 import static com.campus.utils.RedisConstants.SHOP_GEO_KEY;
 
 @SpringBootTest
-class HmDianPingApplicationTests {
+class XduCampusApplicationTests {
 
     @Resource
     private CacheClient cacheClient;

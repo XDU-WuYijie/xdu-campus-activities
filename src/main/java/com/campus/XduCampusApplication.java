@@ -6,10 +6,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @MapperScan("com.campus.mapper")
 @SpringBootApplication
-public class HmDianPingApplication {
+public class XduCampusApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(HmDianPingApplication.class, args);
+        SpringApplication.run(XduCampusApplication.class, args);
     }
 
 }
