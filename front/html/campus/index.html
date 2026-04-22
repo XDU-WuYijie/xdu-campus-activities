@@ -7,41 +7,164 @@
   <link rel="stylesheet" href="./css/element.css">
   <link href="./css/main.css" rel="stylesheet">
   <style>
-    body { background: #f6f8fb; }
-    .page { padding: 18px 16px 18px; max-width: 960px; margin: 0 auto; }
-    .hero { background: linear-gradient(135deg, #17324d, #2b6cb0); color: #fff; border-radius: 18px; padding: 24px 18px; margin-bottom: 16px; }
-    .hero-title { font-size: 28px; font-weight: 700; line-height: 1.2; margin-bottom: 8px; }
-    .hero-subtitle { opacity: .9; font-size: 14px; line-height: 1.6; }
-    .toolbar { display: grid; grid-template-columns: 1fr auto; gap: 10px; margin: 16px 0 10px; }
-    .category-bar { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 16px; }
-    .category-btn { flex: none; border-radius: 999px; padding: 8px 14px; border: none; background: #e9eef5; color: #17324d; cursor: pointer; }
-    .category-btn.active { background: #17324d; color: #fff; }
-    .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
-    .activity-card { background: #fff; border-radius: 18px; overflow: hidden; box-shadow: 0 12px 30px rgba(20,35,60,.08); cursor: pointer; }
-    .activity-cover { width: 100%; height: 170px; object-fit: cover; display: block; }
-    .activity-body { padding: 16px; }
-    .meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
-    .tag { border-radius: 999px; padding: 4px 10px; font-size: 12px; background: #edf2f7; color: #2d3748; }
-    .tag.open { background: #d7f5e8; color: #0f8b5f; }
-    .title { font-size: 18px; font-weight: 700; color: #10233d; margin-bottom: 8px; }
-    .summary { font-size: 14px; color: #5b6574; min-height: 44px; line-height: 1.6; margin-bottom: 12px; }
-    .info-line { font-size: 13px; color: #425466; line-height: 1.8; }
-    .empty { background: #fff; border-radius: 16px; padding: 36px 18px; text-align: center; color: #7a8797; }
-    .load-more { margin-top: 16px; text-align: center; }
+    :root {
+      --bg: #f3f6fb;
+      --bg-soft: #f8fbff;
+      --ink: #10233d;
+      --muted: #607086;
+      --brand: #17324d;
+      --brand-soft: #e7eff8;
+      --line: rgba(23,50,77,.08);
+      --shadow: 0 18px 40px rgba(16,35,61,.10);
+    }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at top left, rgba(66, 118, 186, .14), transparent 28%),
+        linear-gradient(180deg, #f7f9fc 0%, #eef3f9 100%);
+    }
+    .page { padding: 20px 16px 28px; max-width: 980px; margin: 0 auto; }
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      margin-bottom: 16px;
+      align-items: center;
+      background: rgba(255,255,255,.8);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      border-radius: 24px;
+      padding: 12px;
+      backdrop-filter: blur(10px);
+    }
+    .search-bar { display:grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+    .search-bar .el-input__inner {
+      height: 46px;
+      border-radius: 16px;
+      border: 1px solid rgba(23,50,77,.10);
+      background: var(--bg-soft);
+    }
+    .search-bar .el-button {
+      height: 46px;
+      border-radius: 16px;
+      padding: 0 20px;
+      border: none;
+      background: linear-gradient(135deg, #17324d, #2a5f97);
+      color: #fff;
+      box-shadow: 0 10px 22px rgba(23,50,77,.18);
+    }
+    .hero-profile {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border: 2px solid rgba(23,50,77,.08);
+      background: linear-gradient(180deg, #ffffff, #edf3fa);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+      cursor:pointer;
+      flex:none;
+      box-shadow: 0 10px 24px rgba(16,35,61,.08);
+    }
+    .hero-profile img { width:100%; height:100%; object-fit:cover; display:block; }
+    .hero-profile i { font-size: 20px; color:#17324d; }
+    .category-bar {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding: 6px 2px 8px;
+      margin-bottom: 18px;
+    }
+    .category-btn {
+      flex: none;
+      border-radius: 999px;
+      padding: 10px 16px;
+      border: 1px solid rgba(23,50,77,.08);
+      background: rgba(255,255,255,.88);
+      color: var(--brand);
+      cursor: pointer;
+      transition: .2s ease;
+      box-shadow: 0 8px 20px rgba(16,35,61,.05);
+    }
+    .category-btn.active {
+      background: linear-gradient(135deg, #17324d, #2a5f97);
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 10px 24px rgba(23,50,77,.18);
+    }
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .activity-card {
+      background: rgba(255,255,255,.92);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--line);
+      cursor: pointer;
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+    .activity-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 22px 44px rgba(16,35,61,.14);
+    }
+    .activity-cover { width: 100%; height: 184px; object-fit: cover; display: block; }
+    .activity-body { padding: 18px; }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .tag {
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 12px;
+      background: var(--brand-soft);
+      color: var(--brand);
+    }
+    .tag.open { background: #dbf4e7; color: #0f8b5f; }
+    .title {
+      font-size: 19px;
+      font-weight: 800;
+      color: var(--ink);
+      margin-bottom: 8px;
+      line-height: 1.35;
+    }
+    .summary {
+      font-size: 14px;
+      color: var(--muted);
+      min-height: 44px;
+      line-height: 1.7;
+      margin-bottom: 14px;
+    }
+    .info-line { font-size: 13px; color: #425466; line-height: 1.9; }
+    .empty {
+      background: rgba(255,255,255,.92);
+      border-radius: 24px;
+      padding: 42px 20px;
+      text-align: center;
+      color: #7a8797;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--line);
+    }
+    .load-more { margin-top: 18px; text-align: center; }
+    .load-more .el-button {
+      border-radius: 16px;
+      border: 1px solid rgba(23,50,77,.08);
+      padding: 12px 24px;
+      background: rgba(255,255,255,.92);
+      color: var(--brand);
+    }
   </style>
 </head>
 <body>
 <div id="app" class="page">
-  <section class="hero">
-    <div class="hero-title">校园大型活动报名入口</div>
-    <div class="hero-subtitle">统一查看活动、完成报名、现场签到。首版面向讲座、开放日、志愿服务和招聘会等大型活动。</div>
-  </section>
-
   <div class="toolbar">
-    <el-input v-model="keyword" clearable placeholder="搜索活动标题" @keyup.enter.native="refreshActivities">
-      <i slot="prefix" class="el-input__icon el-icon-search"></i>
-    </el-input>
-    <el-button type="primary" plain @click="refreshActivities">搜索</el-button>
+    <div class="search-bar">
+      <el-input v-model="keyword" clearable placeholder="搜索活动标题" @keyup.enter.native="refreshActivities">
+        <i slot="prefix" class="el-input__icon el-icon-search"></i>
+      </el-input>
+      <el-button type="primary" plain @click="refreshActivities">搜索</el-button>
+    </div>
+    <div class="hero-profile" @click="goProfile">
+      <img v-if="user.icon" :src="user.icon" alt="">
+      <i v-else class="el-icon-user-solid"></i>
+    </div>
   </div>
 
   <div class="category-bar">
@@ -77,18 +200,17 @@
     <el-button @click="loadMore">加载更多</el-button>
   </div>
 
-  <foot-bar :active-btn="1"></foot-bar>
 </div>
 
 <script src="js/vue.js"></script>
 <script src="js/axios.min.js"></script>
 <script src="js/element.js"></script>
 <script src="js/common.js"></script>
-<script src="js/footer.js"></script>
 <script>
   new Vue({
     el: '#app',
     data: {
+      user: {},
       categories: [],
       activities: [],
       keyword: '',
@@ -99,10 +221,19 @@
       defaultCover: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=1200&q=80'
     },
     created() {
+      this.queryUser();
       this.queryCategories();
       this.queryActivities();
     },
     methods: {
+      queryUser() {
+        if (!sessionStorage.getItem('token')) {
+          return;
+        }
+        axios.get('/user/me')
+          .then(({data}) => this.user = data || {})
+          .catch(() => this.user = {});
+      },
       queryCategories() {
         axios.get('/activity/public/categories')
           .then(({data}) => this.categories = data || [])
@@ -134,7 +265,10 @@
         this.queryActivities(true);
       },
       openDetail(id) {
-        location.href = '/shop-detail.html?id=' + id;
+        location.href = '/activity-detail.html?id=' + id;
+      },
+      goProfile() {
+        location.href = sessionStorage.getItem('token') ? '/info.html' : '/login.html';
       },
       formatTime(value) {
         if (!value) return '待定';

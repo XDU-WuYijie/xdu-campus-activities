@@ -16,7 +16,7 @@ services:
       - --default-authentication-plugin=mysql_native_password
     volumes:
       - ./docker/mysql/data:/var/lib/mysql
-      - ./src/main/resources/db:/docker-entrypoint-initdb.d
+      - ./src/main/resources/db/init:/docker-entrypoint-initdb.d
     networks:
       - campus-net
 

@@ -9,6 +9,9 @@
   <style>
     body { background: #f6f8fb; }
     .page { max-width: 960px; margin: 0 auto; padding: 18px 16px 90px; }
+    .topbar { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+    .back-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: #ffffff; color:#17324d; box-shadow:0 10px 24px rgba(16,35,61,.08); cursor:pointer; }
+    .top-title { font-size: 18px; font-weight: 700; color:#17324d; }
     .profile { background: #17324d; color: #fff; border-radius: 20px; padding: 18px 16px; margin-bottom: 16px; cursor: pointer; }
     .profile-main { display:flex; align-items:center; gap:14px; }
     .avatar { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: rgba(255,255,255,.15); border: 2px solid rgba(255,255,255,.25); }
@@ -25,6 +28,10 @@
 </head>
 <body>
 <div id="app" class="page">
+  <div class="topbar">
+    <button class="back-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
+    <div class="top-title">个人主页</div>
+  </div>
   <section class="profile" @click="goEditProfile">
     <div class="profile-main">
       <img class="avatar" :src="user.icon || '/imgs/icons/default-icon.png'" alt="">
@@ -43,15 +50,19 @@
         <div class="item-line">活动分类：{{item.category}}</div>
         <div class="item-line">活动地点：{{item.location}}</div>
         <div class="item-line">活动时间：{{formatTime(item.eventStartTime)}} - {{formatTime(item.eventEndTime)}}</div>
-        <div class="item-line">签到状态：{{item.checkInStatus ? '已签到' : '未签到'}}</div>
+        <div class="item-line">报名状态：{{item.statusText || '未知状态'}}</div>
+        <div class="item-line">状态说明：{{item.failReason || (item.status === 0 ? '系统确认中，请稍候刷新。' : '已受理')}}</div>
+        <div class="item-line">签到凭证：{{item.voucherDisplayCode || (item.status === 0 ? '生成中' : '待生成')}}</div>
+        <div class="item-line">签到状态：{{item.status === 1 ? (item.checkInStatus ? '已签到' : '未签到') : '待报名确认'}}</div>
         <div class="item-actions">
           <el-button size="mini" type="primary" plain @click="viewDetail(item.activityId)">查看详情</el-button>
+          <el-button v-if="canCancelRegistration(item)" size="mini" type="danger" plain @click="cancelRegistration(item.activityId)">退出活动</el-button>
         </div>
       </div>
       <div class="card" v-if="!registrations.length">还没有报名任何活动。</div>
     </el-tab-pane>
 
-    <el-tab-pane label="我发起的活动" name="created">
+    <el-tab-pane v-if="canManageActivities" label="我发起的活动" name="created">
       <div class="card" v-for="item in createdActivities" :key="item.id">
         <div class="item-title">{{item.title}}</div>
         <div class="item-line">分类：{{item.category}}</div>
@@ -71,14 +82,12 @@
     <el-button style="width:100%;" type="danger" plain @click="logout">退出登录</el-button>
   </div>
 
-  <foot-bar :active-btn="3"></foot-bar>
 </div>
 
 <script src="js/vue.js"></script>
 <script src="js/axios.min.js"></script>
 <script src="js/element.js"></script>
 <script src="js/common.js"></script>
-<script src="js/footer.js"></script>
 <script>
   new Vue({
     el: '#app',
@@ -93,6 +102,9 @@
       this.queryUser();
     },
     computed: {
+      canManageActivities() {
+        return this.user && this.user.roleType === 1;
+      },
       profileMeta() {
         const grade = this.profile.grade || '';
         const college = this.profile.college || '';
@@ -107,7 +119,12 @@
             this.user = data || {};
             this.queryProfile();
             this.queryRegistrations();
-            this.queryCreatedActivities();
+            if (this.canManageActivities) {
+              this.queryCreatedActivities();
+            } else {
+              this.createdActivities = [];
+              this.tab = 'registrations';
+            }
           })
           .catch(() => location.href = '/login.html');
       },
@@ -123,18 +140,22 @@
           .catch(err => this.$message.error(err));
       },
       queryCreatedActivities() {
+        if (!this.canManageActivities) return;
         axios.get('/activity/manage/mine')
           .then(({data}) => this.createdActivities = data || [])
           .catch(err => this.$message.error(err));
+      },
+      goBack() {
+        location.href = '/index.html';
       },
       goEditProfile() {
         location.href = '/info-edit.html';
       },
       editActivity(id) {
-        location.href = '/blog-edit.html?id=' + id;
+        location.href = '/activity-manage.html?id=' + id;
       },
       viewDetail(id) {
-        location.href = '/shop-detail.html?id=' + id;
+        location.href = '/activity-detail.html?id=' + id;
       },
       logout() {
         axios.post('/user/logout')
@@ -143,6 +164,25 @@
             location.href = '/login.html';
           })
           .catch(err => this.$message.error(err));
+      },
+      canCancelRegistration(item) {
+        if (!item || item.status !== 1 || item.checkInStatus) return false;
+        if (!item.eventStartTime) return true;
+        return new Date(item.eventStartTime.replace(/-/g, '/')).getTime() > Date.now();
+      },
+      cancelRegistration(activityId) {
+        this.$confirm('退出活动后会释放名额并删除签到凭证，确认继续吗？', '退出活动', {
+          confirmButtonText: '确认退出',
+          cancelButtonText: '再想想',
+          type: 'warning'
+        }).then(() => {
+          axios.delete('/activity/' + activityId + '/register')
+            .then(() => {
+              this.$message.success('已退出活动');
+              this.queryRegistrations();
+            })
+            .catch(err => this.$message.error(err));
+        }).catch(() => {});
       },
       formatTime(value) {
         return value ? value.replace('T', ' ') : '待定';

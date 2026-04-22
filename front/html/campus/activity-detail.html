@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <title>活动详情</title>
+  <link rel="stylesheet" href="./css/element.css">
+  <link href="./css/main.css" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #10233d;
+      --muted: #5b6b81;
+      --brand: #17324d;
+      --brand-soft: #e7f0fb;
+      --line: rgba(23, 50, 77, 0.08);
+      --card: rgba(255, 255, 255, 0.96);
+      --shadow: 0 18px 42px rgba(16, 35, 61, 0.10);
+      --success: #2f6a49;
+      --warning: #b26a17;
+      --danger: #b54b5d;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(69, 119, 184, 0.12), transparent 28%),
+        linear-gradient(180deg, #f6f8fc 0%, #eef3f9 100%);
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    .page {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 18px 16px 36px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .icon-btn {
+      width: 44px;
+      height: 44px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.92);
+      color: var(--brand);
+      box-shadow: 0 10px 28px rgba(16, 35, 61, 0.08);
+      cursor: pointer;
+    }
+
+    .topbar-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .hero {
+      background: rgba(255, 255, 255, 0.96);
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+      border: 1px solid var(--line);
+    }
+
+    .hero-cover {
+      width: 100%;
+      height: 300px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .thumb-row {
+      display: flex;
+      gap: 10px;
+      padding: 14px 18px 0;
+      overflow-x: auto;
+    }
+
+    .thumb {
+      width: 72px;
+      height: 72px;
+      border-radius: 16px;
+      object-fit: cover;
+      cursor: pointer;
+      border: 2px solid transparent;
+      flex: none;
+      background: #edf3f9;
+      opacity: 0.78;
+    }
+
+    .thumb.active {
+      border-color: #17324d;
+      opacity: 1;
+    }
+
+    .hero-body {
+      padding: 18px 18px 22px;
+    }
+
+    .hero-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .hero-title {
+      font-size: 30px;
+      line-height: 1.2;
+      font-weight: 800;
+      margin-bottom: 10px;
+      color: var(--ink);
+    }
+
+    .hero-summary {
+      color: var(--muted);
+      line-height: 1.8;
+      font-size: 14px;
+      max-width: 720px;
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .tag {
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: #eef4fb;
+      color: #36506e;
+      font-size: 12px;
+      border: 1px solid rgba(23, 50, 77, 0.08);
+    }
+
+    .manage-btn {
+      height: 40px;
+      padding: 0 16px;
+      border: 1px solid rgba(23, 50, 77, 0.12);
+      border-radius: 999px;
+      background: #f8fbff;
+      color: var(--brand);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .2s ease;
+    }
+
+    .manage-btn:hover {
+      background: #eef4fb;
+      border-color: rgba(23, 50, 77, 0.18);
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--line);
+      padding: 18px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+
+    .detail-text {
+      color: var(--muted);
+      line-height: 1.9;
+      white-space: pre-line;
+      font-size: 14px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .info-item,
+    .metric-item {
+      padding: 14px;
+      border-radius: 16px;
+      background: #f7faff;
+      border: 1px solid rgba(23, 50, 77, 0.06);
+    }
+
+    .info-label,
+    .metric-label {
+      color: #718096;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    .info-value,
+    .metric-value {
+      color: var(--ink);
+      font-size: 14px;
+      line-height: 1.7;
+      font-weight: 600;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .metric-value.large {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--brand);
+      line-height: 1.2;
+    }
+
+    .note-box,
+    .voucher-box,
+    .verify-box {
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(23, 50, 77, 0.08);
+    }
+
+    .note-box {
+      background: #f8fbff;
+    }
+
+    .voucher-box {
+      background: linear-gradient(180deg, #eef6ff, #f7fbff);
+      border-color: rgba(42, 101, 173, 0.14);
+    }
+
+    .verify-box {
+      background: linear-gradient(180deg, #f8fbff, #eef4fb);
+      border-color: rgba(42, 101, 173, 0.14);
+    }
+
+    .box-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .box-desc {
+      color: var(--muted);
+      line-height: 1.8;
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    .voucher-code {
+      display: inline-flex;
+      align-items: center;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.88);
+      border: 1px dashed rgba(42, 101, 173, 0.28);
+      font-size: 24px;
+      letter-spacing: 0.14em;
+      font-weight: 800;
+      color: var(--brand);
+      margin-bottom: 10px;
+      word-break: break-all;
+    }
+
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .status-chip.success {
+      color: var(--success);
+      background: rgba(47, 106, 73, 0.12);
+    }
+
+    .status-chip.warning {
+      color: var(--warning);
+      background: rgba(178, 106, 23, 0.14);
+    }
+
+    .status-chip.danger {
+      color: var(--danger);
+      background: rgba(181, 75, 93, 0.12);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .verify-result {
+      margin-top: 14px;
+      padding: 14px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.88);
+      border: 1px solid rgba(23, 50, 77, 0.08);
+    }
+
+    .verify-line {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.8;
+    }
+
+    .verify-line strong {
+      color: var(--ink);
+    }
+
+    .record-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .record-item {
+      padding: 14px;
+      border-radius: 16px;
+      background: #f7faff;
+      border: 1px solid rgba(23, 50, 77, 0.06);
+    }
+
+    .record-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .record-meta {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.8;
+      word-break: break-all;
+    }
+
+    .empty-card {
+      padding: 48px 20px;
+      text-align: center;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.92);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+    }
+
+    @media (max-width: 900px) {
+      .shell,
+      .info-grid,
+      .metric-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-cover {
+        height: 220px;
+      }
+
+      .hero-head {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+<div id="app" class="page">
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="icon-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
+      <div class="topbar-title">活动详情</div>
+    </div>
+    <el-button type="primary" plain @click="goMy">我的活动</el-button>
+  </div>
+
+  <template v-if="activity.id">
+    <div class="hero">
+      <img class="hero-cover" :src="currentImage || activity.coverImage || defaultCover" alt="">
+      <div class="thumb-row" v-if="activityImages.length > 1">
+        <img class="thumb" :class="{active: currentImage === item}" v-for="item in activityImages" :key="item" :src="item" alt="" @click="currentImage = item">
+      </div>
+      <div class="hero-body">
+        <div class="hero-head">
+          <div>
+            <div class="hero-title">{{activity.title}}</div>
+            <div class="hero-summary">{{activity.summary || '主办方暂未补充活动摘要。'}}</div>
+          </div>
+          <button v-if="activity.canManage" class="manage-btn" @click="goManage">管理活动</button>
+        </div>
+        <div class="tag-row">
+          <span class="tag">{{activity.category || '未分类'}}</span>
+          <span class="tag">{{activity.registrationOpen ? '报名中' : '报名未开放'}}</span>
+          <span class="tag" v-if="activity.registered">已报名</span>
+          <span class="tag" v-if="activity.registrationStatus && activity.registrationStatus !== 'NOT_REGISTERED'">{{registrationStatusText}}</span>
+          <span class="tag" v-if="activity.checkedIn">已签到</span>
+          <span class="tag" v-if="isOrganizerUser && !activity.canManage">主办方账号</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="shell">
+      <div>
+        <div class="card">
+          <div class="section-title">活动详情</div>
+          <div class="detail-text">{{activity.content || '主办方暂未补充详细说明。'}}</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" style="margin-bottom:18px;">
+          <div class="section-title">活动信息</div>
+          <div class="info-grid">
+            <div class="info-item">
+              <div class="info-label">主办方</div>
+              <div class="info-value">{{activity.organizerName || '待补充'}}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">活动地点</div>
+              <div class="info-value">{{activity.location || '待定'}}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">报名时间</div>
+              <div class="info-value">{{formatTime(activity.registrationStartTime)}} - {{formatTime(activity.registrationEndTime)}}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">活动时间</div>
+              <div class="info-value">{{formatTime(activity.eventStartTime)}} - {{formatTime(activity.eventEndTime)}}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" v-if="activity.canManage">
+          <div class="section-title">签到凭证核销</div>
+          <div class="metric-grid">
+            <div class="metric-item">
+              <div class="metric-label">报名人数</div>
+              <div class="metric-value large">{{checkInStats.registeredCount || 0}}</div>
+            </div>
+            <div class="metric-item">
+              <div class="metric-label">已签到人数</div>
+              <div class="metric-value large">{{checkInStats.checkedInCount || 0}}</div>
+            </div>
+            <div class="metric-item">
+              <div class="metric-label">未签到人数</div>
+              <div class="metric-value large">{{checkInStats.uncheckedCount || 0}}</div>
+            </div>
+            <div class="metric-item">
+              <div class="metric-label">签到率</div>
+              <div class="metric-value large">{{formatRate(checkInStats.checkInRate)}}%</div>
+            </div>
+          </div>
+
+          <div class="verify-box">
+            <div class="box-title">凭证核销</div>
+            <div class="box-desc">输入签到凭证号或展示码，现场完成核销。只有活动主办方能看到这个区域。</div>
+            <el-input v-model.trim="verifyForm.displayCode" placeholder="请输入签到展示码，例如 A8F3K2M7"></el-input>
+            <div class="actions">
+              <el-button type="primary" :loading="verifying" @click="verifyVoucher">核销签到</el-button>
+              <el-button plain @click="refreshManagePanel">刷新数据</el-button>
+            </div>
+
+            <div class="verify-result" v-if="verifyResult">
+              <div class="verify-line"><strong>核销结果：</strong>{{verifyResult.message || verifyResult.resultStatus || '已处理'}}</div>
+              <div class="verify-line" v-if="verifyResult.displayCode"><strong>凭证号：</strong>{{verifyResult.displayCode}}</div>
+              <div class="verify-line" v-if="verifyResult.userNickName"><strong>签到用户：</strong>{{verifyResult.userNickName}}</div>
+              <div class="verify-line" v-if="verifyResult.checkedInTime"><strong>签到时间：</strong>{{formatTime(verifyResult.checkedInTime)}}</div>
+            </div>
+          </div>
+
+          <div class="record-list" v-if="checkInRecords.length">
+            <div class="record-item" v-for="(item, index) in checkInRecords" :key="item.id || index">
+              <div class="record-title">{{readRecordTitle(item)}}</div>
+              <div class="record-meta">{{readRecordMeta(item)}}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" v-else-if="activity.registered">
+          <div class="section-title">我的签到凭证</div>
+          <div class="voucher-box">
+            <div :class="['status-chip', voucherStatusClass(activity.voucherStatus)]">{{voucherStatusText(activity.voucherStatus)}}</div>
+            <div class="voucher-code">{{activity.voucherDisplayCode || '凭证生成中'}}</div>
+            <div class="box-desc">活动现场请向工作人员出示这个签到凭证号，由工作人员完成核销。</div>
+            <div class="verify-line" v-if="activity.voucherCheckedInTime"><strong>签到时间：</strong>{{formatTime(activity.voucherCheckedInTime)}}</div>
+          </div>
+          <div class="actions">
+            <el-button type="success" plain @click="goMy">查看我的报名</el-button>
+            <el-button v-if="canCancelRegistration" type="danger" plain @click="cancelRegistration">退出活动</el-button>
+          </div>
+        </div>
+
+        <div class="card" v-else>
+          <div class="section-title">报名与签到</div>
+          <div class="note-box" v-if="isOrganizerUser">
+            <div class="box-title">主办方账号不可报名</div>
+            <div class="box-desc">主办方账号仅用于发起和管理活动，不能报名参加其它活动。</div>
+          </div>
+          <div class="note-box" v-else>
+            <div class="box-title">{{registrationPanelTitle}}</div>
+            <div class="box-desc">{{registrationPanelDesc}}</div>
+            <div class="verify-line" v-if="activity.registrationFailReason"><strong>失败原因：</strong>{{activity.registrationFailReason}}</div>
+            <div class="actions">
+              <el-button type="primary" :disabled="registerButtonDisabled" :loading="registerSubmitting" @click="registerActivity">{{registerButtonText}}</el-button>
+              <el-button v-if="activity.registrationStatus && activity.registrationStatus !== 'NOT_REGISTERED'" plain @click="queryRegistrationStatus(false)">刷新状态</el-button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <div class="empty-card" v-else>
+    活动信息加载中
+  </div>
+</div>
+
+<script src="js/vue.js"></script>
+<script src="js/axios.min.js"></script>
+<script src="js/element.js"></script>
+<script src="js/common.js"></script>
+<script>
+  new Vue({
+    el: '#app',
+    data: {
+      activity: {},
+      user: {},
+      defaultCover: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=1200&q=80',
+      currentImage: '',
+      verifyForm: {
+        displayCode: ''
+      },
+      verifying: false,
+      verifyResult: null,
+      registerSubmitting: false,
+      registrationSocket: null,
+      statusPollingTimer: null,
+      checkInStats: {
+        registeredCount: 0,
+        checkedInCount: 0,
+        uncheckedCount: 0,
+        checkInRate: 0
+      },
+      checkInRecords: []
+    },
+    computed: {
+      activityImages() {
+        if (!this.activity) return [];
+        if (this.activity.images) {
+          return this.activity.images.split(',').filter(Boolean);
+        }
+        return this.activity.coverImage ? [this.activity.coverImage] : [];
+      },
+      isOrganizerUser() {
+        return this.user && this.user.roleType === 1;
+      },
+      canCancelRegistration() {
+        if (!this.activity || !this.activity.registered || this.activity.canManage) return false;
+        if (this.activity.voucherStatus === 'CHECKED_IN') return false;
+        if (!this.activity.eventStartTime) return true;
+        return new Date(this.activity.eventStartTime.replace(/-/g, '/')).getTime() > Date.now();
+      },
+      registrationStatusText() {
+        if (this.activity.registrationStatus === 'PENDING_CONFIRM') return '报名确认中';
+        if (this.activity.registrationStatus === 'SUCCESS') return '报名成功';
+        if (this.activity.registrationStatus === 'FAILED') return '报名失败';
+        if (this.activity.registrationStatus === 'CANCELED') return '已退出';
+        return '';
+      },
+      registrationPanelTitle() {
+        if (this.activity.registrationStatus === 'PENDING_CONFIRM') return '报名确认中';
+        if (this.activity.registrationStatus === 'FAILED') return '报名失败';
+        if (this.activity.registrationStatus === 'CANCELED') return '已退出活动';
+        return '报名活动';
+      },
+      registrationPanelDesc() {
+        if (this.activity.registrationStatus === 'PENDING_CONFIRM') return this.activity.registrationMessage || '系统正在确认报名结果，请稍候。';
+        if (this.activity.registrationStatus === 'FAILED') return this.activity.registrationMessage || '本次报名未成功，可刷新状态后重新尝试。';
+        if (this.activity.registrationStatus === 'CANCELED') return '你已退出该活动，如仍有名额可再次报名。';
+        return '报名成功后，系统会自动生成唯一签到凭证号，签到时出示给工作人员即可。';
+      },
+      registerButtonText() {
+        if (this.activity.registrationStatus === 'PENDING_CONFIRM') return '报名确认中';
+        if (this.activity.registrationStatus === 'FAILED') return '重新报名';
+        if (this.activity.registrationStatus === 'CANCELED') return '再次报名';
+        return '立即报名';
+      },
+      registerButtonDisabled() {
+        return !this.activity.registrationOpen || this.activity.registrationStatus === 'PENDING_CONFIRM';
+      }
+    },
+    created() {
+      this.queryUser();
+    },
+    beforeDestroy() {
+      this.closeRegistrationSocket();
+      this.stopStatusPolling();
+    },
+    methods: {
+      queryUser() {
+        axios.get('/user/me')
+          .then(({data}) => {
+            this.user = data || {};
+            this.connectRegistrationSocket();
+          })
+          .catch(() => {
+            this.user = {};
+          })
+          .finally(() => this.queryDetail());
+      },
+      queryDetail() {
+        const id = util.getUrlParam('id');
+        axios.get('/activity/public/' + id)
+          .then(({data}) => {
+            this.activity = data || {};
+            this.currentImage = this.activityImages[0] || '';
+            this.handleStatusSideEffects();
+            if (this.activity.canManage) {
+              this.refreshManagePanel();
+            } else if (this.user && this.user.id) {
+              this.queryRegistrationStatus(true);
+            }
+          })
+          .catch(err => this.$message.error(err));
+      },
+      queryRegistrationStatus(silent) {
+        if (!this.activity.id || !this.user || !this.user.id || this.activity.canManage) return;
+        axios.get('/activity/' + this.activity.id + '/register/status')
+          .then(({data}) => this.applyRegistrationStatus(data || {}))
+          .catch(err => {
+            if (!silent) this.$message.error(err);
+          });
+      },
+      applyRegistrationStatus(status) {
+        if (!this.activity || !this.activity.id) return;
+        this.activity.registrationStatus = status.status || 'NOT_REGISTERED';
+        this.activity.registrationMessage = status.message || '';
+        this.activity.registrationRequestId = status.requestId || '';
+        this.activity.registrationFailReason = status.failReason || '';
+        this.activity.registered = status.status === 'SUCCESS';
+        this.activity.voucherId = status.voucherId || null;
+        this.activity.voucherDisplayCode = status.voucherDisplayCode || '';
+        this.activity.voucherStatus = status.voucherStatus || '';
+        this.activity.voucherIssuedTime = status.voucherIssuedTime || null;
+        this.activity.voucherCheckedInTime = status.voucherCheckedInTime || null;
+        this.activity.checkedIn = status.voucherStatus === 'CHECKED_IN';
+        this.handleStatusSideEffects();
+      },
+      handleStatusSideEffects() {
+        if (this.activity && this.activity.registrationStatus === 'PENDING_CONFIRM') {
+          this.startStatusPolling();
+          return;
+        }
+        this.stopStatusPolling();
+      },
+      startStatusPolling() {
+        this.stopStatusPolling();
+        this.statusPollingTimer = setInterval(() => {
+          this.queryRegistrationStatus(true);
+        }, 3000);
+      },
+      stopStatusPolling() {
+        if (this.statusPollingTimer) {
+          clearInterval(this.statusPollingTimer);
+          this.statusPollingTimer = null;
+        }
+      },
+      connectRegistrationSocket() {
+        const token = sessionStorage.getItem('token');
+        if (!token || this.registrationSocket) return;
+        const url = util.buildWsUrl('/api/ws/activity-registration', { token });
+        try {
+          this.registrationSocket = new WebSocket(url);
+          this.registrationSocket.onmessage = (event) => {
+            let message = null;
+            try {
+              message = JSON.parse(event.data);
+            } catch (e) {
+              return;
+            }
+            const payload = message && message.payload ? message.payload : null;
+            if (!payload || !this.activity || Number(payload.activityId) !== Number(this.activity.id)) return;
+            this.applyRegistrationStatus(payload);
+            if (payload.status === 'SUCCESS') {
+              this.$message.success(payload.message || '报名成功');
+              this.queryDetail();
+            } else if (payload.status === 'FAILED') {
+              this.$message.error(payload.message || '报名失败');
+            }
+          };
+          this.registrationSocket.onclose = () => {
+            this.registrationSocket = null;
+          };
+        } catch (e) {
+          this.registrationSocket = null;
+        }
+      },
+      closeRegistrationSocket() {
+        if (this.registrationSocket) {
+          this.registrationSocket.close();
+          this.registrationSocket = null;
+        }
+      },
+      refreshManagePanel() {
+        if (!this.activity.id || !this.activity.canManage) return;
+        axios.get('/activity/manage/' + this.activity.id + '/check-in/stats')
+          .then(({data}) => this.checkInStats = data || this.checkInStats)
+          .catch(() => {
+            this.checkInStats = {
+              registeredCount: 0,
+              checkedInCount: 0,
+              uncheckedCount: 0,
+              checkInRate: 0
+            };
+          });
+        axios.get('/activity/manage/' + this.activity.id + '/check-in/records')
+          .then(({data}) => this.checkInRecords = data || [])
+          .catch(() => this.checkInRecords = []);
+      },
+      registerActivity() {
+        this.registerSubmitting = true;
+        axios.post('/activity/' + this.activity.id + '/register')
+          .then(({data}) => {
+            this.applyRegistrationStatus(data || {});
+            this.$message.success((data && data.message) || '报名确认中，请稍候');
+          })
+          .catch(err => this.$message.error(err))
+          .finally(() => this.registerSubmitting = false);
+      },
+      cancelRegistration() {
+        this.$confirm('退出活动后会释放名额并删除签到凭证，确认继续吗？', '退出活动', {
+          confirmButtonText: '确认退出',
+          cancelButtonText: '再想想',
+          type: 'warning'
+        }).then(() => {
+          axios.delete('/activity/' + this.activity.id + '/register')
+            .then(() => {
+              this.$message.success('已退出活动');
+              this.queryDetail();
+              this.queryRegistrationStatus(true);
+            })
+            .catch(err => this.$message.error(err));
+        }).catch(() => {});
+      },
+      verifyVoucher() {
+        if (!this.verifyForm.displayCode) {
+          this.$message.error('请输入签到展示码');
+          return;
+        }
+        this.verifying = true;
+        const requestKey = 'checkin-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+        axios.post('/activity/manage/' + this.activity.id + '/check-in/verify', {
+          displayCode: this.verifyForm.displayCode
+        }, {
+          headers: {
+            'Idempotency-Key': requestKey
+          }
+        }).then(({data}) => {
+          this.verifyResult = data || {};
+          this.$message.success(this.verifyResult.message || '核销已处理');
+          this.verifyForm.displayCode = '';
+          this.queryDetail();
+        }).catch(err => this.$message.error(err))
+          .finally(() => this.verifying = false);
+      },
+      readRecordTitle(item) {
+        if (!item || !item.responseBody) return '核销记录';
+        try {
+          const data = JSON.parse(item.responseBody);
+          return (data.userNickName || '未知用户') + ' 已签到';
+        } catch (e) {
+          return '核销记录';
+        }
+      },
+      readRecordMeta(item) {
+        if (!item) return '';
+        return '签到时间：' + this.formatTime(item.createTime);
+      },
+      voucherStatusText(status) {
+        if (status === 'CHECKED_IN') return '已签到';
+        if (status === 'CANCELED') return '已取消';
+        if (status === 'EXPIRED') return '已失效';
+        return '待签到';
+      },
+      voucherStatusClass(status) {
+        if (status === 'CHECKED_IN') return 'success';
+        if (status === 'CANCELED' || status === 'EXPIRED') return 'danger';
+        return 'warning';
+      },
+      goManage() {
+        location.href = '/activity-manage.html?id=' + this.activity.id;
+      },
+      goMy() {
+        location.href = '/info.html';
+      },
+      goBack() {
+        history.back();
+      },
+      formatTime(value) {
+        return value ? value.replace('T', ' ') : '待定';
+      },
+      formatRate(value) {
+        if (value === null || value === undefined || value === '') return '0.0';
+        return Number(value).toFixed(1);
+      }
+    }
+  })
+</script>
+</body>
+</html>

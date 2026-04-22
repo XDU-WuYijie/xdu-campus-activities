@@ -5,7 +5,7 @@ Vue.component("footBar", {
         <div class="foot-view"><i class="el-icon-s-home"></i></div>
         <div class="foot-text">活动</div>
       </div>
-      <div class="foot-box" :class="{active: activeBtn === 2}" @click="toPage(2)">
+      <div v-if="showCreateEntry" class="foot-box" :class="{active: activeBtn === 2}" @click="toPage(2)">
         <div class="foot-view"><i class="el-icon-circle-plus-outline"></i></div>
         <div class="foot-text">发起</div>
       </div>
@@ -16,12 +16,30 @@ Vue.component("footBar", {
     </div>
   `,
   props: ['activeBtn'],
+  data() {
+    return {
+      showCreateEntry: true
+    }
+  },
+  created() {
+    const token = sessionStorage.getItem("token");
+    if (!token) {
+      return;
+    }
+    axios.get('/user/me')
+      .then(({data}) => {
+        this.showCreateEntry = !data || data.roleType !== 2;
+      })
+      .catch(() => {
+        this.showCreateEntry = true;
+      });
+  },
   methods: {
     toPage(i) {
       if (i === 1) {
         location.href = "/index.html";
       } else if (i === 2) {
-        location.href = "/blog-edit.html";
+        location.href = "/activity-manage.html";
       } else if (i === 3) {
         location.href = "/info.html";
       }

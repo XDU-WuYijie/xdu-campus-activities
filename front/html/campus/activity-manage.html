@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <title>活动编辑</title>
+  <link rel="stylesheet" href="./css/element.css">
+  <link href="./css/main.css" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #10233d;
+      --muted: #627389;
+      --brand: #17324d;
+      --line: rgba(23, 50, 77, 0.08);
+      --card: rgba(255, 255, 255, 0.96);
+      --shadow: 0 18px 42px rgba(16, 35, 61, 0.10);
+      --soft: #f7faff;
+      --soft-blue: #eef4fb;
+      --accent: #2b5c93;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(69, 119, 184, 0.12), transparent 26%),
+        linear-gradient(180deg, #f6f8fc 0%, #eef3f9 100%);
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 18px 16px 40px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .icon-btn {
+      width: 44px;
+      height: 44px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.92);
+      color: var(--brand);
+      box-shadow: 0 10px 28px rgba(16, 35, 61, 0.08);
+      cursor: pointer;
+    }
+
+    .topbar-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel {
+      padding: 22px;
+    }
+
+    .panel-title {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .panel-desc {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.8;
+      margin-bottom: 16px;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .field-span-2 {
+      grid-column: 1 / -1;
+    }
+
+    .field-card {
+      padding: 14px 14px 6px;
+      border-radius: 18px;
+      background: var(--soft);
+      border: 1px solid rgba(23, 50, 77, 0.06);
+    }
+
+    .field-label {
+      color: #73859c;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .field-card .el-form-item {
+      margin-bottom: 0;
+    }
+
+    .field-card .el-input__inner,
+    .field-card .el-textarea__inner {
+      border-radius: 14px;
+      border: 1px solid rgba(23, 50, 77, 0.10);
+      min-height: 44px;
+    }
+
+    .field-card .el-textarea__inner {
+      min-height: 120px;
+      line-height: 1.8;
+    }
+
+    .upload-box {
+      padding: 16px;
+      border-radius: 20px;
+      background: linear-gradient(180deg, #f8fbff, #eff5fb);
+      border: 1px dashed rgba(43, 92, 147, 0.22);
+      margin-bottom: 16px;
+    }
+
+    .upload-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .upload-text {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .cover-preview {
+      width: 100%;
+      height: 240px;
+      border-radius: 18px;
+      overflow: hidden;
+      background: #dfe8f2;
+      margin-bottom: 12px;
+    }
+
+    .cover-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .thumb-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .thumb-item {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      background: #fff;
+      border: 1px solid rgba(23, 50, 77, 0.08);
+    }
+
+    .thumb-item img {
+      width: 100%;
+      height: 100px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .thumb-badge {
+      position: absolute;
+      left: 8px;
+      top: 8px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(16, 35, 61, 0.72);
+      color: #fff;
+      font-size: 11px;
+    }
+
+    .thumb-remove {
+      position: absolute;
+      right: 8px;
+      top: 8px;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255,255,255,0.92);
+      color: #9f3040;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .action-bar {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+      flex-wrap: wrap;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .stat-card {
+      padding: 16px;
+      border-radius: 18px;
+      background: var(--soft-blue);
+      border: 1px solid rgba(23, 50, 77, 0.06);
+    }
+
+    .stat-label {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--brand);
+    }
+
+    .activity-list,
+    .registration-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .activity-item,
+    .registration-item {
+      padding: 14px;
+      border-radius: 18px;
+      background: var(--soft);
+      border: 1px solid rgba(23, 50, 77, 0.06);
+    }
+
+    .item-title {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .item-line {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.8;
+    }
+
+    .item-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .permission {
+      text-align: center;
+      padding: 50px 22px;
+    }
+
+    @media (max-width: 960px) {
+      .shell,
+      .field-grid,
+      .summary-grid,
+      .thumb-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+<div id="app" class="page">
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="icon-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
+      <div class="topbar-title">活动编辑</div>
+    </div>
+    <el-button type="primary" plain :loading="submitting" @click="submitForm">{{form.id ? '保存活动' : '发布活动'}}</el-button>
+  </div>
+
+  <div v-if="permissionLoaded && !canManageActivities" class="card permission">
+    <div class="panel-title">无权限访问</div>
+    <div class="panel-desc">当前账号不是主办方，不能进入活动编辑页面。</div>
+    <el-button type="primary" @click="goInfo">返回个人页</el-button>
+  </div>
+
+  <div v-if="canManageActivities" class="shell">
+    <div class="card panel">
+      <div class="panel-title">{{form.id ? '编辑活动内容' : '创建新活动'}}</div>
+      <div class="panel-desc">整体风格与资料编辑页保持一致，内容尽量简洁，重点保留活动图、时间、人数和详情信息。</div>
+
+      <div class="upload-box">
+        <div class="upload-head">
+          <div>
+            <div class="field-label">活动图片</div>
+            <div class="upload-text">上传多张图片，首图将自动作为封面。</div>
+          </div>
+          <el-upload
+            action="#"
+            list-type="text"
+            multiple
+            :show-file-list="false"
+            :http-request="uploadImage"
+            :before-upload="beforeImageUpload">
+            <el-button type="primary" plain icon="el-icon-plus">上传图片</el-button>
+          </el-upload>
+        </div>
+
+        <div class="cover-preview" v-if="imageList.length">
+          <img :src="imageList[0]" alt="">
+        </div>
+
+        <div class="thumb-grid" v-if="imageList.length">
+          <div class="thumb-item" v-for="(item, index) in imageList" :key="item">
+            <img :src="item" alt="">
+            <div class="thumb-badge">{{index === 0 ? '封面' : '图片 ' + (index + 1)}}</div>
+            <button class="thumb-remove" @click="removeImage(index)">×</button>
+          </div>
+        </div>
+      </div>
+
+      <el-form :model="form" label-position="top">
+        <div class="field-grid">
+          <div class="field-card">
+            <div class="field-label">活动标题</div>
+            <el-form-item>
+              <el-input v-model="form.title" placeholder="例如：春季校园开放日"></el-input>
+            </el-form-item>
+          </div>
+
+          <div class="field-card">
+            <div class="field-label">活动分类</div>
+            <el-form-item>
+              <el-input v-model="form.category" placeholder="例如：讲座 / 志愿服务"></el-input>
+            </el-form-item>
+          </div>
+
+          <div class="field-card">
+            <div class="field-label">主办方名称</div>
+            <el-form-item>
+              <el-input v-model="form.organizerName" placeholder="默认使用当前昵称"></el-input>
+            </el-form-item>
+          </div>
+
+          <div class="field-card">
+            <div class="field-label">活动地点</div>
+            <el-form-item>
+              <el-input v-model="form.location" placeholder="例如：大学生活动中心报告厅"></el-input>
+            </el-form-item>
+          </div>
+
+          <div class="field-card">
+            <div class="field-label">报名人数上限</div>
+            <el-form-item>
+              <el-input v-model.number="form.maxParticipants" type="number" min="1" placeholder="请输入报名人数上限"></el-input>
+            </el-form-item>
+          </div>
+
+          <div class="field-card">
+            <div class="field-label">报名开始时间</div>
+            <el-form-item>
+              <el-input v-model="form.registrationStartTime" type="datetime-local"></el-input>
+            </el-form-item>
+          </div>
+
+          <div class="field-card">
+            <div class="field-label">报名结束时间</div>
+            <el-form-item>
+              <el-input v-model="form.registrationEndTime" type="datetime-local"></el-input>
+            </el-form-item>
+          </div>
+
+          <div class="field-card">
+            <div class="field-label">活动开始时间</div>
+            <el-form-item>
+              <el-input v-model="form.eventStartTime" type="datetime-local"></el-input>
+            </el-form-item>
+          </div>
+
+          <div class="field-card">
+            <div class="field-label">活动结束时间</div>
+            <el-form-item>
+              <el-input v-model="form.eventEndTime" type="datetime-local"></el-input>
+            </el-form-item>
+          </div>
+
+          <div class="field-card field-span-2">
+            <div class="field-label">活动摘要</div>
+            <el-form-item>
+              <el-input type="textarea" :rows="3" v-model="form.summary" placeholder="一句话概括活动亮点"></el-input>
+            </el-form-item>
+          </div>
+
+          <div class="field-card field-span-2">
+            <div class="field-label">活动详情</div>
+            <el-form-item>
+              <el-input type="textarea" :rows="6" v-model="form.content" placeholder="介绍流程、规则、活动安排等"></el-input>
+            </el-form-item>
+          </div>
+        </div>
+      </el-form>
+
+      <div class="action-bar">
+        <el-button type="primary" :loading="submitting" @click="submitForm">{{form.id ? '保存活动' : '发布活动'}}</el-button>
+        <el-button v-if="form.id" @click="resetForm">新建另一场活动</el-button>
+        <el-button @click="goHome">返回首页</el-button>
+      </div>
+    </div>
+
+    <div>
+      <div class="card panel" style="margin-bottom:18px;">
+        <div class="panel-title">活动概览</div>
+        <div class="summary-grid">
+          <div class="stat-card">
+            <div class="stat-label">报名人数</div>
+            <div class="stat-value">{{checkInStats.registeredCount || 0}}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">已签到人数</div>
+            <div class="stat-value">{{checkInStats.checkedInCount || 0}}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">未签到人数</div>
+            <div class="stat-value">{{checkInStats.uncheckedCount || 0}}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">签到率</div>
+            <div class="stat-value">{{formatRate(checkInStats.checkInRate)}}%</div>
+          </div>
+        </div>
+        <div class="item-line">选择右侧活动卡片可继续编辑，报名名单会展示凭证号与核销状态。</div>
+      </div>
+
+      <div class="card panel">
+        <div class="panel-title">我发起的活动</div>
+        <div class="activity-list" v-if="createdActivities.length">
+          <div class="activity-item" v-for="item in createdActivities" :key="item.id">
+            <div class="item-title">{{item.title}}</div>
+            <div class="item-line">{{item.category}} · {{item.location}}</div>
+            <div class="item-line">活动时间：{{formatTime(item.eventStartTime)}} - {{formatTime(item.eventEndTime)}}</div>
+            <div class="item-line">报名人数：{{item.registeredCount || 0}} / {{item.maxParticipants}}</div>
+            <div class="item-actions">
+              <el-button size="mini" type="primary" @click="loadActivity(item.id)">编辑</el-button>
+              <el-button size="mini" plain @click="viewDetail(item.id)">详情</el-button>
+              <el-button size="mini" type="success" plain @click="showRegistrations(item.id)">报名名单</el-button>
+            </div>
+          </div>
+        </div>
+        <div class="item-line" v-else>你还没有发起任何活动。</div>
+      </div>
+    </div>
+  </div>
+
+  <el-dialog title="报名名单" :visible.sync="dialogVisible" width="90%">
+    <div class="registration-list" v-if="registrations.length">
+      <div class="registration-item" v-for="item in registrations" :key="item.id">
+        <div class="item-title">{{item.userNickName || '匿名用户'}}</div>
+        <div class="item-line">手机号：{{item.userPhone || '未公开'}}</div>
+        <div class="item-line">报名时间：{{formatTime(item.createTime)}}</div>
+        <div class="item-line">签到凭证：{{item.voucherDisplayCode || '待生成'}}</div>
+        <div class="item-line">签到状态：{{item.voucherStatus === 'CHECKED_IN' ? '已签到' : '未签到'}}</div>
+      </div>
+    </div>
+    <div class="item-line" v-else>暂无报名记录。</div>
+  </el-dialog>
+</div>
+
+<script src="js/vue.js"></script>
+<script src="js/axios.min.js"></script>
+<script src="js/element.js"></script>
+<script src="js/common.js"></script>
+<script>
+  new Vue({
+    el: '#app',
+    data: {
+      form: {
+        title: '',
+        category: '',
+        organizerName: '',
+        location: '',
+        summary: '',
+        content: '',
+        maxParticipants: 50,
+        registrationStartTime: '',
+        registrationEndTime: '',
+        eventStartTime: '',
+        eventEndTime: '',
+        images: ''
+      },
+      imageList: [],
+      createdActivities: [],
+      registrations: [],
+      dialogVisible: false,
+      user: {},
+      permissionLoaded: false,
+      submitting: false,
+      currentActivityId: null,
+      checkInStats: {
+        registeredCount: 0,
+        checkedInCount: 0,
+        uncheckedCount: 0,
+        checkInRate: 0
+      }
+    },
+    created() {
+      this.queryUser();
+    },
+    computed: {
+      canManageActivities() {
+        return this.user && this.user.roleType === 1;
+      }
+    },
+    methods: {
+      queryUser() {
+        axios.get('/user/me')
+          .then(({data}) => {
+            this.user = data || {};
+            this.permissionLoaded = true;
+            if (!this.canManageActivities) {
+              this.$message.warning('当前账号无发起活动权限');
+              return;
+            }
+            this.queryMine();
+            const id = util.getUrlParam('id');
+            if (id) {
+              this.loadActivity(id);
+            }
+          })
+          .catch(() => location.href = '/login.html');
+      },
+      queryMine() {
+        axios.get('/activity/manage/mine')
+          .then(({data}) => this.createdActivities = data || [])
+          .catch(err => this.$message.error(err));
+      },
+      beforeImageUpload(file) {
+        const isImage = file.type && file.type.indexOf('image/') === 0;
+        if (!isImage) {
+          this.$message.error('请上传图片文件');
+        }
+        return isImage;
+      },
+      uploadImage(option) {
+        const formData = new FormData();
+        formData.append('file', option.file);
+        axios.post('/upload/activity', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        }).then(({data}) => {
+          this.imageList.push(data);
+          this.syncImages();
+          option.onSuccess(data);
+          this.$message.success('图片上传成功');
+        }).catch(err => {
+          option.onError(err);
+          this.$message.error(err);
+        });
+      },
+      removeImage(index) {
+        this.imageList.splice(index, 1);
+        this.syncImages();
+      },
+      syncImages() {
+        this.form.images = this.imageList.join(',');
+      },
+      submitForm() {
+        if (!this.imageList.length) {
+          this.$message.error('请先上传至少一张活动图片');
+          return;
+        }
+        const payload = {
+          id: this.form.id,
+          title: this.form.title,
+          category: this.form.category,
+          organizerName: this.form.organizerName,
+          location: this.form.location,
+          summary: this.form.summary,
+          content: this.form.content,
+          maxParticipants: this.form.maxParticipants,
+          coverImage: this.imageList[0],
+          images: this.imageList.join(','),
+          registrationStartTime: this.normalizeDate(this.form.registrationStartTime),
+          registrationEndTime: this.normalizeDate(this.form.registrationEndTime),
+          eventStartTime: this.normalizeDate(this.form.eventStartTime),
+          eventEndTime: this.normalizeDate(this.form.eventEndTime)
+        };
+        this.submitting = true;
+        const request = payload.id ? axios.put('/activity', payload) : axios.post('/activity', payload);
+        request.then(({data}) => {
+          this.$message.success(payload.id ? '活动已更新' : '活动已创建');
+          if (!payload.id && data) {
+            this.form.id = data;
+            this.currentActivityId = data;
+          }
+          this.queryMine();
+          this.queryStats();
+        }).catch(err => this.$message.error(err))
+          .finally(() => this.submitting = false);
+      },
+      loadActivity(id) {
+        axios.get('/activity/public/' + id)
+          .then(({data}) => {
+            const images = data.images ? data.images.split(',').filter(Boolean) : (data.coverImage ? [data.coverImage] : []);
+            this.form = {
+              id: data.id,
+              title: data.title || '',
+              category: data.category || '',
+              organizerName: data.organizerName || '',
+              location: data.location || '',
+              summary: data.summary || '',
+              content: data.content || '',
+              maxParticipants: data.maxParticipants || 50,
+              registrationStartTime: this.toInputDate(data.registrationStartTime),
+              registrationEndTime: this.toInputDate(data.registrationEndTime),
+              eventStartTime: this.toInputDate(data.eventStartTime),
+              eventEndTime: this.toInputDate(data.eventEndTime),
+              images: images.join(',')
+            };
+            this.currentActivityId = data.id;
+            this.imageList = images;
+            this.queryStats();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          })
+          .catch(err => this.$message.error(err));
+      },
+      queryStats() {
+        if (!this.currentActivityId) {
+          this.checkInStats = {
+            registeredCount: 0,
+            checkedInCount: 0,
+            uncheckedCount: 0,
+            checkInRate: 0
+          };
+          return;
+        }
+        axios.get('/activity/manage/' + this.currentActivityId + '/check-in/stats')
+          .then(({data}) => this.checkInStats = data || this.checkInStats)
+          .catch(() => {
+            this.checkInStats = {
+              registeredCount: 0,
+              checkedInCount: 0,
+              uncheckedCount: 0,
+              checkInRate: 0
+            };
+          });
+      },
+      showRegistrations(id) {
+        this.currentActivityId = id;
+        this.queryStats();
+        axios.get('/activity/manage/' + id + '/registrations')
+          .then(({data}) => {
+            this.registrations = data || [];
+            this.dialogVisible = true;
+          })
+          .catch(err => this.$message.error(err));
+      },
+      resetForm() {
+        this.form = {
+          title: '',
+          category: '',
+          organizerName: '',
+          location: '',
+          summary: '',
+          content: '',
+          maxParticipants: 50,
+          registrationStartTime: '',
+          registrationEndTime: '',
+          eventStartTime: '',
+          eventEndTime: '',
+          images: ''
+        };
+        this.currentActivityId = null;
+        this.imageList = [];
+        this.queryStats();
+      },
+      goBack() {
+        history.back();
+      },
+      goHome() {
+        location.href = '/index.html';
+      },
+      goInfo() {
+        location.href = '/info.html';
+      },
+      viewDetail(id) {
+        location.href = '/activity-detail.html?id=' + id;
+      },
+      toInputDate(value) {
+        if (!value) return '';
+        return value.replace(' ', 'T').slice(0, 16);
+      },
+      normalizeDate(value) {
+        if (!value) return null;
+        return value.replace('T', ' ') + ':00';
+      },
+      formatTime(value) {
+        return value ? value.replace('T', ' ') : '待定';
+      },
+      formatRate(value) {
+        if (value === null || value === undefined || value === '') return '0.0';
+        return Number(value).toFixed(1);
+      }
+    }
+  })
+</script>
+</body>
+</html>

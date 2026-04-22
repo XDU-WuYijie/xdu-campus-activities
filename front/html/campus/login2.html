@@ -4,17 +4,18 @@
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
   <title>黑马点评</title>
+  <link href="./css/main.css" rel="stylesheet">
   <link href="./css/login.css" rel="stylesheet">
   <!-- 引入样式 -->
   <link rel="stylesheet" href="./css/element.css">
 
   <style type="text/css">
       .el-radio__input.is-checked .el-radio__inner {
-          border-color: #F63;
-          background: #F63;
+          border-color: #17324d;
+          background: #17324d;
       }
       .el-input__inner:focus {
-          border: 1px solid #F63;
+          border: 1px solid #17324d;
       }
   </style>
 </head>
@@ -33,7 +34,7 @@
         <el-input placeholder="请输入密码" v-model="form.password">
         </el-input>
         <div style="text-align: center; color: #8c939d;margin: 5px 0"><a href="javascript:void(0)">忘记密码</a></div>
-        <el-button @click="login" style="width: 100%; background-color:#f63; color: #fff;">登录</el-button>
+        <el-button class="btn-block" @click="login" type="primary">登录</el-button>
         <div style="text-align: right; color:#333333; margin: 5px 0"><a href="/login.html">验证码登录</a></div>
       </div>
       <div class="login-radio">

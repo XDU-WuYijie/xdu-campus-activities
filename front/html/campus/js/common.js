@@ -44,6 +44,15 @@ axios.defaults.paramsSerializer = function(params) {
 }
 const util = {
   commonURL,
+  buildWsUrl(path, params) {
+    const protocol = location.protocol === 'https:' ? 'wss://' : 'ws://';
+    const base = protocol + location.host + path;
+    const query = params ? Object.keys(params)
+      .filter(key => params[key] !== undefined && params[key] !== null && params[key] !== '')
+      .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(params[key]))
+      .join('&') : '';
+    return query ? base + '?' + query : base;
+  },
   getUrlParam(name) {
     let reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");
     let r = window.location.search.substr(1).match(reg);

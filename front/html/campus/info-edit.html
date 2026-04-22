@@ -1,88 +1,272 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
-  <title>黑马点评</title>
-  <!-- 引入样式 -->
+  <title>资料编辑</title>
   <link rel="stylesheet" href="./css/element.css">
   <link href="./css/main.css" rel="stylesheet">
-  <link href="./css/info.css" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #10233d;
+      --muted: #627389;
+      --brand: #17324d;
+      --line: rgba(23, 50, 77, 0.08);
+      --card: rgba(255, 255, 255, 0.96);
+      --shadow: 0 18px 42px rgba(16, 35, 61, 0.10);
+    }
 
-  <style type="text/css">
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(69, 119, 184, 0.12), transparent 26%),
+        linear-gradient(180deg, #f6f8fc 0%, #eef3f9 100%);
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
 
+    .page {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 18px 16px 40px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .icon-btn {
+      width: 44px;
+      height: 44px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.92);
+      color: var(--brand);
+      box-shadow: 0 10px 28px rgba(16, 35, 61, 0.08);
+      cursor: pointer;
+    }
+
+    .topbar-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: minmax(240px, 0.8fr) minmax(0, 1.2fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .profile-card,
+    .form-card {
+      padding: 22px;
+    }
+
+    .avatar-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .avatar-wrap {
+      width: 112px;
+      height: 112px;
+      border-radius: 50%;
+      padding: 6px;
+      background: linear-gradient(180deg, #eff5fc, #dce8f5);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
+      cursor: pointer;
+      margin-bottom: 14px;
+    }
+
+    .avatar-wrap img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .form-title {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 16px;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .field-span-2 {
+      grid-column: 1 / -1;
+    }
+
+    .field-card {
+      padding: 14px 14px 6px;
+      border-radius: 18px;
+      background: #f7faff;
+      border: 1px solid rgba(23, 50, 77, 0.06);
+    }
+
+    .field-label {
+      color: #73859c;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .form-card .el-form-item {
+      margin-bottom: 0;
+    }
+
+    .form-card .el-input__inner,
+    .form-card .el-textarea__inner {
+      border-radius: 14px;
+      border: 1px solid rgba(23, 50, 77, 0.10);
+      min-height: 44px;
+    }
+
+    .form-card .el-textarea__inner {
+      min-height: 120px;
+      line-height: 1.8;
+    }
+
+    .action-bar {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 900px) {
+      .shell,
+      .field-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
-<div id="app">
-  <div class="header">
-    <div class="header-back-btn" @click="goBack" ><i class="el-icon-arrow-left"></i></div>
-    <div class="header-title">资料编辑&nbsp;&nbsp;&nbsp;</div>
+<div id="app" class="page">
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="icon-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
+      <div class="topbar-title">资料编辑</div>
+    </div>
+    <el-button type="primary" plain :loading="saving" @click="save">保存资料</el-button>
   </div>
-  <div class="edit-container" style="padding: 12px 15px 88px;">
-    <input ref="avatarInput" type="file" accept="image/*" style="display:none" @change="onPickAvatar">
 
-    <div class="info-box">
-      <div class="info-item" style="align-items:center; cursor:pointer;" @click="chooseAvatar">
-        <div class="info-label">头像</div>
-        <div class="info-btn" style="align-items:center;">
-          <img width="38" height="38" style="border-radius:50%;" :src="user.icon || '/imgs/icons/default-icon.png'" alt="">
-          <div style="margin-left:10px; color:#909399;">点击更换</div>
+  <div class="shell">
+    <div class="card profile-card">
+      <input ref="avatarInput" type="file" accept="image/*" style="display:none" @change="onPickAvatar">
+      <div class="avatar-box">
+        <div class="avatar-wrap" @click="chooseAvatar">
+          <img :src="user.icon || '/imgs/icons/default-icon.png'" alt="">
         </div>
-      </div>
-      <div class="divider"></div>
-      <div style="padding: 10px 0 4px;">
-        <el-form :model="form" label-position="top">
-          <el-form-item label="昵称">
-            <el-input v-model="form.nickName" placeholder="请输入昵称" maxlength="32" show-word-limit></el-input>
-          </el-form-item>
-
-          <el-form-item label="所属学院">
-            <el-input v-model="form.college" placeholder="例如：计算机学院" maxlength="64" show-word-limit></el-input>
-          </el-form-item>
-
-          <el-form-item label="所属年级">
-            <el-input v-model="form.grade" placeholder="例如：2023级" maxlength="32" show-word-limit></el-input>
-          </el-form-item>
-
-          <el-form-item label="导师">
-            <el-input v-model="form.mentor" placeholder="例如：张老师" maxlength="64" show-word-limit></el-input>
-          </el-form-item>
-
-          <el-form-item label="个人介绍">
-            <el-input type="textarea" :rows="3" v-model="form.introduce" placeholder="介绍一下自己" maxlength="128" show-word-limit></el-input>
-          </el-form-item>
-
-          <el-form-item label="性别">
-            <el-select v-model="form.gender" placeholder="选择">
-              <el-option :value="false" label="男"></el-option>
-              <el-option :value="true" label="女"></el-option>
-            </el-select>
-          </el-form-item>
-
-          <el-form-item label="城市">
-            <el-input v-model="form.city" placeholder="例如：西安" maxlength="64" show-word-limit></el-input>
-          </el-form-item>
-
-          <el-form-item label="生日">
-            <el-date-picker v-model="form.birthday" type="date" placeholder="选择日期" value-format="yyyy-MM-dd"></el-date-picker>
-          </el-form-item>
-
-          <el-button type="primary" style="width:100%;" :loading="saving" @click="save">保存</el-button>
-        </el-form>
+        <el-button size="mini" type="primary" plain :loading="uploading" @click="chooseAvatar">更换头像</el-button>
       </div>
     </div>
+
+    <div class="card form-card">
+      <div class="form-title">基本信息</div>
+
+      <el-form :model="form" label-position="top">
+        <div class="field-grid">
+          <div class="field-card">
+            <div class="field-label">昵称</div>
+            <el-form-item>
+              <el-input v-model="form.nickName" placeholder="请输入昵称" maxlength="32" show-word-limit></el-input>
+            </el-form-item>
+          </div>
+
+          <div class="field-card">
+            <div class="field-label">所属学院</div>
+            <el-form-item>
+              <el-input v-model="form.college" placeholder="例如：计算机学院" maxlength="64" show-word-limit></el-input>
+            </el-form-item>
+          </div>
+
+          <div class="field-card">
+            <div class="field-label">所属年级</div>
+            <el-form-item>
+              <el-input v-model="form.grade" placeholder="例如：2023级" maxlength="32" show-word-limit></el-input>
+            </el-form-item>
+          </div>
+
+          <div class="field-card">
+            <div class="field-label">导师</div>
+            <el-form-item>
+              <el-input v-model="form.mentor" placeholder="例如：张老师" maxlength="64" show-word-limit></el-input>
+            </el-form-item>
+          </div>
+
+          <div class="field-card">
+            <div class="field-label">性别</div>
+            <el-form-item>
+              <el-select v-model="form.gender" placeholder="选择">
+                <el-option :value="false" label="男"></el-option>
+                <el-option :value="true" label="女"></el-option>
+              </el-select>
+            </el-form-item>
+          </div>
+
+          <div class="field-card">
+            <div class="field-label">城市</div>
+            <el-form-item>
+              <el-input v-model="form.city" placeholder="例如：西安" maxlength="64" show-word-limit></el-input>
+            </el-form-item>
+          </div>
+
+          <div class="field-card field-span-2">
+            <div class="field-label">生日</div>
+            <el-form-item>
+              <el-date-picker v-model="form.birthday" type="date" placeholder="选择日期" value-format="yyyy-MM-dd"></el-date-picker>
+            </el-form-item>
+          </div>
+
+          <div class="field-card field-span-2">
+            <div class="field-label">个人介绍</div>
+            <el-form-item>
+              <el-input type="textarea" :rows="4" v-model="form.introduce" placeholder="介绍一下自己" maxlength="128" show-word-limit></el-input>
+            </el-form-item>
+          </div>
+        </div>
+
+        <div class="action-bar">
+          <el-button type="primary" :loading="saving" @click="save">保存资料</el-button>
+          <el-button @click="goBack">返回</el-button>
+        </div>
+      </el-form>
+    </div>
   </div>
-  <foot-bar :active-btn="4"></foot-bar>
 </div>
 <script src="js/vue.js"></script>
 <script src="js/axios.min.js"></script>
-<!-- 引入组件库 -->
 <script src="js/element.js"></script>
 <script src="js/common.js"></script>
-<script src="js/footer.js"></script>
 <script>
-
   const app = new Vue({
     el: "#app",
     data: {
@@ -146,7 +330,6 @@
           .catch(err => this.$message.error(err))
           .finally(() => {
             this.uploading = false;
-            // 允许重复选择同一文件也能触发 change
             e.target.value = "";
           });
       },
@@ -163,7 +346,7 @@
       goBack(){
         history.back();
       }
-    },
+    }
 
   })
 </script>
