@@ -34,5 +34,6 @@ aliyun:
     endpoint: oss-cn-beijing.aliyuncs.com
     bucket: xud-campus
     accessKeyId: ${OSS_ACCESS_KEY_ID}
-    accessKeySecret: ${ALI_OSS_ACCESS_KEY_SECRET}
+    accessKeySecret: ${OSS_ACCESS_KEY_SECRET}
     avatarPrefix: avatars/
+    activityPrefix: activities/

@@ -2,6 +2,10 @@ package com.campus.service.impl;
 
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.crypto.digest.DigestUtil;
+import cn.hutool.json.JSONArray;
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -17,17 +21,44 @@ import com.campus.mapper.ActivityMapper;
 import com.campus.mapper.ActivityRegistrationMapper;
 import com.campus.mapper.UserMapper;
 import com.campus.service.IActivityService;
+import com.campus.utils.CacheClient;
+import com.campus.utils.RedisIdWorker;
 import com.campus.utils.SystemConstants;
 import com.campus.utils.UserHolder;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.annotation.Resource;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static com.campus.utils.RedisConstants.ACTIVITY_CACHE_VERSION_KEY;
+import static com.campus.utils.RedisConstants.ACTIVITY_META_KEY;
+import static com.campus.utils.RedisConstants.ACTIVITY_REGISTER_USERS_KEY;
+import static com.campus.utils.RedisConstants.ACTIVITY_SLOTS_KEY;
+import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_CATEGORIES_KEY;
+import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_CATEGORIES_TTL;
+import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_DETAIL_KEY;
+import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_DETAIL_TTL;
+import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_LIST_KEY;
+import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_LIST_TTL;
+
+@Slf4j
 @Service
 public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> implements IActivityService {
 
@@ -35,6 +66,14 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     private static final int REGISTRATION_ACTIVE = 1;
     private static final int CHECKED_IN = 1;
     private static final int CHECKIN_CODE_TTL_MINUTES = 180;
+    private static final long LIST_VERSION_DEFAULT = 1L;
+    private static final DefaultRedisScript<Long> ACTIVITY_REGISTER_SCRIPT;
+
+    static {
+        ACTIVITY_REGISTER_SCRIPT = new DefaultRedisScript<>();
+        ACTIVITY_REGISTER_SCRIPT.setLocation(new ClassPathResource("activity_register.lua"));
+        ACTIVITY_REGISTER_SCRIPT.setResultType(Long.class);
+    }
 
     @Resource
     private ActivityRegistrationMapper activityRegistrationMapper;
@@ -42,38 +81,62 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     @Resource
     private UserMapper userMapper;
 
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
+
+    @Resource
+    private CacheClient cacheClient;
+
+    @Resource
+    private RedisIdWorker redisIdWorker;
+
+    @Resource
+    private TransactionTemplate transactionTemplate;
+
     @Override
     public Result queryPublicActivities(String keyword, String category, Integer status, Integer current, Integer pageSize) {
-        Integer targetStatus = status == null ? STATUS_PUBLISHED : status;
-        QueryWrapper<Activity> wrapper = new QueryWrapper<>();
-        wrapper.eq("status", targetStatus)
-                .like(StrUtil.isNotBlank(keyword), "title", keyword)
-                .eq(StrUtil.isNotBlank(category), "category", category)
-                .orderByAsc("event_start_time")
-                .orderByDesc("create_time");
-        Page<Activity> page = page(new Page<>(current, normalizePageSize(pageSize)), wrapper);
-        List<Activity> records = page.getRecords();
+        CachedActivityPage cachedPage = queryCachedActivityPage(keyword, category, status, current, pageSize);
+        List<Activity> records = cachedPage.getRecords();
+        syncRemainingSlots(records);
         enrichActivities(records, UserHolder.getUser());
-        return Result.ok(records, page.getTotal());
+        return Result.ok(records, cachedPage.getTotal());
     }
 
     @Override
     public Result queryPublicCategories() {
+        String key = CACHE_ACTIVITY_CATEGORIES_KEY + currentActivityCacheVersion();
+        String categoriesJson = stringRedisTemplate.opsForValue().get(key);
+        if (StrUtil.isNotBlank(categoriesJson)) {
+            return Result.ok(JSONUtil.parseArray(categoriesJson).toList(String.class));
+        }
         QueryWrapper<Activity> wrapper = new QueryWrapper<>();
         wrapper.select("DISTINCT category")
                 .isNotNull("category")
                 .ne("category", "")
                 .eq("status", STATUS_PUBLISHED)
                 .orderByAsc("category");
-        return Result.ok(listObjs(wrapper));
+        List<String> categories = listObjs(wrapper, item -> item == null ? null : item.toString())
+                .stream()
+                .filter(StrUtil::isNotBlank)
+                .collect(Collectors.toList());
+        stringRedisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(categories), CACHE_ACTIVITY_CATEGORIES_TTL, TimeUnit.MINUTES);
+        return Result.ok(categories);
     }
 
     @Override
     public Result queryActivityDetail(Long id) {
-        Activity activity = getById(id);
+        Activity activity = cacheClient.queryWithPassThrough(
+                CACHE_ACTIVITY_DETAIL_KEY,
+                id,
+                Activity.class,
+                this::getById,
+                CACHE_ACTIVITY_DETAIL_TTL,
+                TimeUnit.MINUTES
+        );
         if (activity == null) {
             return Result.fail("活动不存在");
         }
+        syncRemainingSlots(Collections.singletonList(activity));
         enrichActivities(Collections.singletonList(activity), UserHolder.getUser());
         return Result.ok(activity);
     }
@@ -97,11 +160,13 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         if (activity.getStatus() == null) {
             activity.setStatus(STATUS_PUBLISHED);
         }
+        normalizeActivityImages(activity);
         if (!Boolean.TRUE.equals(activity.getCheckInEnabled())) {
             activity.setCheckInCode(null);
             activity.setCheckInCodeExpireTime(null);
         }
         save(activity);
+        refreshActivityCacheState(activity.getId());
         return Result.ok(activity.getId());
     }
 
@@ -124,6 +189,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         }
         existing.setTitle(activity.getTitle());
         existing.setCoverImage(activity.getCoverImage());
+        existing.setImages(activity.getImages());
         existing.setSummary(activity.getSummary());
         existing.setContent(activity.getContent());
         existing.setCategory(activity.getCategory());
@@ -136,11 +202,13 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         existing.setEventEndTime(activity.getEventEndTime());
         existing.setStatus(activity.getStatus() == null ? STATUS_PUBLISHED : activity.getStatus());
         existing.setCheckInEnabled(Boolean.TRUE.equals(activity.getCheckInEnabled()));
+        normalizeActivityImages(existing);
         if (!Boolean.TRUE.equals(activity.getCheckInEnabled())) {
             existing.setCheckInCode(null);
             existing.setCheckInCodeExpireTime(null);
         }
         updateById(existing);
+        refreshActivityCacheState(existing.getId());
         return Result.ok();
     }
 
@@ -151,57 +219,61 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                 .orderByDesc("create_time")
                 .page(new Page<>(current, normalizePageSize(pageSize)));
         List<Activity> records = page.getRecords();
+        syncRemainingSlots(records);
         enrichActivities(records, UserHolder.getUser());
         return Result.ok(records, page.getTotal());
     }
 
     @Override
-    @Transactional
     public Result register(Long activityId) {
         Activity activity = getById(activityId);
         if (activity == null) {
             return Result.fail("活动不存在");
         }
-        if (!Objects.equals(activity.getStatus(), STATUS_PUBLISHED)) {
-            return Result.fail("活动当前不可报名");
-        }
-        LocalDateTime now = LocalDateTime.now();
-        if (activity.getRegistrationStartTime() != null && now.isBefore(activity.getRegistrationStartTime())) {
-            return Result.fail("报名尚未开始");
-        }
-        if (activity.getRegistrationEndTime() != null && now.isAfter(activity.getRegistrationEndTime())) {
-            return Result.fail("报名已经结束");
-        }
+        ensureActivityRegistrationCache(activity);
         Long userId = UserHolder.getUser().getId();
-        ActivityRegistration existing = activityRegistrationMapper.selectOne(new QueryWrapper<ActivityRegistration>()
-                .eq("activity_id", activityId)
-                .eq("user_id", userId));
-        if (existing != null) {
-            return Result.fail("你已经报过名了");
+        Long result = stringRedisTemplate.execute(
+                ACTIVITY_REGISTER_SCRIPT,
+                Collections.emptyList(),
+                activityId.toString(),
+                userId.toString(),
+                String.valueOf(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC))
+        );
+        int code = result == null ? -1 : result.intValue();
+        if (code == 0) {
+            try {
+                Boolean saved = transactionTemplate.execute(status -> saveRegistrationRecord(activityId, userId));
+                if (!Boolean.TRUE.equals(saved)) {
+                    compensateRegistrationCache(activityId, userId);
+                    return Result.fail("活动不存在");
+                }
+                return Result.ok();
+            } catch (Exception e) {
+                log.error("活动报名同步落库失败，执行缓存补偿 activityId={}, userId={}", activityId, userId, e);
+                compensateRegistrationCache(activityId, userId);
+                return Result.fail("报名失败，请稍后重试");
+            }
         }
-
-        ActivityRegistration registration = new ActivityRegistration();
-        registration.setActivityId(activityId);
-        registration.setUserId(userId);
-        registration.setStatus(REGISTRATION_ACTIVE);
-        registration.setCheckInStatus(0);
-        try {
-            activityRegistrationMapper.insert(registration);
-        } catch (DuplicateKeyException e) {
-            return Result.fail("你已经报过名了");
-        }
-
-        UpdateWrapper<Activity> wrapper = new UpdateWrapper<>();
-        wrapper.setSql("registered_count = registered_count + 1").eq("id", activityId);
-        if (activity.getMaxParticipants() != null) {
-            wrapper.lt("registered_count", activity.getMaxParticipants());
-        }
-        boolean updated = update(null, wrapper);
-        if (!updated) {
-            activityRegistrationMapper.deleteById(registration.getId());
+        if (code == 1) {
             return Result.fail("活动名额已满");
         }
-        return Result.ok();
+        if (code == 2) {
+            return Result.fail("你已经报过名了");
+        }
+        if (code == 3) {
+            return Result.fail("活动当前不可报名");
+        }
+        if (code == 4) {
+            return Result.fail("报名尚未开始");
+        }
+        if (code == 5) {
+            return Result.fail("报名已经结束");
+        }
+        if (code == 6) {
+            refreshActivityCacheState(activityId);
+            return Result.fail("活动不存在");
+        }
+        return Result.fail("报名失败，请稍后重试");
     }
 
     @Override
@@ -255,6 +327,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         activity.setCheckInCode(code);
         activity.setCheckInCodeExpireTime(LocalDateTime.now().plusMinutes(validMinutes));
         updateById(activity);
+        refreshActivityCacheState(activityId);
         return Result.ok(activity);
     }
 
@@ -314,7 +387,12 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         LocalDateTime now = LocalDateTime.now();
         for (Activity activity : activities) {
             ActivityRegistration registration = registrationMap.get(activity.getId());
-            activity.setRegistered(registration != null);
+            boolean registered = registration != null;
+            if (!registered && user != null) {
+                Boolean member = stringRedisTemplate.opsForSet().isMember(activityRegisterUsersKey(activity.getId()), user.getId().toString());
+                registered = Boolean.TRUE.equals(member);
+            }
+            activity.setRegistered(registered);
             activity.setCheckedIn(registration != null && Objects.equals(registration.getCheckInStatus(), CHECKED_IN));
             boolean canManage = user != null && Objects.equals(activity.getCreatorId(), user.getId());
             activity.setCanManage(canManage);
@@ -365,6 +443,207 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         }
     }
 
+    private void syncRemainingSlots(List<Activity> activities) {
+        if (activities == null || activities.isEmpty()) {
+            return;
+        }
+        List<String> slotKeys = activities.stream()
+                .map(activity -> activitySlotsKey(activity.getId()))
+                .collect(Collectors.toList());
+        List<String> remainingList = stringRedisTemplate.opsForValue().multiGet(slotKeys);
+        List<Activity> missingActivities = new ArrayList<>();
+        for (int i = 0; i < activities.size(); i++) {
+            Activity activity = activities.get(i);
+            String remainingValue = remainingList == null ? null : remainingList.get(i);
+            if (StrUtil.isBlank(remainingValue)) {
+                missingActivities.add(activity);
+                continue;
+            }
+            applyRegisteredCount(activity, Integer.parseInt(remainingValue));
+        }
+        for (Activity activity : missingActivities) {
+            ensureActivityRegistrationCache(activity);
+            String remainingValue = stringRedisTemplate.opsForValue().get(activitySlotsKey(activity.getId()));
+            if (StrUtil.isNotBlank(remainingValue)) {
+                applyRegisteredCount(activity, Integer.parseInt(remainingValue));
+            }
+        }
+    }
+
+    private void applyRegisteredCount(Activity activity, int remainingSlots) {
+        if (activity.getMaxParticipants() == null) {
+            return;
+        }
+        int registeredCount = activity.getMaxParticipants() - Math.max(remainingSlots, 0);
+        activity.setRegisteredCount(Math.max(registeredCount, 0));
+    }
+
+    private CachedActivityPage queryCachedActivityPage(String keyword, String category, Integer status, Integer current, Integer pageSize) {
+        int normalizedPageSize = normalizePageSize(pageSize);
+        int currentPage = current == null || current < 1 ? 1 : current;
+        Integer targetStatus = status == null ? STATUS_PUBLISHED : status;
+        String params = StrUtil.join("|",
+                "status=" + targetStatus,
+                "category=" + StrUtil.blankToDefault(category, ""),
+                "keyword=" + StrUtil.blankToDefault(keyword, ""),
+                "current=" + currentPage,
+                "pageSize=" + normalizedPageSize);
+        String key = CACHE_ACTIVITY_LIST_KEY + currentActivityCacheVersion() + ":" + DigestUtil.md5Hex(params);
+        String cacheJson = stringRedisTemplate.opsForValue().get(key);
+        if (StrUtil.isNotBlank(cacheJson)) {
+            return parseCachedActivityPage(cacheJson);
+        }
+
+        QueryWrapper<Activity> wrapper = new QueryWrapper<>();
+        wrapper.eq("status", targetStatus)
+                .like(StrUtil.isNotBlank(keyword), "title", keyword)
+                .eq(StrUtil.isNotBlank(category), "category", category)
+                .orderByAsc("event_start_time")
+                .orderByDesc("create_time");
+        Page<Activity> page = page(new Page<>(currentPage, normalizedPageSize), wrapper);
+
+        Map<String, Object> cacheValue = new HashMap<>(2);
+        cacheValue.put("total", page.getTotal());
+        cacheValue.put("records", page.getRecords());
+        stringRedisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(cacheValue), CACHE_ACTIVITY_LIST_TTL, TimeUnit.MINUTES);
+        return new CachedActivityPage(page.getRecords(), page.getTotal());
+    }
+
+    private CachedActivityPage parseCachedActivityPage(String cacheJson) {
+        JSONObject jsonObject = JSONUtil.parseObj(cacheJson);
+        JSONArray recordsArray = jsonObject.getJSONArray("records");
+        List<Activity> records = recordsArray == null ? new ArrayList<>() : recordsArray.toList(Activity.class);
+        Long total = jsonObject.getLong("total", 0L);
+        return new CachedActivityPage(records, total);
+    }
+
+    private void refreshActivityCacheState(Long activityId) {
+        Activity latest = getById(activityId);
+        if (latest == null) {
+            stringRedisTemplate.delete(CACHE_ACTIVITY_DETAIL_KEY + activityId);
+            stringRedisTemplate.delete(activityMetaKey(activityId));
+            stringRedisTemplate.delete(activitySlotsKey(activityId));
+            stringRedisTemplate.delete(activityRegisterUsersKey(activityId));
+            bumpActivityCacheVersion();
+            return;
+        }
+        stringRedisTemplate.delete(CACHE_ACTIVITY_DETAIL_KEY + activityId);
+        initActivityRegistrationCache(latest);
+        bumpActivityCacheVersion();
+    }
+
+    private void ensureActivityRegistrationCache(Activity activity) {
+        Boolean exists = stringRedisTemplate.hasKey(activityMetaKey(activity.getId()));
+        if (Boolean.TRUE.equals(exists)) {
+            return;
+        }
+        initActivityRegistrationCache(activity);
+    }
+
+    private void initActivityRegistrationCache(Activity activity) {
+        Map<String, String> meta = new LinkedHashMap<>();
+        meta.put("status", String.valueOf(activity.getStatus() == null ? 0 : activity.getStatus()));
+        meta.put("registrationStartEpoch", String.valueOf(toEpoch(activity.getRegistrationStartTime())));
+        meta.put("registrationEndEpoch", String.valueOf(toEpoch(activity.getRegistrationEndTime())));
+        meta.put("maxParticipants", String.valueOf(activity.getMaxParticipants() == null ? 0 : activity.getMaxParticipants()));
+        meta.put("registeredCountBase", String.valueOf(activity.getRegisteredCount() == null ? 0 : activity.getRegisteredCount()));
+        stringRedisTemplate.opsForHash().putAll(activityMetaKey(activity.getId()), meta);
+
+        int maxParticipants = activity.getMaxParticipants() == null ? 0 : activity.getMaxParticipants();
+        int registeredCount = activity.getRegisteredCount() == null ? 0 : activity.getRegisteredCount();
+        int remainingSlots = Math.max(maxParticipants - registeredCount, 0);
+        stringRedisTemplate.opsForValue().set(activitySlotsKey(activity.getId()), String.valueOf(remainingSlots));
+
+        List<ActivityRegistration> registrations = activityRegistrationMapper.selectList(new QueryWrapper<ActivityRegistration>()
+                .select("user_id")
+                .eq("activity_id", activity.getId()));
+        String usersKey = activityRegisterUsersKey(activity.getId());
+        stringRedisTemplate.delete(usersKey);
+        if (!registrations.isEmpty()) {
+            String[] userIds = registrations.stream()
+                    .map(ActivityRegistration::getUserId)
+                    .filter(Objects::nonNull)
+                    .map(String::valueOf)
+                    .toArray(String[]::new);
+            if (userIds.length > 0) {
+                stringRedisTemplate.opsForSet().add(usersKey, userIds);
+            }
+        }
+    }
+
+    private Boolean saveRegistrationRecord(Long activityId, Long userId) {
+        Activity activity = getById(activityId);
+        if (activity == null) {
+            return false;
+        }
+        ActivityRegistration existing = activityRegistrationMapper.selectOne(new QueryWrapper<ActivityRegistration>()
+                .eq("activity_id", activityId)
+                .eq("user_id", userId));
+        if (existing != null) {
+            return true;
+        }
+        ActivityRegistration registration = new ActivityRegistration();
+        registration.setActivityId(activityId);
+        registration.setUserId(userId);
+        registration.setStatus(REGISTRATION_ACTIVE);
+        registration.setCheckInStatus(0);
+        try {
+            activityRegistrationMapper.insert(registration);
+        } catch (DuplicateKeyException e) {
+            return true;
+        }
+        UpdateWrapper<Activity> wrapper = new UpdateWrapper<>();
+        wrapper.setSql("registered_count = registered_count + 1")
+                .eq("id", activityId)
+                .lt("registered_count", activity.getMaxParticipants());
+        boolean updated = update(null, wrapper);
+        if (!updated) {
+            throw new IllegalStateException("活动报名落库时名额不足");
+        }
+        stringRedisTemplate.delete(CACHE_ACTIVITY_DETAIL_KEY + activityId);
+        return true;
+    }
+
+    private void compensateRegistrationCache(Long activityId, Long userId) {
+        stringRedisTemplate.opsForValue().increment(activitySlotsKey(activityId));
+        stringRedisTemplate.opsForSet().remove(activityRegisterUsersKey(activityId), userId.toString());
+        stringRedisTemplate.delete(CACHE_ACTIVITY_DETAIL_KEY + activityId);
+        bumpActivityCacheVersion();
+    }
+
+    private long currentActivityCacheVersion() {
+        String version = stringRedisTemplate.opsForValue().get(ACTIVITY_CACHE_VERSION_KEY);
+        if (StrUtil.isBlank(version)) {
+            stringRedisTemplate.opsForValue().setIfAbsent(ACTIVITY_CACHE_VERSION_KEY, String.valueOf(LIST_VERSION_DEFAULT));
+            return LIST_VERSION_DEFAULT;
+        }
+        return Long.parseLong(version);
+    }
+
+    private void bumpActivityCacheVersion() {
+        if (!Boolean.TRUE.equals(stringRedisTemplate.hasKey(ACTIVITY_CACHE_VERSION_KEY))) {
+            stringRedisTemplate.opsForValue().set(ACTIVITY_CACHE_VERSION_KEY, String.valueOf(LIST_VERSION_DEFAULT));
+            return;
+        }
+        stringRedisTemplate.opsForValue().increment(ACTIVITY_CACHE_VERSION_KEY);
+    }
+
+    private String activityMetaKey(Long activityId) {
+        return ACTIVITY_META_KEY + activityId;
+    }
+
+    private String activitySlotsKey(Long activityId) {
+        return ACTIVITY_SLOTS_KEY + activityId;
+    }
+
+    private String activityRegisterUsersKey(Long activityId) {
+        return ACTIVITY_REGISTER_USERS_KEY + activityId;
+    }
+
+    private long toEpoch(LocalDateTime time) {
+        return time == null ? 0L : time.toEpochSecond(ZoneOffset.UTC);
+    }
+
     private boolean isRegistrationOpen(Activity activity, LocalDateTime now) {
         if (!Objects.equals(activity.getStatus(), STATUS_PUBLISHED)) {
             return false;
@@ -397,6 +676,9 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         if (StrUtil.isBlank(activity.getLocation())) {
             return "活动地点不能为空";
         }
+        if (StrUtil.isBlank(activity.getImages()) && StrUtil.isBlank(activity.getCoverImage())) {
+            return "请至少上传一张活动图片";
+        }
         if (activity.getMaxParticipants() == null || activity.getMaxParticipants() < 1) {
             return "报名人数上限必须大于0";
         }
@@ -416,5 +698,47 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
             return "报名结束时间不能晚于活动开始时间";
         }
         return null;
+    }
+
+    private void normalizeActivityImages(Activity activity) {
+        if (activity == null) {
+            return;
+        }
+        List<String> imageList = new ArrayList<>();
+        if (StrUtil.isNotBlank(activity.getImages())) {
+            for (String item : activity.getImages().split(",")) {
+                if (StrUtil.isNotBlank(item)) {
+                    imageList.add(item.trim());
+                }
+            }
+        }
+        if (imageList.isEmpty() && StrUtil.isNotBlank(activity.getCoverImage())) {
+            imageList.add(activity.getCoverImage().trim());
+        }
+        if (imageList.isEmpty()) {
+            activity.setImages(null);
+            activity.setCoverImage(null);
+            return;
+        }
+        activity.setImages(String.join(",", imageList));
+        activity.setCoverImage(imageList.get(0));
+    }
+
+    private static class CachedActivityPage {
+        private final List<Activity> records;
+        private final Long total;
+
+        private CachedActivityPage(List<Activity> records, Long total) {
+            this.records = records;
+            this.total = total;
+        }
+
+        public List<Activity> getRecords() {
+            return records;
+        }
+
+        public Long getTotal() {
+            return total;
+        }
     }
 }

@@ -5,8 +5,11 @@ import com.campus.dto.ActivityCheckInDTO;
 import com.campus.dto.Result;
 import com.campus.entity.Activity;
 import com.campus.service.IActivityService;
+import com.campus.service.OssService;
 import com.campus.utils.SystemConstants;
+import com.campus.utils.UserHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 
@@ -16,6 +19,9 @@ public class ActivityController {
 
     @Resource
     private IActivityService activityService;
+
+    @Resource
+    private OssService ossService;
 
     @GetMapping("/public/list")
     public Result queryPublicActivities(
@@ -77,6 +83,12 @@ public class ActivityController {
     @PostMapping("/manage/{id}/checkin-code")
     public Result updateCheckInCode(@PathVariable("id") Long activityId, @RequestBody ActivityCheckInCodeDTO dto) {
         return activityService.updateCheckInCode(activityId, dto);
+    }
+
+    @PostMapping("/manage/image")
+    public Result uploadActivityImage(@RequestParam("file") MultipartFile file) {
+        String url = ossService.uploadActivityImage(UserHolder.getUser().getId(), file);
+        return Result.ok(url);
     }
 
     @PostMapping("/{id}/checkin")

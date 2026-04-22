@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS `tb_activity` (
   `organizer_name` varchar(128) NOT NULL COMMENT '主办方名称',
   `title` varchar(255) NOT NULL COMMENT '活动标题',
   `cover_image` varchar(1024) DEFAULT NULL COMMENT '封面图',
+  `images` varchar(4096) DEFAULT NULL COMMENT '活动图片，多个以逗号分隔',
   `summary` varchar(512) DEFAULT NULL COMMENT '活动摘要',
   `content` text COMMENT '活动详情',
   `category` varchar(64) NOT NULL COMMENT '活动分类',

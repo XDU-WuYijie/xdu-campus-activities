@@ -23,8 +23,16 @@ public class OssService {
     private final OssProperties properties;
 
     public String uploadAvatar(Long userId, MultipartFile file) {
+        return uploadImage(userId, file, properties.getAvatarPrefix(), "头像");
+    }
+
+    public String uploadActivityImage(Long userId, MultipartFile file) {
+        return uploadImage(userId, file, properties.getActivityPrefix(), "活动图片");
+    }
+
+    private String uploadImage(Long userId, MultipartFile file, String prefixSetting, String bizName) {
         if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("请选择要上传的头像文件");
+            throw new IllegalArgumentException("请选择要上传的" + bizName + "文件");
         }
         String originalFilename = file.getOriginalFilename();
         String suffix = StrUtil.subAfter(originalFilename, ".", true);
@@ -32,7 +40,7 @@ public class OssService {
             suffix = "jpg";
         }
 
-        String prefix = normalizePrefix(properties.getAvatarPrefix());
+        String prefix = normalizePrefix(prefixSetting);
         String datePart = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
         String key = prefix + userId + "/" + datePart + "/" + UUID.randomUUID().toString().replace("-", "") + "." + suffix;
 
@@ -47,7 +55,7 @@ public class OssService {
             PutObjectRequest request = new PutObjectRequest(properties.getBucket(), key, in, metadata);
             oss.putObject(request);
         } catch (IOException e) {
-            throw new RuntimeException("头像上传失败", e);
+            throw new RuntimeException(bizName + "上传失败", e);
         }
 
         return buildPublicUrl(properties.getBucket(), properties.getEndpoint(), key);

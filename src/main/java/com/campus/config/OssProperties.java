@@ -18,5 +18,10 @@ public class OssProperties {
      * Object key 前缀，例如 avatars/
      */
     private String avatarPrefix = "avatars/";
+
+    /**
+     * 活动图片 Object key 前缀，例如 activities/
+     */
+    private String activityPrefix = "activities/";
 }
 

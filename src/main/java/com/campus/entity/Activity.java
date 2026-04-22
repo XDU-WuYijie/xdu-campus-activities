@@ -26,6 +26,7 @@ public class Activity implements Serializable {
     private String organizerName;
     private String title;
     private String coverImage;
+    private String images;
     private String summary;
     private String content;
     private String category;

@@ -42,6 +42,8 @@ import static com.campus.utils.SystemConstants.USER_NICK_NAME_PREFIX;
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IUserService {
 
+    private static final int ROLE_STUDENT = UserDTO.ROLE_STUDENT;
+
     @Resource
     private StringRedisTemplate stringRedisTemplate;
 
@@ -171,6 +173,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         User user = new User();
         user.setPhone(phone);
         user.setNickName(USER_NICK_NAME_PREFIX + RandomUtil.randomString(10));
+        user.setRoleType(ROLE_STUDENT);
         // 2.保存用户
         save(user);
         return user;

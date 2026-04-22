@@ -3,11 +3,14 @@ package com.campus.controller;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
 import com.campus.dto.Result;
+import com.campus.service.OssService;
 import com.campus.utils.SystemConstants;
+import com.campus.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.annotation.Resource;
 import java.io.File;
 import java.io.IOException;
 import java.util.UUID;
@@ -16,6 +19,9 @@ import java.util.UUID;
 @RestController
 @RequestMapping("upload")
 public class UploadController {
+
+    @Resource
+    private OssService ossService;
 
     @PostMapping("blog")
     public Result uploadImage(@RequestParam("file") MultipartFile image) {
@@ -32,6 +38,11 @@ public class UploadController {
         } catch (IOException e) {
             throw new RuntimeException("文件上传失败", e);
         }
+    }
+
+    @PostMapping("activity")
+    public Result uploadActivityImage(@RequestParam("file") MultipartFile image) {
+        return Result.ok(ossService.uploadActivityImage(UserHolder.getUser().getId(), image));
     }
 
     @GetMapping("/blog/delete")

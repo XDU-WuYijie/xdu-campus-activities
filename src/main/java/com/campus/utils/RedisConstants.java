@@ -10,6 +10,19 @@ public class RedisConstants {
 
     public static final Long CACHE_SHOP_TTL = 30L;
     public static final String CACHE_SHOP_KEY = "cache:shop:";
+    public static final String CACHE_ACTIVITY_DETAIL_KEY = "cache:activity:detail:";
+    public static final Long CACHE_ACTIVITY_DETAIL_TTL = 10L;
+    public static final String CACHE_ACTIVITY_LIST_KEY = "cache:activity:list:";
+    public static final Long CACHE_ACTIVITY_LIST_TTL = 1L;
+    public static final String CACHE_ACTIVITY_CATEGORIES_KEY = "cache:activity:categories:";
+    public static final Long CACHE_ACTIVITY_CATEGORIES_TTL = 30L;
+    public static final String ACTIVITY_CACHE_VERSION_KEY = "cache:activity:version";
+    public static final String ACTIVITY_META_KEY = "activity:meta:";
+    public static final String ACTIVITY_SLOTS_KEY = "activity:slots:";
+    public static final String ACTIVITY_REGISTER_USERS_KEY = "activity:register:users:";
+    public static final String ACTIVITY_REGISTRATION_STREAM_KEY = "stream.activity.registration";
+    public static final String ACTIVITY_REGISTRATION_GROUP = "g1";
+    public static final String ACTIVITY_REGISTRATION_CONSUMER = "c1";
 
     public static final String LOCK_SHOP_KEY = "lock:shop:";
     public static final Long LOCK_SHOP_TTL = 10L;
