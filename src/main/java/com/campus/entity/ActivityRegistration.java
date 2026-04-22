@@ -30,6 +30,8 @@ public class ActivityRegistration implements Serializable {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime checkInTime;
 
+    private Long voucherId;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
 
@@ -70,4 +72,20 @@ public class ActivityRegistration implements Serializable {
 
     @TableField(exist = false)
     private Boolean checkInEnabled;
+
+    @TableField(exist = false)
+    private String voucherDisplayCode;
+
+    @TableField(exist = false)
+    private String voucherStatus;
+
+    @TableField(exist = false)
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime voucherIssuedTime;
+
+    @TableField(exist = false)
+    private Long checkedInBy;
+
+    @TableField(exist = false)
+    private String checkedInByName;
 }

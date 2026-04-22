@@ -71,4 +71,21 @@ public class Activity implements Serializable {
 
     @TableField(exist = false)
     private Boolean registrationOpen;
+
+    @TableField(exist = false)
+    private Long voucherId;
+
+    @TableField(exist = false)
+    private String voucherDisplayCode;
+
+    @TableField(exist = false)
+    private String voucherStatus;
+
+    @TableField(exist = false)
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime voucherIssuedTime;
+
+    @TableField(exist = false)
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime voucherCheckedInTime;
 }

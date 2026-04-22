@@ -1,6 +1,5 @@
 package com.campus.service.impl;
 
-import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.hutool.json.JSONArray;
@@ -10,15 +9,20 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.campus.dto.ActivityCheckInCodeDTO;
-import com.campus.dto.ActivityCheckInDTO;
+import com.campus.dto.ActivityCheckInResultDTO;
+import com.campus.dto.ActivityCheckInStatsDTO;
+import com.campus.dto.ActivityCheckInVerifyDTO;
 import com.campus.dto.Result;
 import com.campus.dto.UserDTO;
 import com.campus.entity.Activity;
+import com.campus.entity.ActivityCheckInRecord;
 import com.campus.entity.ActivityRegistration;
+import com.campus.entity.ActivityVoucher;
 import com.campus.entity.User;
+import com.campus.mapper.ActivityCheckInRecordMapper;
 import com.campus.mapper.ActivityMapper;
 import com.campus.mapper.ActivityRegistrationMapper;
+import com.campus.mapper.ActivityVoucherMapper;
 import com.campus.mapper.UserMapper;
 import com.campus.service.IActivityService;
 import com.campus.utils.CacheClient;
@@ -47,16 +51,24 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static com.campus.utils.RedisConstants.ACTIVITY_CACHE_VERSION_KEY;
+import static com.campus.utils.RedisConstants.ACTIVITY_CHECK_IN_IDEMPOTENCY_KEY;
+import static com.campus.utils.RedisConstants.ACTIVITY_CHECK_IN_IDEMPOTENCY_TTL_MINUTES;
 import static com.campus.utils.RedisConstants.ACTIVITY_META_KEY;
 import static com.campus.utils.RedisConstants.ACTIVITY_REGISTER_USERS_KEY;
 import static com.campus.utils.RedisConstants.ACTIVITY_SLOTS_KEY;
+import static com.campus.utils.RedisConstants.ACTIVITY_VOUCHER_DISPLAY_KEY;
 import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_CATEGORIES_KEY;
 import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_CATEGORIES_TTL;
+import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_CHECK_IN_RECORDS_KEY;
+import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_CHECK_IN_RECORDS_TTL;
+import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_CHECK_IN_STATS_KEY;
+import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_CHECK_IN_STATS_TTL;
 import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_DETAIL_KEY;
 import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_DETAIL_TTL;
 import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_LIST_KEY;
 import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_LIST_TTL;
+import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_USER_STATE_KEY;
+import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_USER_STATE_TTL;
 
 @Slf4j
 @Service
@@ -65,8 +77,24 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     private static final int STATUS_PUBLISHED = 2;
     private static final int REGISTRATION_ACTIVE = 1;
     private static final int CHECKED_IN = 1;
-    private static final int CHECKIN_CODE_TTL_MINUTES = 180;
-    private static final long LIST_VERSION_DEFAULT = 1L;
+    private static final int CHECKED_OUT = 0;
+    private static final int DISPLAY_CODE_LENGTH = 8;
+    private static final String DISPLAY_CODE_CHARS = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+    private static final String VOUCHER_STATUS_UNUSED = "UNUSED";
+    private static final String VOUCHER_STATUS_CHECKED_IN = "CHECKED_IN";
+    private static final String VOUCHER_STATUS_CANCELED = "CANCELED";
+    private static final String VOUCHER_STATUS_EXPIRED = "EXPIRED";
+    private static final String CHECK_IN_RESULT_SUCCESS = "SUCCESS";
+    private static final String CHECK_IN_RESULT_ALREADY_CHECKED_IN = "ALREADY_CHECKED_IN";
+    private static final String CHECK_IN_RESULT_INVALID_VOUCHER = "INVALID_VOUCHER";
+    private static final String CHECK_IN_RESULT_ACTIVITY_MISMATCH = "ACTIVITY_MISMATCH";
+    private static final String CHECK_IN_RESULT_OUT_OF_WINDOW = "OUT_OF_WINDOW";
+    private static final String CHECK_IN_RESULT_NOT_REGISTERED = "NOT_REGISTERED";
+    private static final String IDEMPOTENCY_STATUS_PROCESSING = "PROCESSING";
+    private static final String IDEMPOTENCY_STATUS_SUCCESS = "SUCCESS";
+    private static final String IDEMPOTENCY_STATUS_FAILED = "FAILED";
+    private static final int CHECK_IN_OPEN_BEFORE_MINUTES = 30;
+    private static final int CHECK_IN_CLOSE_AFTER_MINUTES = 30;
     private static final DefaultRedisScript<Long> ACTIVITY_REGISTER_SCRIPT;
 
     static {
@@ -77,6 +105,12 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
 
     @Resource
     private ActivityRegistrationMapper activityRegistrationMapper;
+
+    @Resource
+    private ActivityVoucherMapper activityVoucherMapper;
+
+    @Resource
+    private ActivityCheckInRecordMapper activityCheckInRecordMapper;
 
     @Resource
     private UserMapper userMapper;
@@ -104,7 +138,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
 
     @Override
     public Result queryPublicCategories() {
-        String key = CACHE_ACTIVITY_CATEGORIES_KEY + currentActivityCacheVersion();
+        String key = CACHE_ACTIVITY_CATEGORIES_KEY;
         String categoriesJson = stringRedisTemplate.opsForValue().get(key);
         if (StrUtil.isNotBlank(categoriesJson)) {
             return Result.ok(JSONUtil.parseArray(categoriesJson).toList(String.class));
@@ -160,13 +194,12 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         if (activity.getStatus() == null) {
             activity.setStatus(STATUS_PUBLISHED);
         }
+        activity.setCheckInEnabled(true);
+        activity.setCheckInCode(null);
+        activity.setCheckInCodeExpireTime(null);
         normalizeActivityImages(activity);
-        if (!Boolean.TRUE.equals(activity.getCheckInEnabled())) {
-            activity.setCheckInCode(null);
-            activity.setCheckInCodeExpireTime(null);
-        }
         save(activity);
-        refreshActivityCacheState(activity.getId());
+        refreshActivityCacheState(activity.getId(), true);
         return Result.ok(activity.getId());
     }
 
@@ -201,14 +234,12 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         existing.setEventStartTime(activity.getEventStartTime());
         existing.setEventEndTime(activity.getEventEndTime());
         existing.setStatus(activity.getStatus() == null ? STATUS_PUBLISHED : activity.getStatus());
-        existing.setCheckInEnabled(Boolean.TRUE.equals(activity.getCheckInEnabled()));
+        existing.setCheckInEnabled(true);
+        existing.setCheckInCode(null);
+        existing.setCheckInCodeExpireTime(null);
         normalizeActivityImages(existing);
-        if (!Boolean.TRUE.equals(activity.getCheckInEnabled())) {
-            existing.setCheckInCode(null);
-            existing.setCheckInCodeExpireTime(null);
-        }
         updateById(existing);
-        refreshActivityCacheState(existing.getId());
+        refreshActivityCacheState(existing.getId(), true);
         return Result.ok();
     }
 
@@ -230,8 +261,12 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         if (activity == null) {
             return Result.fail("活动不存在");
         }
+        UserDTO currentUser = UserHolder.getUser();
+        if (currentUser != null && Objects.equals(currentUser.getRoleType(), UserDTO.ROLE_ORGANIZER)) {
+            return Result.fail("主办方账号不能报名参加活动");
+        }
         ensureActivityRegistrationCache(activity);
-        Long userId = UserHolder.getUser().getId();
+        Long userId = currentUser.getId();
         Long result = stringRedisTemplate.execute(
                 ACTIVITY_REGISTER_SCRIPT,
                 Collections.emptyList(),
@@ -270,10 +305,57 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
             return Result.fail("报名已经结束");
         }
         if (code == 6) {
-            refreshActivityCacheState(activityId);
+            refreshActivityCacheState(activityId, false);
             return Result.fail("活动不存在");
         }
         return Result.fail("报名失败，请稍后重试");
+    }
+
+    @Override
+    @Transactional
+    public Result cancelRegistration(Long activityId) {
+        Activity activity = getById(activityId);
+        if (activity == null) {
+            return Result.fail("活动不存在");
+        }
+        UserDTO currentUser = UserHolder.getUser();
+        if (currentUser != null && Objects.equals(currentUser.getRoleType(), UserDTO.ROLE_ORGANIZER)) {
+            return Result.fail("主办方账号不能退出报名");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        if (activity.getEventStartTime() != null && !now.isBefore(activity.getEventStartTime())) {
+            return Result.fail("活动已开始，无法退出报名");
+        }
+        ActivityRegistration registration = activityRegistrationMapper.selectOne(new QueryWrapper<ActivityRegistration>()
+                .eq("activity_id", activityId)
+                .eq("user_id", currentUser.getId())
+                .eq("status", REGISTRATION_ACTIVE));
+        if (registration == null) {
+            return Result.fail("你当前未报名该活动");
+        }
+        ActivityVoucher voucher = activityVoucherMapper.selectOne(new QueryWrapper<ActivityVoucher>()
+                .eq("registration_id", registration.getId()));
+        if (voucher != null && VOUCHER_STATUS_CHECKED_IN.equals(voucher.getStatus())) {
+            return Result.fail("已签到记录不可退出");
+        }
+
+        if (voucher != null) {
+            activityVoucherMapper.deleteById(voucher.getId());
+            if (StrUtil.isNotBlank(voucher.getDisplayCode())) {
+                stringRedisTemplate.delete(ACTIVITY_VOUCHER_DISPLAY_KEY + voucher.getDisplayCode());
+            }
+        }
+        activityRegistrationMapper.deleteById(registration.getId());
+        UpdateWrapper<Activity> wrapper = new UpdateWrapper<>();
+        wrapper.setSql("registered_count = registered_count - 1")
+                .eq("id", activityId)
+                .gt("registered_count", 0);
+        update(null, wrapper);
+
+        stringRedisTemplate.opsForSet().remove(activityRegisterUsersKey(activityId), currentUser.getId().toString());
+        stringRedisTemplate.opsForValue().increment(activitySlotsKey(activityId));
+        evictActivityCache(activityId, false);
+        return Result.ok();
     }
 
     @Override
@@ -285,6 +367,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         activityRegistrationMapper.selectPage(page, wrapper);
         List<ActivityRegistration> records = page.getRecords();
         enrichRegistrationActivities(records);
+        enrichRegistrationVoucherInfo(records);
         return Result.ok(records, page.getTotal());
     }
 
@@ -304,103 +387,348 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         activityRegistrationMapper.selectPage(page, wrapper);
         List<ActivityRegistration> records = page.getRecords();
         enrichParticipantUsers(records);
+        enrichRegistrationVoucherInfo(records);
         return Result.ok(records, page.getTotal());
     }
 
     @Override
-    @Transactional
-    public Result updateCheckInCode(Long activityId, ActivityCheckInCodeDTO dto) {
+    public Result verifyCheckIn(Long activityId, ActivityCheckInVerifyDTO dto, String idempotencyKey) {
+        Activity activity = getById(activityId);
+        if (activity == null) {
+            return Result.fail("活动不存在");
+        }
+        Long operatorId = UserHolder.getUser().getId();
+        if (!Objects.equals(activity.getCreatorId(), operatorId)) {
+            return Result.fail("无权执行签到核销");
+        }
+        if (dto == null || (dto.getVoucherId() == null && StrUtil.isBlank(dto.getDisplayCode()))) {
+            return Result.fail("请提供凭证ID或展示码");
+        }
+        if (StrUtil.isBlank(idempotencyKey)) {
+            return Result.fail("Idempotency-Key不能为空");
+        }
+        String fingerprint = buildCheckInFingerprint(activityId, dto);
+        String redisKey = ACTIVITY_CHECK_IN_IDEMPOTENCY_KEY + activityId + ":" + idempotencyKey;
+        Result cachedResult = resolveCachedCheckInResult(redisKey, fingerprint);
+        if (cachedResult != null) {
+            return cachedResult;
+        }
+        JSONObject processing = new JSONObject();
+        processing.set("fingerprint", fingerprint);
+        processing.set("status", IDEMPOTENCY_STATUS_PROCESSING);
+        Boolean locked = stringRedisTemplate.opsForValue().setIfAbsent(
+                redisKey,
+                processing.toString(),
+                ACTIVITY_CHECK_IN_IDEMPOTENCY_TTL_MINUTES,
+                TimeUnit.MINUTES
+        );
+        if (!Boolean.TRUE.equals(locked)) {
+            Result retryResult = resolveCachedCheckInResult(redisKey, fingerprint);
+            return retryResult == null ? Result.fail("请求处理中，请稍后重试") : retryResult;
+        }
+        Result result;
+        try {
+            result = doVerifyCheckIn(activity, dto, operatorId, idempotencyKey, fingerprint);
+        } catch (Exception e) {
+            log.error("活动凭证核销异常 activityId={}, operatorId={}", activityId, operatorId, e);
+            result = Result.fail("签到核销失败，请稍后重试");
+        }
+        cacheCheckInResult(redisKey, fingerprint, result);
+        return result;
+    }
+
+    @Override
+    public Result queryCheckInStats(Long activityId) {
         Activity activity = getById(activityId);
         if (activity == null) {
             return Result.fail("活动不存在");
         }
         if (!Objects.equals(activity.getCreatorId(), UserHolder.getUser().getId())) {
-            return Result.fail("无权配置签到码");
+            return Result.fail("无权查看签到统计");
         }
-        String code = dto == null ? null : dto.getCheckInCode();
-        if (StrUtil.isBlank(code)) {
-            code = RandomUtil.randomNumbers(6);
-        }
-        int validMinutes = dto == null || dto.getValidMinutes() == null || dto.getValidMinutes() < 1
-                ? CHECKIN_CODE_TTL_MINUTES : dto.getValidMinutes();
-        activity.setCheckInEnabled(true);
-        activity.setCheckInCode(code);
-        activity.setCheckInCodeExpireTime(LocalDateTime.now().plusMinutes(validMinutes));
-        updateById(activity);
-        refreshActivityCacheState(activityId);
-        return Result.ok(activity);
+        ActivityCheckInStatsDTO stats = cacheClient.queryWithPassThrough(
+                CACHE_ACTIVITY_CHECK_IN_STATS_KEY,
+                activityId,
+                ActivityCheckInStatsDTO.class,
+                this::loadCheckInStats,
+                CACHE_ACTIVITY_CHECK_IN_STATS_TTL,
+                TimeUnit.MINUTES
+        );
+        return Result.ok(stats);
     }
 
     @Override
-    @Transactional
-    public Result checkIn(Long activityId, ActivityCheckInDTO dto) {
+    public Result queryCheckInRecords(Long activityId, Integer current, Integer pageSize) {
         Activity activity = getById(activityId);
         if (activity == null) {
             return Result.fail("活动不存在");
         }
-        if (!Boolean.TRUE.equals(activity.getCheckInEnabled()) || StrUtil.isBlank(activity.getCheckInCode())) {
-            return Result.fail("当前活动未开启签到");
+        if (!Objects.equals(activity.getCreatorId(), UserHolder.getUser().getId())) {
+            return Result.fail("无权查看签到记录");
         }
-        if (dto == null || StrUtil.isBlank(dto.getCheckInCode())) {
-            return Result.fail("签到码不能为空");
+        CachedCheckInRecordPage cachedPage = queryCachedCheckInRecordPage(activityId, current, pageSize);
+        return Result.ok(cachedPage.getRecords(), cachedPage.getTotal());
+    }
+
+    private Result doVerifyCheckIn(Activity activity, ActivityCheckInVerifyDTO dto, Long operatorId,
+                                   String idempotencyKey, String fingerprint) {
+        ActivityVoucher voucher = findVoucher(dto);
+        if (voucher == null) {
+            Result result = Result.fail("凭证不存在或无效");
+            recordCheckInAttempt(activity.getId(), null, null, operatorId, idempotencyKey, fingerprint,
+                    CHECK_IN_RESULT_INVALID_VOUCHER, result);
+            return result;
         }
-        if (!activity.getCheckInCode().equals(dto.getCheckInCode())) {
-            return Result.fail("签到码错误");
+        if (!Objects.equals(voucher.getActivityId(), activity.getId())) {
+            Result result = Result.fail("凭证与当前活动不匹配");
+            recordCheckInAttempt(activity.getId(), voucher.getId(), voucher.getUserId(), operatorId, idempotencyKey,
+                    fingerprint, CHECK_IN_RESULT_ACTIVITY_MISMATCH, result);
+            return result;
         }
-        if (activity.getCheckInCodeExpireTime() != null && LocalDateTime.now().isAfter(activity.getCheckInCodeExpireTime())) {
-            return Result.fail("签到码已过期");
+        ActivityRegistration registration = activityRegistrationMapper.selectById(voucher.getRegistrationId());
+        if (registration == null || !Objects.equals(registration.getStatus(), REGISTRATION_ACTIVE)) {
+            Result result = Result.fail("报名记录不存在或已失效");
+            recordCheckInAttempt(activity.getId(), voucher.getId(), voucher.getUserId(), operatorId, idempotencyKey,
+                    fingerprint, CHECK_IN_RESULT_NOT_REGISTERED, result);
+            return result;
         }
         LocalDateTime now = LocalDateTime.now();
-        if (activity.getEventStartTime() != null && now.isBefore(activity.getEventStartTime())) {
-            return Result.fail("活动尚未开始签到");
+        if (isBeforeCheckInWindow(activity, now)) {
+            Result result = Result.fail("未到签到时间窗口");
+            recordCheckInAttempt(activity.getId(), voucher.getId(), voucher.getUserId(), operatorId, idempotencyKey,
+                    fingerprint, CHECK_IN_RESULT_OUT_OF_WINDOW, result);
+            return result;
         }
-        if (activity.getEventEndTime() != null && now.isAfter(activity.getEventEndTime())) {
-            return Result.fail("活动已结束，无法签到");
+        if (isAfterCheckInWindow(activity, now)) {
+            expireVoucherIfNeeded(voucher);
+            Result result = Result.fail("已超过签到时间窗口");
+            recordCheckInAttempt(activity.getId(), voucher.getId(), voucher.getUserId(), operatorId, idempotencyKey,
+                    fingerprint, CHECK_IN_RESULT_OUT_OF_WINDOW, result);
+            return result;
         }
-        ActivityRegistration registration = activityRegistrationMapper.selectOne(new QueryWrapper<ActivityRegistration>()
-                .eq("activity_id", activityId)
-                .eq("user_id", UserHolder.getUser().getId()));
-        if (registration == null) {
-            return Result.fail("请先报名再签到");
+        if (!VOUCHER_STATUS_UNUSED.equals(voucher.getStatus())) {
+            return handleUnavailableVoucher(activity.getId(), voucher, operatorId, idempotencyKey, fingerprint);
         }
-        if (Objects.equals(registration.getCheckInStatus(), CHECKED_IN)) {
-            return Result.fail("你已经签到过了");
+        return completeCheckIn(activity.getId(), registration, voucher, operatorId, idempotencyKey, fingerprint, now);
+    }
+
+    @Transactional
+    protected Result completeCheckIn(Long activityId, ActivityRegistration registration, ActivityVoucher voucher,
+                                     Long operatorId, String idempotencyKey, String fingerprint, LocalDateTime now) {
+        UpdateWrapper<ActivityVoucher> voucherUpdate = new UpdateWrapper<>();
+        voucherUpdate.eq("id", voucher.getId())
+                .eq("status", VOUCHER_STATUS_UNUSED)
+                .set("status", VOUCHER_STATUS_CHECKED_IN)
+                .set("checked_in_time", now)
+                .set("checked_in_by", operatorId);
+        int updated = activityVoucherMapper.update(null, voucherUpdate);
+        if (updated == 0) {
+            ActivityVoucher latest = activityVoucherMapper.selectById(voucher.getId());
+            if (latest == null) {
+                Result result = Result.fail("凭证不存在或无效");
+                recordCheckInAttempt(activityId, voucher.getId(), voucher.getUserId(), operatorId, idempotencyKey,
+                        fingerprint, CHECK_IN_RESULT_INVALID_VOUCHER, result);
+                return result;
+            }
+            return handleUnavailableVoucher(activityId, latest, operatorId, idempotencyKey, fingerprint);
         }
-        registration.setCheckInStatus(CHECKED_IN);
-        registration.setCheckInTime(now);
-        activityRegistrationMapper.updateById(registration);
-        return Result.ok();
+
+        UpdateWrapper<ActivityRegistration> registrationUpdate = new UpdateWrapper<>();
+        registrationUpdate.eq("id", registration.getId())
+                .set("check_in_status", CHECKED_IN)
+                .set("check_in_time", now)
+                .set("voucher_id", voucher.getId());
+        activityRegistrationMapper.update(null, registrationUpdate);
+
+        ActivityVoucher latest = activityVoucherMapper.selectById(voucher.getId());
+        ActivityCheckInResultDTO payload = buildCheckInResult(activityId, latest, CHECK_IN_RESULT_SUCCESS, "签到成功");
+        Result result = Result.ok(payload);
+        evictActivityCache(activityId, false);
+        recordCheckInAttempt(activityId, voucher.getId(), voucher.getUserId(), operatorId, idempotencyKey, fingerprint,
+                CHECK_IN_RESULT_SUCCESS, result);
+        return result;
+    }
+
+    private Result handleUnavailableVoucher(Long activityId, ActivityVoucher voucher, Long operatorId,
+                                            String idempotencyKey, String fingerprint) {
+        if (VOUCHER_STATUS_CHECKED_IN.equals(voucher.getStatus())) {
+            ActivityCheckInResultDTO payload = buildCheckInResult(activityId, voucher,
+                    CHECK_IN_RESULT_ALREADY_CHECKED_IN, "该凭证已签到");
+            Result result = Result.ok(payload);
+            recordCheckInAttempt(activityId, voucher.getId(), voucher.getUserId(), operatorId, idempotencyKey, fingerprint,
+                    CHECK_IN_RESULT_ALREADY_CHECKED_IN, result);
+            return result;
+        }
+        String message = VOUCHER_STATUS_CANCELED.equals(voucher.getStatus()) ? "凭证已取消" :
+                (VOUCHER_STATUS_EXPIRED.equals(voucher.getStatus()) ? "凭证已失效" : "凭证当前不可签到");
+        Result result = Result.fail(message);
+        recordCheckInAttempt(activityId, voucher.getId(), voucher.getUserId(), operatorId, idempotencyKey, fingerprint,
+                CHECK_IN_RESULT_INVALID_VOUCHER, result);
+        return result;
+    }
+
+    private Result resolveCachedCheckInResult(String redisKey, String fingerprint) {
+        String cachedJson = stringRedisTemplate.opsForValue().get(redisKey);
+        if (StrUtil.isBlank(cachedJson)) {
+            return null;
+        }
+        JSONObject jsonObject = JSONUtil.parseObj(cachedJson);
+        String cachedFingerprint = jsonObject.getStr("fingerprint");
+        if (StrUtil.isNotBlank(cachedFingerprint) && !Objects.equals(cachedFingerprint, fingerprint)) {
+            return Result.fail("Idempotency-Key与请求参数冲突");
+        }
+        String status = jsonObject.getStr("status");
+        if (IDEMPOTENCY_STATUS_PROCESSING.equals(status)) {
+            return Result.fail("请求处理中，请稍后重试");
+        }
+        Boolean success = jsonObject.getBool("success");
+        if (Boolean.TRUE.equals(success)) {
+            Object response = jsonObject.get("data");
+            ActivityCheckInResultDTO payload = response == null ? null :
+                    JSONUtil.toBean(JSONUtil.parseObj(response), ActivityCheckInResultDTO.class);
+            return Result.ok(payload);
+        }
+        return Result.fail(jsonObject.getStr("errorMsg", "签到核销失败，请稍后重试"));
+    }
+
+    private void cacheCheckInResult(String redisKey, String fingerprint, Result result) {
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.set("fingerprint", fingerprint);
+        jsonObject.set("status", Boolean.TRUE.equals(result.getSuccess()) ? IDEMPOTENCY_STATUS_SUCCESS : IDEMPOTENCY_STATUS_FAILED);
+        jsonObject.set("success", result.getSuccess());
+        jsonObject.set("errorMsg", result.getErrorMsg());
+        jsonObject.set("data", result.getData());
+        stringRedisTemplate.opsForValue().set(redisKey, jsonObject.toString(),
+                ACTIVITY_CHECK_IN_IDEMPOTENCY_TTL_MINUTES, TimeUnit.MINUTES);
+    }
+
+    private ActivityCheckInResultDTO buildCheckInResult(Long activityId, ActivityVoucher voucher,
+                                                        String resultStatus, String message) {
+        ActivityCheckInResultDTO payload = new ActivityCheckInResultDTO();
+        payload.setActivityId(activityId);
+        payload.setVoucherId(voucher.getId());
+        payload.setDisplayCode(voucher.getDisplayCode());
+        payload.setUserId(voucher.getUserId());
+        payload.setUserNickName(voucher.getUserNickName());
+        payload.setVoucherStatus(voucher.getStatus());
+        payload.setResultStatus(resultStatus);
+        payload.setMessage(message);
+        payload.setCheckedInTime(voucher.getCheckedInTime());
+        payload.setCheckedInBy(voucher.getCheckedInBy());
+        return payload;
+    }
+
+    private void recordCheckInAttempt(Long activityId, Long voucherId, Long userId, Long operatorId, String requestKey,
+                                      String requestFingerprint, String resultStatus, Result result) {
+        ActivityCheckInRecord record = new ActivityCheckInRecord();
+        record.setId(redisIdWorker.nextId("activity-checkin-record"));
+        record.setActivityId(activityId);
+        record.setVoucherId(voucherId);
+        record.setUserId(userId);
+        record.setOperatorId(operatorId);
+        record.setResultStatus(resultStatus);
+        record.setRequestKey(requestKey);
+        record.setRequestFingerprint(requestFingerprint);
+        record.setResponseBody(JSONUtil.toJsonStr(result));
+        activityCheckInRecordMapper.insert(record);
+    }
+
+    private ActivityVoucher findVoucher(ActivityCheckInVerifyDTO dto) {
+        if (dto.getVoucherId() != null) {
+            ActivityVoucher voucher = activityVoucherMapper.selectById(dto.getVoucherId());
+            if (voucher != null && StrUtil.isNotBlank(voucher.getDisplayCode())) {
+                cacheVoucherDisplayCode(voucher);
+            }
+            return voucher;
+        }
+        String displayCode = dto.getDisplayCode().trim().toUpperCase();
+        String cachedVoucherId = stringRedisTemplate.opsForValue().get(ACTIVITY_VOUCHER_DISPLAY_KEY + displayCode);
+        ActivityVoucher voucher = null;
+        if (StrUtil.isNotBlank(cachedVoucherId)) {
+            voucher = activityVoucherMapper.selectById(Long.valueOf(cachedVoucherId));
+        }
+        if (voucher == null) {
+            voucher = activityVoucherMapper.selectOne(new QueryWrapper<ActivityVoucher>().eq("display_code", displayCode));
+            if (voucher != null) {
+                cacheVoucherDisplayCode(voucher);
+            }
+        }
+        if (voucher != null) {
+            attachVoucherUserInfo(Collections.singletonList(voucher));
+        }
+        return voucher;
+    }
+
+    private void cacheVoucherDisplayCode(ActivityVoucher voucher) {
+        if (voucher == null || StrUtil.isBlank(voucher.getDisplayCode())) {
+            return;
+        }
+        stringRedisTemplate.opsForValue().set(
+                ACTIVITY_VOUCHER_DISPLAY_KEY + voucher.getDisplayCode(),
+                voucher.getId().toString(),
+                1,
+                TimeUnit.DAYS
+        );
+    }
+
+    private String buildCheckInFingerprint(Long activityId, ActivityCheckInVerifyDTO dto) {
+        String payload = "activityId=" + activityId
+                + "|voucherId=" + String.valueOf(dto.getVoucherId())
+                + "|displayCode=" + StrUtil.blankToDefault(dto.getDisplayCode(), "").trim().toUpperCase();
+        return DigestUtil.md5Hex(payload);
+    }
+
+    private boolean isBeforeCheckInWindow(Activity activity, LocalDateTime now) {
+        return activity.getEventStartTime() != null
+                && now.isBefore(activity.getEventStartTime().minusMinutes(CHECK_IN_OPEN_BEFORE_MINUTES));
+    }
+
+    private boolean isAfterCheckInWindow(Activity activity, LocalDateTime now) {
+        return activity.getEventEndTime() != null
+                && now.isAfter(activity.getEventEndTime().plusMinutes(CHECK_IN_CLOSE_AFTER_MINUTES));
+    }
+
+    private void expireVoucherIfNeeded(ActivityVoucher voucher) {
+        if (voucher == null || !VOUCHER_STATUS_UNUSED.equals(voucher.getStatus())) {
+            return;
+        }
+        UpdateWrapper<ActivityVoucher> wrapper = new UpdateWrapper<>();
+        wrapper.eq("id", voucher.getId())
+                .eq("status", VOUCHER_STATUS_UNUSED)
+                .set("status", VOUCHER_STATUS_EXPIRED);
+        activityVoucherMapper.update(null, wrapper);
+        voucher.setStatus(VOUCHER_STATUS_EXPIRED);
     }
 
     private void enrichActivities(List<Activity> activities, UserDTO user) {
         if (activities == null || activities.isEmpty()) {
             return;
         }
-        Map<Long, ActivityRegistration> registrationMap = Collections.emptyMap();
+        Map<Long, ActivityUserStateCache> userStateMap = Collections.emptyMap();
         if (user != null) {
             List<Long> activityIds = activities.stream().map(Activity::getId).collect(Collectors.toList());
-            List<ActivityRegistration> registrations = activityRegistrationMapper.selectList(new QueryWrapper<ActivityRegistration>()
-                    .eq("user_id", user.getId())
-                    .in("activity_id", activityIds));
-            registrationMap = registrations.stream().collect(Collectors.toMap(ActivityRegistration::getActivityId, r -> r, (a, b) -> a));
+            userStateMap = queryActivityUserStateCache(activityIds, user.getId());
         }
         LocalDateTime now = LocalDateTime.now();
         for (Activity activity : activities) {
-            ActivityRegistration registration = registrationMap.get(activity.getId());
-            boolean registered = registration != null;
+            ActivityUserStateCache userState = userStateMap.get(activity.getId());
+            boolean registered = userState != null && Boolean.TRUE.equals(userState.getRegistered());
             if (!registered && user != null) {
                 Boolean member = stringRedisTemplate.opsForSet().isMember(activityRegisterUsersKey(activity.getId()), user.getId().toString());
                 registered = Boolean.TRUE.equals(member);
             }
             activity.setRegistered(registered);
-            activity.setCheckedIn(registration != null && Objects.equals(registration.getCheckInStatus(), CHECKED_IN));
+            activity.setCheckedIn(userState != null && Boolean.TRUE.equals(userState.getCheckedIn()));
             boolean canManage = user != null && Objects.equals(activity.getCreatorId(), user.getId());
             activity.setCanManage(canManage);
             activity.setRegistrationOpen(isRegistrationOpen(activity, now));
-            if (!canManage) {
-                activity.setCheckInCode(null);
-                activity.setCheckInCodeExpireTime(null);
-            }
+            activity.setVoucherId(userState == null ? null : userState.getVoucherId());
+            activity.setVoucherDisplayCode(userState == null ? null : userState.getVoucherDisplayCode());
+            activity.setVoucherStatus(userState == null ? null : userState.getVoucherStatus());
+            activity.setVoucherIssuedTime(userState == null ? null : userState.getVoucherIssuedTime());
+            activity.setVoucherCheckedInTime(userState == null ? null : userState.getVoucherCheckedInTime());
+            activity.setCheckInCode(null);
+            activity.setCheckInCodeExpireTime(null);
         }
     }
 
@@ -422,7 +750,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
             registration.setOrganizerName(activity.getOrganizerName());
             registration.setEventStartTime(activity.getEventStartTime());
             registration.setEventEndTime(activity.getEventEndTime());
-            registration.setCheckInEnabled(activity.getCheckInEnabled());
+            registration.setCheckInEnabled(Boolean.TRUE);
         }
     }
 
@@ -440,6 +768,187 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
             registration.setUserNickName(user.getNickName());
             registration.setUserPhone(user.getPhone());
             registration.setUserIcon(user.getIcon());
+        }
+    }
+
+    private void enrichRegistrationVoucherInfo(List<ActivityRegistration> registrations) {
+        if (registrations == null || registrations.isEmpty()) {
+            return;
+        }
+        List<Long> registrationIds = registrations.stream().map(ActivityRegistration::getId).collect(Collectors.toList());
+        List<ActivityVoucher> vouchers = activityVoucherMapper.selectList(new QueryWrapper<ActivityVoucher>()
+                .in("registration_id", registrationIds));
+        Map<Long, ActivityVoucher> voucherMap = vouchers.stream()
+                .collect(Collectors.toMap(ActivityVoucher::getRegistrationId, v -> v, (a, b) -> a));
+        Map<Long, String> operatorNameMap = queryUserNameMap(vouchers.stream()
+                .map(ActivityVoucher::getCheckedInBy)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList()));
+        for (ActivityRegistration registration : registrations) {
+            ActivityVoucher voucher = voucherMap.get(registration.getId());
+            if (voucher == null) {
+                continue;
+            }
+            registration.setVoucherId(voucher.getId());
+            registration.setVoucherDisplayCode(voucher.getDisplayCode());
+            registration.setVoucherStatus(voucher.getStatus());
+            registration.setVoucherIssuedTime(voucher.getIssuedTime());
+            registration.setCheckedInBy(voucher.getCheckedInBy());
+            registration.setCheckedInByName(operatorNameMap.get(voucher.getCheckedInBy()));
+            registration.setCheckInStatus(VOUCHER_STATUS_CHECKED_IN.equals(voucher.getStatus()) ? CHECKED_IN : CHECKED_OUT);
+            registration.setCheckInTime(voucher.getCheckedInTime());
+        }
+    }
+
+    private void enrichCheckInRecords(List<ActivityCheckInRecord> records) {
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        List<Long> userIds = new ArrayList<>();
+        for (ActivityCheckInRecord record : records) {
+            if (record.getUserId() != null) {
+                userIds.add(record.getUserId());
+            }
+            if (record.getOperatorId() != null) {
+                userIds.add(record.getOperatorId());
+            }
+        }
+        Map<Long, String> userNameMap = queryUserNameMap(userIds.stream().distinct().collect(Collectors.toList()));
+        for (ActivityCheckInRecord record : records) {
+            if (record.getResponseBody() == null) {
+                continue;
+            }
+            JSONObject response = JSONUtil.parseObj(record.getResponseBody());
+            JSONObject data = response.getJSONObject("data");
+            if (data != null) {
+                data.set("userNickName", userNameMap.get(record.getUserId()));
+                data.set("operatorName", userNameMap.get(record.getOperatorId()));
+                record.setResponseBody(data.toString());
+            }
+        }
+    }
+
+    private Map<Long, ActivityVoucher> queryVoucherMapByActivityIdsAndUserId(List<Long> activityIds, Long userId) {
+        if (activityIds == null || activityIds.isEmpty() || userId == null) {
+            return Collections.emptyMap();
+        }
+        List<ActivityVoucher> vouchers = activityVoucherMapper.selectList(new QueryWrapper<ActivityVoucher>()
+                .eq("user_id", userId)
+                .in("activity_id", activityIds));
+        return vouchers.stream().collect(Collectors.toMap(ActivityVoucher::getActivityId, v -> v, (a, b) -> a));
+    }
+
+    private Map<Long, ActivityUserStateCache> queryActivityUserStateCache(List<Long> activityIds, Long userId) {
+        if (activityIds == null || activityIds.isEmpty() || userId == null) {
+            return Collections.emptyMap();
+        }
+        List<String> keys = activityIds.stream()
+                .map(activityId -> activityUserStateKey(activityId, userId))
+                .collect(Collectors.toList());
+        List<String> cacheValues = stringRedisTemplate.opsForValue().multiGet(keys);
+        Map<Long, ActivityUserStateCache> stateMap = new HashMap<>(activityIds.size());
+        List<Long> missedActivityIds = new ArrayList<>();
+        for (int i = 0; i < activityIds.size(); i++) {
+            Long activityId = activityIds.get(i);
+            String cacheJson = cacheValues == null ? null : cacheValues.get(i);
+            if (StrUtil.isBlank(cacheJson)) {
+                missedActivityIds.add(activityId);
+                continue;
+            }
+            stateMap.put(activityId, JSONUtil.toBean(cacheJson, ActivityUserStateCache.class));
+        }
+        if (missedActivityIds.isEmpty()) {
+            return stateMap;
+        }
+
+        List<ActivityRegistration> registrations = activityRegistrationMapper.selectList(new QueryWrapper<ActivityRegistration>()
+                .eq("user_id", userId)
+                .in("activity_id", missedActivityIds));
+        Map<Long, ActivityRegistration> registrationMap = registrations.stream()
+                .collect(Collectors.toMap(ActivityRegistration::getActivityId, r -> r, (a, b) -> a));
+        Map<Long, ActivityVoucher> voucherMap = queryVoucherMapByActivityIdsAndUserId(missedActivityIds, userId);
+
+        for (Long activityId : missedActivityIds) {
+            ActivityRegistration registration = registrationMap.get(activityId);
+            ActivityVoucher voucher = voucherMap.get(activityId);
+            ActivityUserStateCache state = new ActivityUserStateCache();
+            state.setRegistered(registration != null);
+            state.setCheckedIn(voucher != null && VOUCHER_STATUS_CHECKED_IN.equals(voucher.getStatus()));
+            state.setVoucherId(voucher == null ? null : voucher.getId());
+            state.setVoucherDisplayCode(voucher == null ? null : voucher.getDisplayCode());
+            state.setVoucherStatus(voucher == null ? null : voucher.getStatus());
+            state.setVoucherIssuedTime(voucher == null ? null : voucher.getIssuedTime());
+            state.setVoucherCheckedInTime(voucher == null ? null : voucher.getCheckedInTime());
+            stateMap.put(activityId, state);
+            stringRedisTemplate.opsForValue().set(
+                    activityUserStateKey(activityId, userId),
+                    JSONUtil.toJsonStr(state),
+                    CACHE_ACTIVITY_USER_STATE_TTL,
+                    TimeUnit.MINUTES
+            );
+        }
+        return stateMap;
+    }
+
+    private ActivityCheckInStatsDTO loadCheckInStats(Long activityId) {
+        long registeredCount = activityRegistrationMapper.selectCount(new QueryWrapper<ActivityRegistration>()
+                .eq("activity_id", activityId)
+                .eq("status", REGISTRATION_ACTIVE));
+        long checkedInCount = activityVoucherMapper.selectCount(new QueryWrapper<ActivityVoucher>()
+                .eq("activity_id", activityId)
+                .eq("status", VOUCHER_STATUS_CHECKED_IN));
+        long uncheckedCount = Math.max(registeredCount - checkedInCount, 0);
+        double checkInRate = registeredCount == 0 ? 0D : (checkedInCount * 100D / registeredCount);
+        return new ActivityCheckInStatsDTO(registeredCount, checkedInCount, uncheckedCount, checkInRate);
+    }
+
+    private CachedCheckInRecordPage queryCachedCheckInRecordPage(Long activityId, Integer current, Integer pageSize) {
+        int normalizedPageSize = normalizePageSize(pageSize);
+        int currentPage = current == null || current < 1 ? 1 : current;
+        String key = activityCheckInRecordsKey(activityId, currentPage, normalizedPageSize);
+        String cacheJson = stringRedisTemplate.opsForValue().get(key);
+        if (StrUtil.isNotBlank(cacheJson)) {
+            JSONObject jsonObject = JSONUtil.parseObj(cacheJson);
+            JSONArray recordsArray = jsonObject.getJSONArray("records");
+            List<ActivityCheckInRecord> records = recordsArray == null ? new ArrayList<>() : recordsArray.toList(ActivityCheckInRecord.class);
+            Long total = jsonObject.getLong("total", 0L);
+            return new CachedCheckInRecordPage(records, total);
+        }
+        Page<ActivityCheckInRecord> page = new Page<>(currentPage, normalizedPageSize);
+        QueryWrapper<ActivityCheckInRecord> wrapper = new QueryWrapper<ActivityCheckInRecord>()
+                .eq("activity_id", activityId)
+                .eq("result_status", CHECK_IN_RESULT_SUCCESS)
+                .orderByDesc("create_time");
+        activityCheckInRecordMapper.selectPage(page, wrapper);
+        List<ActivityCheckInRecord> records = page.getRecords();
+        enrichCheckInRecords(records);
+        Map<String, Object> cacheValue = new HashMap<>(2);
+        cacheValue.put("total", page.getTotal());
+        cacheValue.put("records", records);
+        stringRedisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(cacheValue), CACHE_ACTIVITY_CHECK_IN_RECORDS_TTL, TimeUnit.MINUTES);
+        return new CachedCheckInRecordPage(records, page.getTotal());
+    }
+
+    private Map<Long, String> queryUserNameMap(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return userMapper.selectBatchIds(userIds).stream()
+                .collect(Collectors.toMap(User::getId, User::getNickName, (a, b) -> a));
+    }
+
+    private void attachVoucherUserInfo(List<ActivityVoucher> vouchers) {
+        if (vouchers == null || vouchers.isEmpty()) {
+            return;
+        }
+        Map<Long, String> userNameMap = queryUserNameMap(vouchers.stream()
+                .map(ActivityVoucher::getUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList()));
+        for (ActivityVoucher voucher : vouchers) {
+            voucher.setUserNickName(userNameMap.get(voucher.getUserId()));
         }
     }
 
@@ -488,7 +997,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                 "keyword=" + StrUtil.blankToDefault(keyword, ""),
                 "current=" + currentPage,
                 "pageSize=" + normalizedPageSize);
-        String key = CACHE_ACTIVITY_LIST_KEY + currentActivityCacheVersion() + ":" + DigestUtil.md5Hex(params);
+        String key = CACHE_ACTIVITY_LIST_KEY + DigestUtil.md5Hex(params);
         String cacheJson = stringRedisTemplate.opsForValue().get(key);
         if (StrUtil.isNotBlank(cacheJson)) {
             return parseCachedActivityPage(cacheJson);
@@ -517,19 +1026,14 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         return new CachedActivityPage(records, total);
     }
 
-    private void refreshActivityCacheState(Long activityId) {
+    private void refreshActivityCacheState(Long activityId, boolean evictCategoryCache) {
         Activity latest = getById(activityId);
         if (latest == null) {
-            stringRedisTemplate.delete(CACHE_ACTIVITY_DETAIL_KEY + activityId);
-            stringRedisTemplate.delete(activityMetaKey(activityId));
-            stringRedisTemplate.delete(activitySlotsKey(activityId));
-            stringRedisTemplate.delete(activityRegisterUsersKey(activityId));
-            bumpActivityCacheVersion();
+            evictActivityCache(activityId, evictCategoryCache);
             return;
         }
-        stringRedisTemplate.delete(CACHE_ACTIVITY_DETAIL_KEY + activityId);
+        evictActivityCache(activityId, evictCategoryCache);
         initActivityRegistrationCache(latest);
-        bumpActivityCacheVersion();
     }
 
     private void ensureActivityRegistrationCache(Activity activity) {
@@ -580,16 +1084,24 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                 .eq("activity_id", activityId)
                 .eq("user_id", userId));
         if (existing != null) {
+            ensureVoucherForRegistration(existing);
             return true;
         }
         ActivityRegistration registration = new ActivityRegistration();
         registration.setActivityId(activityId);
         registration.setUserId(userId);
         registration.setStatus(REGISTRATION_ACTIVE);
-        registration.setCheckInStatus(0);
+        registration.setCheckInStatus(CHECKED_OUT);
         try {
             activityRegistrationMapper.insert(registration);
         } catch (DuplicateKeyException e) {
+            ActivityRegistration duplicated = activityRegistrationMapper.selectOne(new QueryWrapper<ActivityRegistration>()
+                    .eq("activity_id", activityId)
+                    .eq("user_id", userId));
+            if (duplicated != null) {
+                ensureVoucherForRegistration(duplicated);
+                return true;
+            }
             return true;
         }
         UpdateWrapper<Activity> wrapper = new UpdateWrapper<>();
@@ -600,32 +1112,100 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         if (!updated) {
             throw new IllegalStateException("活动报名落库时名额不足");
         }
-        stringRedisTemplate.delete(CACHE_ACTIVITY_DETAIL_KEY + activityId);
+        ActivityVoucher voucher = createVoucherForRegistration(registration);
+        registration.setVoucherId(voucher.getId());
+        activityRegistrationMapper.updateById(registration);
+        evictActivityCache(activityId, false);
         return true;
+    }
+
+    private ActivityVoucher ensureVoucherForRegistration(ActivityRegistration registration) {
+        ActivityVoucher existingVoucher = activityVoucherMapper.selectOne(new QueryWrapper<ActivityVoucher>()
+                .eq("registration_id", registration.getId()));
+        if (existingVoucher != null) {
+            if (registration.getVoucherId() == null || !Objects.equals(registration.getVoucherId(), existingVoucher.getId())) {
+                registration.setVoucherId(existingVoucher.getId());
+                activityRegistrationMapper.updateById(registration);
+            }
+            cacheVoucherDisplayCode(existingVoucher);
+            return existingVoucher;
+        }
+        ActivityVoucher voucher = createVoucherForRegistration(registration);
+        registration.setVoucherId(voucher.getId());
+        activityRegistrationMapper.updateById(registration);
+        return voucher;
+    }
+
+    private ActivityVoucher createVoucherForRegistration(ActivityRegistration registration) {
+        ActivityVoucher voucher = new ActivityVoucher();
+        voucher.setId(redisIdWorker.nextId("activity-voucher"));
+        voucher.setActivityId(registration.getActivityId());
+        voucher.setRegistrationId(registration.getId());
+        voucher.setUserId(registration.getUserId());
+        voucher.setStatus(VOUCHER_STATUS_UNUSED);
+        voucher.setIssuedTime(LocalDateTime.now());
+        for (int i = 0; i < 10; i++) {
+            voucher.setDisplayCode(generateDisplayCode());
+            try {
+                activityVoucherMapper.insert(voucher);
+                cacheVoucherDisplayCode(voucher);
+                return voucher;
+            } catch (DuplicateKeyException e) {
+                log.warn("签到凭证展示码冲突，重试生成 activityId={}, registrationId={}",
+                        registration.getActivityId(), registration.getId());
+            }
+        }
+        throw new IllegalStateException("签到凭证生成失败，请稍后重试");
+    }
+
+    private String generateDisplayCode() {
+        StringBuilder builder = new StringBuilder(DISPLAY_CODE_LENGTH);
+        for (int i = 0; i < DISPLAY_CODE_LENGTH; i++) {
+            int index = (int) (Math.random() * DISPLAY_CODE_CHARS.length());
+            builder.append(DISPLAY_CODE_CHARS.charAt(index));
+        }
+        return builder.toString();
     }
 
     private void compensateRegistrationCache(Long activityId, Long userId) {
         stringRedisTemplate.opsForValue().increment(activitySlotsKey(activityId));
         stringRedisTemplate.opsForSet().remove(activityRegisterUsersKey(activityId), userId.toString());
+        evictActivityCache(activityId, false);
+    }
+
+    private void evictActivityCache(Long activityId, boolean evictCategoryCache) {
         stringRedisTemplate.delete(CACHE_ACTIVITY_DETAIL_KEY + activityId);
-        bumpActivityCacheVersion();
-    }
-
-    private long currentActivityCacheVersion() {
-        String version = stringRedisTemplate.opsForValue().get(ACTIVITY_CACHE_VERSION_KEY);
-        if (StrUtil.isBlank(version)) {
-            stringRedisTemplate.opsForValue().setIfAbsent(ACTIVITY_CACHE_VERSION_KEY, String.valueOf(LIST_VERSION_DEFAULT));
-            return LIST_VERSION_DEFAULT;
+        String listPattern = CACHE_ACTIVITY_LIST_KEY + "*";
+        java.util.Set<String> listKeys = stringRedisTemplate.keys(listPattern);
+        if (listKeys != null && !listKeys.isEmpty()) {
+            stringRedisTemplate.delete(listKeys);
         }
-        return Long.parseLong(version);
-    }
-
-    private void bumpActivityCacheVersion() {
-        if (!Boolean.TRUE.equals(stringRedisTemplate.hasKey(ACTIVITY_CACHE_VERSION_KEY))) {
-            stringRedisTemplate.opsForValue().set(ACTIVITY_CACHE_VERSION_KEY, String.valueOf(LIST_VERSION_DEFAULT));
+        if (evictCategoryCache) {
+            stringRedisTemplate.delete(CACHE_ACTIVITY_CATEGORIES_KEY);
+        }
+        if (activityId == null) {
             return;
         }
-        stringRedisTemplate.opsForValue().increment(ACTIVITY_CACHE_VERSION_KEY);
+        java.util.Set<String> userStateKeys = stringRedisTemplate.keys(CACHE_ACTIVITY_USER_STATE_KEY + activityId + ":*");
+        if (userStateKeys != null && !userStateKeys.isEmpty()) {
+            stringRedisTemplate.delete(userStateKeys);
+        }
+        java.util.Set<String> recordKeys = stringRedisTemplate.keys(CACHE_ACTIVITY_CHECK_IN_RECORDS_KEY + activityId + ":*");
+        if (recordKeys != null && !recordKeys.isEmpty()) {
+            stringRedisTemplate.delete(recordKeys);
+        }
+        stringRedisTemplate.delete(CACHE_ACTIVITY_CHECK_IN_STATS_KEY + activityId);
+        stringRedisTemplate.delete(activityMetaKey(activityId));
+        stringRedisTemplate.delete(activitySlotsKey(activityId));
+        stringRedisTemplate.delete(activityRegisterUsersKey(activityId));
+    }
+
+    private String activityUserStateKey(Long activityId, Long userId) {
+        return CACHE_ACTIVITY_USER_STATE_KEY + activityId + ":" + userId;
+    }
+
+    private String activityCheckInRecordsKey(Long activityId, Integer current, Integer pageSize) {
+        return CACHE_ACTIVITY_CHECK_IN_RECORDS_KEY + activityId + ":" + current + ":" + pageSize;
     }
 
     private String activityMetaKey(Long activityId) {
@@ -739,6 +1319,90 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
 
         public Long getTotal() {
             return total;
+        }
+    }
+
+    private static class CachedCheckInRecordPage {
+        private final List<ActivityCheckInRecord> records;
+        private final Long total;
+
+        private CachedCheckInRecordPage(List<ActivityCheckInRecord> records, Long total) {
+            this.records = records;
+            this.total = total;
+        }
+
+        public List<ActivityCheckInRecord> getRecords() {
+            return records;
+        }
+
+        public Long getTotal() {
+            return total;
+        }
+    }
+
+    private static class ActivityUserStateCache {
+        private Boolean registered;
+        private Boolean checkedIn;
+        private Long voucherId;
+        private String voucherDisplayCode;
+        private String voucherStatus;
+        private LocalDateTime voucherIssuedTime;
+        private LocalDateTime voucherCheckedInTime;
+
+        public Boolean getRegistered() {
+            return registered;
+        }
+
+        public void setRegistered(Boolean registered) {
+            this.registered = registered;
+        }
+
+        public Boolean getCheckedIn() {
+            return checkedIn;
+        }
+
+        public void setCheckedIn(Boolean checkedIn) {
+            this.checkedIn = checkedIn;
+        }
+
+        public Long getVoucherId() {
+            return voucherId;
+        }
+
+        public void setVoucherId(Long voucherId) {
+            this.voucherId = voucherId;
+        }
+
+        public String getVoucherDisplayCode() {
+            return voucherDisplayCode;
+        }
+
+        public void setVoucherDisplayCode(String voucherDisplayCode) {
+            this.voucherDisplayCode = voucherDisplayCode;
+        }
+
+        public String getVoucherStatus() {
+            return voucherStatus;
+        }
+
+        public void setVoucherStatus(String voucherStatus) {
+            this.voucherStatus = voucherStatus;
+        }
+
+        public LocalDateTime getVoucherIssuedTime() {
+            return voucherIssuedTime;
+        }
+
+        public void setVoucherIssuedTime(LocalDateTime voucherIssuedTime) {
+            this.voucherIssuedTime = voucherIssuedTime;
+        }
+
+        public LocalDateTime getVoucherCheckedInTime() {
+            return voucherCheckedInTime;
+        }
+
+        public void setVoucherCheckedInTime(LocalDateTime voucherCheckedInTime) {
+            this.voucherCheckedInTime = voucherCheckedInTime;
         }
     }
 }

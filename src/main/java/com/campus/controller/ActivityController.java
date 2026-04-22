@@ -1,7 +1,6 @@
 package com.campus.controller;
 
-import com.campus.dto.ActivityCheckInCodeDTO;
-import com.campus.dto.ActivityCheckInDTO;
+import com.campus.dto.ActivityCheckInVerifyDTO;
 import com.campus.dto.Result;
 import com.campus.entity.Activity;
 import com.campus.service.IActivityService;
@@ -65,6 +64,11 @@ public class ActivityController {
         return activityService.register(activityId);
     }
 
+    @DeleteMapping("/{id}/register")
+    public Result cancelRegistration(@PathVariable("id") Long activityId) {
+        return activityService.cancelRegistration(activityId);
+    }
+
     @GetMapping("/registration/mine")
     public Result queryMyRegistrations(
             @RequestParam(value = "current", defaultValue = "1") Integer current,
@@ -80,19 +84,30 @@ public class ActivityController {
         return activityService.queryActivityRegistrations(activityId, current, pageSize);
     }
 
-    @PostMapping("/manage/{id}/checkin-code")
-    public Result updateCheckInCode(@PathVariable("id") Long activityId, @RequestBody ActivityCheckInCodeDTO dto) {
-        return activityService.updateCheckInCode(activityId, dto);
-    }
-
     @PostMapping("/manage/image")
     public Result uploadActivityImage(@RequestParam("file") MultipartFile file) {
         String url = ossService.uploadActivityImage(UserHolder.getUser().getId(), file);
         return Result.ok(url);
     }
 
-    @PostMapping("/{id}/checkin")
-    public Result checkIn(@PathVariable("id") Long activityId, @RequestBody ActivityCheckInDTO dto) {
-        return activityService.checkIn(activityId, dto);
+    @PostMapping("/manage/{id}/check-in/verify")
+    public Result verifyCheckIn(
+            @PathVariable("id") Long activityId,
+            @RequestBody ActivityCheckInVerifyDTO dto,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        return activityService.verifyCheckIn(activityId, dto, idempotencyKey);
+    }
+
+    @GetMapping("/manage/{id}/check-in/stats")
+    public Result queryCheckInStats(@PathVariable("id") Long activityId) {
+        return activityService.queryCheckInStats(activityId);
+    }
+
+    @GetMapping("/manage/{id}/check-in/records")
+    public Result queryCheckInRecords(
+            @PathVariable("id") Long activityId,
+            @RequestParam(value = "current", defaultValue = "1") Integer current,
+            @RequestParam(value = "pageSize", defaultValue = "" + SystemConstants.MAX_PAGE_SIZE) Integer pageSize) {
+        return activityService.queryCheckInRecords(activityId, current, pageSize);
     }
 }

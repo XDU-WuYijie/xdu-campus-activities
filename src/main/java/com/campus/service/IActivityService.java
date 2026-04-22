@@ -1,8 +1,7 @@
 package com.campus.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.campus.dto.ActivityCheckInCodeDTO;
-import com.campus.dto.ActivityCheckInDTO;
+import com.campus.dto.ActivityCheckInVerifyDTO;
 import com.campus.dto.Result;
 import com.campus.entity.Activity;
 
@@ -22,11 +21,15 @@ public interface IActivityService extends IService<Activity> {
 
     Result register(Long activityId);
 
+    Result cancelRegistration(Long activityId);
+
     Result queryMyRegistrations(Integer current, Integer pageSize);
 
     Result queryActivityRegistrations(Long activityId, Integer current, Integer pageSize);
 
-    Result updateCheckInCode(Long activityId, ActivityCheckInCodeDTO dto);
+    Result verifyCheckIn(Long activityId, ActivityCheckInVerifyDTO dto, String idempotencyKey);
 
-    Result checkIn(Long activityId, ActivityCheckInDTO dto);
+    Result queryCheckInStats(Long activityId);
+
+    Result queryCheckInRecords(Long activityId, Integer current, Integer pageSize);
 }
