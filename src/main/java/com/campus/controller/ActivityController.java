@@ -64,6 +64,11 @@ public class ActivityController {
         return activityService.register(activityId);
     }
 
+    @GetMapping("/{id}/register/status")
+    public Result queryRegistrationStatus(@PathVariable("id") Long activityId) {
+        return activityService.queryRegistrationStatus(activityId);
+    }
+
     @DeleteMapping("/{id}/register")
     public Result cancelRegistration(@PathVariable("id") Long activityId) {
         return activityService.cancelRegistration(activityId);

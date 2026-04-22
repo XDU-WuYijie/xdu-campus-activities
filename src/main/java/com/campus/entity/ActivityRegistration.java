@@ -25,12 +25,17 @@ public class ActivityRegistration implements Serializable {
     private Long activityId;
     private Long userId;
     private Integer status;
+    private String requestId;
+    private String failReason;
     private Integer checkInStatus;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime checkInTime;
 
     private Long voucherId;
+
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime confirmTime;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
@@ -88,4 +93,7 @@ public class ActivityRegistration implements Serializable {
 
     @TableField(exist = false)
     private String checkedInByName;
+
+    @TableField(exist = false)
+    private String statusText;
 }

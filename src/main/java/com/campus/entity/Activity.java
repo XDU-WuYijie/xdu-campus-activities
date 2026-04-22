@@ -73,6 +73,18 @@ public class Activity implements Serializable {
     private Boolean registrationOpen;
 
     @TableField(exist = false)
+    private String registrationStatus;
+
+    @TableField(exist = false)
+    private String registrationMessage;
+
+    @TableField(exist = false)
+    private String registrationRequestId;
+
+    @TableField(exist = false)
+    private String registrationFailReason;
+
+    @TableField(exist = false)
     private Long voucherId;
 
     @TableField(exist = false)

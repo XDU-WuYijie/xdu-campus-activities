@@ -9,9 +9,14 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.campus.config.ActivityRegisterProperties;
 import com.campus.dto.ActivityCheckInResultDTO;
 import com.campus.dto.ActivityCheckInStatsDTO;
 import com.campus.dto.ActivityCheckInVerifyDTO;
+import com.campus.dto.ActivityRegisterResponseDTO;
+import com.campus.dto.ActivityRegistrationEventDTO;
+import com.campus.dto.ActivityRegistrationPushDTO;
+import com.campus.dto.ActivityRegistrationStatusDTO;
 import com.campus.dto.Result;
 import com.campus.dto.UserDTO;
 import com.campus.entity.Activity;
@@ -29,7 +34,9 @@ import com.campus.utils.CacheClient;
 import com.campus.utils.RedisIdWorker;
 import com.campus.utils.SystemConstants;
 import com.campus.utils.UserHolder;
+import com.campus.websocket.ActivityRegistrationSessionRegistry;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -53,9 +60,12 @@ import java.util.stream.Collectors;
 
 import static com.campus.utils.RedisConstants.ACTIVITY_CHECK_IN_IDEMPOTENCY_KEY;
 import static com.campus.utils.RedisConstants.ACTIVITY_CHECK_IN_IDEMPOTENCY_TTL_MINUTES;
+import static com.campus.utils.RedisConstants.ACTIVITY_FROZEN_KEY;
 import static com.campus.utils.RedisConstants.ACTIVITY_META_KEY;
 import static com.campus.utils.RedisConstants.ACTIVITY_REGISTER_USERS_KEY;
-import static com.campus.utils.RedisConstants.ACTIVITY_SLOTS_KEY;
+import static com.campus.utils.RedisConstants.ACTIVITY_STOCK_KEY;
+import static com.campus.utils.RedisConstants.ACTIVITY_USER_REGISTER_STATE_KEY;
+import static com.campus.utils.RedisConstants.ACTIVITY_USER_REGISTER_STATE_TTL_HOURS;
 import static com.campus.utils.RedisConstants.ACTIVITY_VOUCHER_DISPLAY_KEY;
 import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_CATEGORIES_KEY;
 import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_CATEGORIES_TTL;
@@ -67,17 +77,23 @@ import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_DETAIL_KEY;
 import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_DETAIL_TTL;
 import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_LIST_KEY;
 import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_LIST_TTL;
-import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_USER_STATE_KEY;
-import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_USER_STATE_TTL;
 
 @Slf4j
 @Service
 public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> implements IActivityService {
 
     private static final int STATUS_PUBLISHED = 2;
-    private static final int REGISTRATION_ACTIVE = 1;
+    private static final int REGISTRATION_PENDING = 0;
+    private static final int REGISTRATION_SUCCESS = 1;
+    private static final int REGISTRATION_FAILED = 2;
+    private static final int REGISTRATION_CANCELED = 3;
     private static final int CHECKED_IN = 1;
     private static final int CHECKED_OUT = 0;
+    private static final String REGISTRATION_STATUS_PENDING = "PENDING_CONFIRM";
+    private static final String REGISTRATION_STATUS_SUCCESS = "SUCCESS";
+    private static final String REGISTRATION_STATUS_FAILED = "FAILED";
+    private static final String REGISTRATION_STATUS_CANCELED = "CANCELED";
+    private static final String REGISTRATION_STATUS_NONE = "NOT_REGISTERED";
     private static final int DISPLAY_CODE_LENGTH = 8;
     private static final String DISPLAY_CODE_CHARS = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
     private static final String VOUCHER_STATUS_UNUSED = "UNUSED";
@@ -126,6 +142,15 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
 
     @Resource
     private TransactionTemplate transactionTemplate;
+
+    @Resource
+    private RocketMQTemplate rocketMQTemplate;
+
+    @Resource
+    private ActivityRegisterProperties activityRegisterProperties;
+
+    @Resource
+    private ActivityRegistrationSessionRegistry activityRegistrationSessionRegistry;
 
     @Override
     public Result queryPublicActivities(String keyword, String category, Integer status, Integer current, Integer pageSize) {
@@ -267,25 +292,35 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         }
         ensureActivityRegistrationCache(activity);
         Long userId = currentUser.getId();
+        String requestId = String.valueOf(redisIdWorker.nextId("activity-register"));
         Long result = stringRedisTemplate.execute(
                 ACTIVITY_REGISTER_SCRIPT,
                 Collections.emptyList(),
                 activityId.toString(),
                 userId.toString(),
-                String.valueOf(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC))
+                String.valueOf(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)),
+                requestId
         );
         int code = result == null ? -1 : result.intValue();
         if (code == 0) {
             try {
-                Boolean saved = transactionTemplate.execute(status -> saveRegistrationRecord(activityId, userId));
-                if (!Boolean.TRUE.equals(saved)) {
-                    compensateRegistrationCache(activityId, userId);
-                    return Result.fail("活动不存在");
-                }
-                return Result.ok();
+                ActivityRegistrationEventDTO event = new ActivityRegistrationEventDTO();
+                event.setActivityId(activityId);
+                event.setUserId(userId);
+                event.setRequestId(requestId);
+                event.setCreateTime(LocalDateTime.now());
+                rocketMQTemplate.convertAndSend(activityRegisterProperties.getTopic(), event);
+                cachePendingRegistrationStatus(activityId, userId, requestId);
+                return Result.ok(new ActivityRegisterResponseDTO(
+                        activityId,
+                        requestId,
+                        REGISTRATION_STATUS_PENDING,
+                        "报名确认中，请稍候"
+                ));
             } catch (Exception e) {
-                log.error("活动报名同步落库失败，执行缓存补偿 activityId={}, userId={}", activityId, userId, e);
-                compensateRegistrationCache(activityId, userId);
+                log.error("活动报名消息发送失败，执行缓存补偿 activityId={}, userId={}, requestId={}",
+                        activityId, userId, requestId, e);
+                rollbackReservation(activityId, userId, requestId, "报名失败，请稍后重试");
                 return Result.fail("报名失败，请稍后重试");
             }
         }
@@ -312,6 +347,17 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     }
 
     @Override
+    public Result queryRegistrationStatus(Long activityId) {
+        Activity activity = getById(activityId);
+        if (activity == null) {
+            return Result.fail("活动不存在");
+        }
+        Long userId = UserHolder.getUser().getId();
+        ActivityRegistrationStatusDTO status = resolveRegistrationStatus(activityId, userId);
+        return Result.ok(status);
+    }
+
+    @Override
     @Transactional
     public Result cancelRegistration(Long activityId) {
         Activity activity = getById(activityId);
@@ -329,7 +375,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         ActivityRegistration registration = activityRegistrationMapper.selectOne(new QueryWrapper<ActivityRegistration>()
                 .eq("activity_id", activityId)
                 .eq("user_id", currentUser.getId())
-                .eq("status", REGISTRATION_ACTIVE));
+                .eq("status", REGISTRATION_SUCCESS));
         if (registration == null) {
             return Result.fail("你当前未报名该活动");
         }
@@ -345,7 +391,13 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                 stringRedisTemplate.delete(ACTIVITY_VOUCHER_DISPLAY_KEY + voucher.getDisplayCode());
             }
         }
-        activityRegistrationMapper.deleteById(registration.getId());
+        ActivityRegistration update = new ActivityRegistration();
+        update.setId(registration.getId());
+        update.setStatus(REGISTRATION_CANCELED);
+        update.setFailReason("用户主动取消报名");
+        update.setVoucherId(null);
+        update.setConfirmTime(LocalDateTime.now());
+        activityRegistrationMapper.updateById(update);
         UpdateWrapper<Activity> wrapper = new UpdateWrapper<>();
         wrapper.setSql("registered_count = registered_count - 1")
                 .eq("id", activityId)
@@ -353,8 +405,9 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         update(null, wrapper);
 
         stringRedisTemplate.opsForSet().remove(activityRegisterUsersKey(activityId), currentUser.getId().toString());
-        stringRedisTemplate.opsForValue().increment(activitySlotsKey(activityId));
-        evictActivityCache(activityId, false);
+        stringRedisTemplate.opsForValue().increment(activityStockKey(activityId));
+        cacheCanceledRegistrationStatus(activityId, currentUser.getId(), registration.getRequestId(), "已退出活动");
+        refreshActivityCacheState(activityId, false);
         return Result.ok();
     }
 
@@ -486,7 +539,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
             return result;
         }
         ActivityRegistration registration = activityRegistrationMapper.selectById(voucher.getRegistrationId());
-        if (registration == null || !Objects.equals(registration.getStatus(), REGISTRATION_ACTIVE)) {
+        if (registration == null || !Objects.equals(registration.getStatus(), REGISTRATION_SUCCESS)) {
             Result result = Result.fail("报名记录不存在或已失效");
             recordCheckInAttempt(activity.getId(), voucher.getId(), voucher.getUserId(), operatorId, idempotencyKey,
                     fingerprint, CHECK_IN_RESULT_NOT_REGISTERED, result);
@@ -712,16 +765,20 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         LocalDateTime now = LocalDateTime.now();
         for (Activity activity : activities) {
             ActivityUserStateCache userState = userStateMap.get(activity.getId());
-            boolean registered = userState != null && Boolean.TRUE.equals(userState.getRegistered());
+            boolean registered = userState != null && REGISTRATION_STATUS_SUCCESS.equals(userState.getStatus());
             if (!registered && user != null) {
                 Boolean member = stringRedisTemplate.opsForSet().isMember(activityRegisterUsersKey(activity.getId()), user.getId().toString());
-                registered = Boolean.TRUE.equals(member);
+                registered = Boolean.TRUE.equals(member) && userState != null && REGISTRATION_STATUS_SUCCESS.equals(userState.getStatus());
             }
             activity.setRegistered(registered);
             activity.setCheckedIn(userState != null && Boolean.TRUE.equals(userState.getCheckedIn()));
             boolean canManage = user != null && Objects.equals(activity.getCreatorId(), user.getId());
             activity.setCanManage(canManage);
             activity.setRegistrationOpen(isRegistrationOpen(activity, now));
+            activity.setRegistrationStatus(userState == null ? REGISTRATION_STATUS_NONE : userState.getStatus());
+            activity.setRegistrationMessage(userState == null ? "未报名" : userState.getMessage());
+            activity.setRegistrationRequestId(userState == null ? null : userState.getRequestId());
+            activity.setRegistrationFailReason(userState == null ? null : userState.getFailReason());
             activity.setVoucherId(userState == null ? null : userState.getVoucherId());
             activity.setVoucherDisplayCode(userState == null ? null : userState.getVoucherDisplayCode());
             activity.setVoucherStatus(userState == null ? null : userState.getVoucherStatus());
@@ -786,6 +843,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                 .distinct()
                 .collect(Collectors.toList()));
         for (ActivityRegistration registration : registrations) {
+            registration.setStatusText(readRegistrationStatusText(registration.getStatus()));
             ActivityVoucher voucher = voucherMap.get(registration.getId());
             if (voucher == null) {
                 continue;
@@ -843,20 +901,15 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         if (activityIds == null || activityIds.isEmpty() || userId == null) {
             return Collections.emptyMap();
         }
-        List<String> keys = activityIds.stream()
-                .map(activityId -> activityUserStateKey(activityId, userId))
-                .collect(Collectors.toList());
-        List<String> cacheValues = stringRedisTemplate.opsForValue().multiGet(keys);
         Map<Long, ActivityUserStateCache> stateMap = new HashMap<>(activityIds.size());
         List<Long> missedActivityIds = new ArrayList<>();
-        for (int i = 0; i < activityIds.size(); i++) {
-            Long activityId = activityIds.get(i);
-            String cacheJson = cacheValues == null ? null : cacheValues.get(i);
-            if (StrUtil.isBlank(cacheJson)) {
+        for (Long activityId : activityIds) {
+            ActivityUserStateCache redisState = getUserStateFromRedis(activityId, userId);
+            if (redisState == null) {
                 missedActivityIds.add(activityId);
                 continue;
             }
-            stateMap.put(activityId, JSONUtil.toBean(cacheJson, ActivityUserStateCache.class));
+            stateMap.put(activityId, redisState);
         }
         if (missedActivityIds.isEmpty()) {
             return stateMap;
@@ -872,21 +925,9 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         for (Long activityId : missedActivityIds) {
             ActivityRegistration registration = registrationMap.get(activityId);
             ActivityVoucher voucher = voucherMap.get(activityId);
-            ActivityUserStateCache state = new ActivityUserStateCache();
-            state.setRegistered(registration != null);
-            state.setCheckedIn(voucher != null && VOUCHER_STATUS_CHECKED_IN.equals(voucher.getStatus()));
-            state.setVoucherId(voucher == null ? null : voucher.getId());
-            state.setVoucherDisplayCode(voucher == null ? null : voucher.getDisplayCode());
-            state.setVoucherStatus(voucher == null ? null : voucher.getStatus());
-            state.setVoucherIssuedTime(voucher == null ? null : voucher.getIssuedTime());
-            state.setVoucherCheckedInTime(voucher == null ? null : voucher.getCheckedInTime());
+            ActivityUserStateCache state = buildUserState(registration, voucher);
             stateMap.put(activityId, state);
-            stringRedisTemplate.opsForValue().set(
-                    activityUserStateKey(activityId, userId),
-                    JSONUtil.toJsonStr(state),
-                    CACHE_ACTIVITY_USER_STATE_TTL,
-                    TimeUnit.MINUTES
-            );
+            cacheUserRegistrationState(activityId, userId, state);
         }
         return stateMap;
     }
@@ -894,7 +935,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     private ActivityCheckInStatsDTO loadCheckInStats(Long activityId) {
         long registeredCount = activityRegistrationMapper.selectCount(new QueryWrapper<ActivityRegistration>()
                 .eq("activity_id", activityId)
-                .eq("status", REGISTRATION_ACTIVE));
+                .eq("status", REGISTRATION_SUCCESS));
         long checkedInCount = activityVoucherMapper.selectCount(new QueryWrapper<ActivityVoucher>()
                 .eq("activity_id", activityId)
                 .eq("status", VOUCHER_STATUS_CHECKED_IN));
@@ -957,7 +998,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
             return;
         }
         List<String> slotKeys = activities.stream()
-                .map(activity -> activitySlotsKey(activity.getId()))
+                .map(activity -> activityStockKey(activity.getId()))
                 .collect(Collectors.toList());
         List<String> remainingList = stringRedisTemplate.opsForValue().multiGet(slotKeys);
         List<Activity> missingActivities = new ArrayList<>();
@@ -972,7 +1013,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         }
         for (Activity activity : missingActivities) {
             ensureActivityRegistrationCache(activity);
-            String remainingValue = stringRedisTemplate.opsForValue().get(activitySlotsKey(activity.getId()));
+            String remainingValue = stringRedisTemplate.opsForValue().get(activityStockKey(activity.getId()));
             if (StrUtil.isNotBlank(remainingValue)) {
                 applyRegisteredCount(activity, Integer.parseInt(remainingValue));
             }
@@ -1050,21 +1091,27 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         meta.put("registrationStartEpoch", String.valueOf(toEpoch(activity.getRegistrationStartTime())));
         meta.put("registrationEndEpoch", String.valueOf(toEpoch(activity.getRegistrationEndTime())));
         meta.put("maxParticipants", String.valueOf(activity.getMaxParticipants() == null ? 0 : activity.getMaxParticipants()));
-        meta.put("registeredCountBase", String.valueOf(activity.getRegisteredCount() == null ? 0 : activity.getRegisteredCount()));
         stringRedisTemplate.opsForHash().putAll(activityMetaKey(activity.getId()), meta);
 
-        int maxParticipants = activity.getMaxParticipants() == null ? 0 : activity.getMaxParticipants();
-        int registeredCount = activity.getRegisteredCount() == null ? 0 : activity.getRegisteredCount();
-        int remainingSlots = Math.max(maxParticipants - registeredCount, 0);
-        stringRedisTemplate.opsForValue().set(activitySlotsKey(activity.getId()), String.valueOf(remainingSlots));
-
         List<ActivityRegistration> registrations = activityRegistrationMapper.selectList(new QueryWrapper<ActivityRegistration>()
-                .select("user_id")
                 .eq("activity_id", activity.getId()));
+        int successCount = (int) registrations.stream()
+                .filter(item -> Objects.equals(item.getStatus(), REGISTRATION_SUCCESS))
+                .count();
+        int pendingCount = (int) registrations.stream()
+                .filter(item -> Objects.equals(item.getStatus(), REGISTRATION_PENDING))
+                .count();
+        int maxParticipants = activity.getMaxParticipants() == null ? 0 : activity.getMaxParticipants();
+        int remainingSlots = Math.max(maxParticipants - successCount - pendingCount, 0);
+        stringRedisTemplate.opsForValue().set(activityStockKey(activity.getId()), String.valueOf(remainingSlots));
+        stringRedisTemplate.opsForValue().set(activityFrozenKey(activity.getId()), String.valueOf(Math.max(pendingCount, 0)));
+
         String usersKey = activityRegisterUsersKey(activity.getId());
         stringRedisTemplate.delete(usersKey);
         if (!registrations.isEmpty()) {
             String[] userIds = registrations.stream()
+                    .filter(item -> Objects.equals(item.getStatus(), REGISTRATION_SUCCESS)
+                            || Objects.equals(item.getStatus(), REGISTRATION_PENDING))
                     .map(ActivityRegistration::getUserId)
                     .filter(Objects::nonNull)
                     .map(String::valueOf)
@@ -1072,51 +1119,116 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
             if (userIds.length > 0) {
                 stringRedisTemplate.opsForSet().add(usersKey, userIds);
             }
+            Map<Long, ActivityVoucher> voucherMap = activityVoucherMapper.selectList(new QueryWrapper<ActivityVoucher>()
+                            .eq("activity_id", activity.getId()))
+                    .stream()
+                    .collect(Collectors.toMap(ActivityVoucher::getRegistrationId, v -> v, (a, b) -> a));
+            for (ActivityRegistration registration : registrations) {
+                ActivityUserStateCache state = buildUserState(registration, voucherMap.get(registration.getId()));
+                cacheUserRegistrationState(activity.getId(), registration.getUserId(), state);
+            }
         }
     }
 
-    private Boolean saveRegistrationRecord(Long activityId, Long userId) {
+    @Transactional
+    public void confirmRegistration(ActivityRegistrationEventDTO event) {
+        if (event == null || event.getActivityId() == null || event.getUserId() == null || StrUtil.isBlank(event.getRequestId())) {
+            return;
+        }
+        Long activityId = event.getActivityId();
+        Long userId = event.getUserId();
+        String requestId = event.getRequestId();
         Activity activity = getById(activityId);
-        if (activity == null) {
-            return false;
+        if (activity == null || !Objects.equals(activity.getStatus(), STATUS_PUBLISHED)) {
+            finalizeRegistrationFailure(activityId, userId, requestId, "活动不存在或已下线");
+            return;
         }
-        ActivityRegistration existing = activityRegistrationMapper.selectOne(new QueryWrapper<ActivityRegistration>()
-                .eq("activity_id", activityId)
-                .eq("user_id", userId));
-        if (existing != null) {
-            ensureVoucherForRegistration(existing);
-            return true;
-        }
-        ActivityRegistration registration = new ActivityRegistration();
-        registration.setActivityId(activityId);
-        registration.setUserId(userId);
-        registration.setStatus(REGISTRATION_ACTIVE);
-        registration.setCheckInStatus(CHECKED_OUT);
         try {
-            activityRegistrationMapper.insert(registration);
-        } catch (DuplicateKeyException e) {
-            ActivityRegistration duplicated = activityRegistrationMapper.selectOne(new QueryWrapper<ActivityRegistration>()
-                    .eq("activity_id", activityId)
-                    .eq("user_id", userId));
-            if (duplicated != null) {
-                ensureVoucherForRegistration(duplicated);
-                return true;
+            ActivityRegistrationStatusDTO status = transactionTemplate.execute(tx -> saveRegistrationRecord(activity, userId, requestId));
+            if (status == null) {
+                finalizeRegistrationFailure(activityId, userId, requestId, "报名失败，请稍后重试");
+                return;
             }
-            return true;
+            publishRegistrationResult(userId, status);
+        } catch (Exception e) {
+            log.error("活动报名确认失败 activityId={}, userId={}, requestId={}", activityId, userId, requestId, e);
+            finalizeRegistrationFailure(activityId, userId, requestId, "报名失败，请稍后重试");
         }
-        UpdateWrapper<Activity> wrapper = new UpdateWrapper<>();
-        wrapper.setSql("registered_count = registered_count + 1")
-                .eq("id", activityId)
-                .lt("registered_count", activity.getMaxParticipants());
-        boolean updated = update(null, wrapper);
-        if (!updated) {
-            throw new IllegalStateException("活动报名落库时名额不足");
+    }
+
+    private ActivityRegistrationStatusDTO saveRegistrationRecord(Activity activity, Long userId, String requestId) {
+        ActivityRegistration existing = activityRegistrationMapper.selectOne(new QueryWrapper<ActivityRegistration>()
+                .eq("activity_id", activity.getId())
+                .eq("user_id", userId));
+        boolean shouldIncreaseRegisteredCount = false;
+        ActivityRegistration registration;
+        if (existing != null && Objects.equals(existing.getStatus(), REGISTRATION_SUCCESS)) {
+            ActivityVoucher voucher = ensureVoucherForRegistration(existing);
+            ActivityRegistrationStatusDTO status = buildRegistrationStatus(existing, voucher);
+            cacheFinalRegistrationStatus(activity.getId(), userId, status);
+            refreshActivityCacheState(activity.getId(), false);
+            return status;
         }
-        ActivityVoucher voucher = createVoucherForRegistration(registration);
+        if (existing == null) {
+            registration = new ActivityRegistration();
+            registration.setActivityId(activity.getId());
+            registration.setUserId(userId);
+            registration.setStatus(REGISTRATION_SUCCESS);
+            registration.setRequestId(requestId);
+            registration.setFailReason(null);
+            registration.setCheckInStatus(CHECKED_OUT);
+            registration.setConfirmTime(LocalDateTime.now());
+            try {
+                activityRegistrationMapper.insert(registration);
+            } catch (DuplicateKeyException e) {
+                existing = activityRegistrationMapper.selectOne(new QueryWrapper<ActivityRegistration>()
+                        .eq("activity_id", activity.getId())
+                        .eq("user_id", userId));
+                if (existing == null) {
+                    throw e;
+                }
+                registration = existing;
+                shouldIncreaseRegisteredCount = !Objects.equals(existing.getStatus(), REGISTRATION_SUCCESS);
+            }
+            if (existing == null) {
+                shouldIncreaseRegisteredCount = true;
+            }
+        } else {
+            registration = existing;
+            shouldIncreaseRegisteredCount = !Objects.equals(existing.getStatus(), REGISTRATION_SUCCESS);
+            ActivityRegistration update = new ActivityRegistration();
+            update.setId(existing.getId());
+            update.setStatus(REGISTRATION_SUCCESS);
+            update.setRequestId(requestId);
+            update.setFailReason(null);
+            update.setCheckInStatus(CHECKED_OUT);
+            update.setConfirmTime(LocalDateTime.now());
+            activityRegistrationMapper.updateById(update);
+            registration.setStatus(REGISTRATION_SUCCESS);
+            registration.setRequestId(requestId);
+            registration.setFailReason(null);
+            registration.setCheckInStatus(CHECKED_OUT);
+            registration.setConfirmTime(update.getConfirmTime());
+        }
+
+        if (shouldIncreaseRegisteredCount) {
+            UpdateWrapper<Activity> wrapper = new UpdateWrapper<>();
+            wrapper.setSql("registered_count = registered_count + 1")
+                    .eq("id", activity.getId())
+                    .lt("registered_count", activity.getMaxParticipants());
+            boolean updated = update(null, wrapper);
+            if (!updated) {
+                throw new IllegalStateException("活动报名落库时名额不足");
+            }
+        }
+        ActivityVoucher voucher = ensureVoucherForRegistration(registration);
         registration.setVoucherId(voucher.getId());
         activityRegistrationMapper.updateById(registration);
-        evictActivityCache(activityId, false);
-        return true;
+        ActivityRegistrationStatusDTO status = buildRegistrationStatus(registration, voucher);
+        stringRedisTemplate.opsForValue().decrement(activityFrozenKey(activity.getId()));
+        cacheFinalRegistrationStatus(activity.getId(), userId, status);
+        refreshActivityCacheState(activity.getId(), false);
+        return status;
     }
 
     private ActivityVoucher ensureVoucherForRegistration(ActivityRegistration registration) {
@@ -1167,10 +1279,283 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         return builder.toString();
     }
 
-    private void compensateRegistrationCache(Long activityId, Long userId) {
-        stringRedisTemplate.opsForValue().increment(activitySlotsKey(activityId));
+    private void rollbackReservation(Long activityId, Long userId, String requestId, String reason) {
+        stringRedisTemplate.opsForValue().increment(activityStockKey(activityId));
+        stringRedisTemplate.opsForValue().decrement(activityFrozenKey(activityId));
         stringRedisTemplate.opsForSet().remove(activityRegisterUsersKey(activityId), userId.toString());
+        ActivityUserStateCache state = new ActivityUserStateCache();
+        state.setStatus(REGISTRATION_STATUS_FAILED);
+        state.setRequestId(requestId);
+        state.setMessage(reason);
+        state.setFailReason(reason);
+        state.setRegistered(false);
+        cacheUserRegistrationState(activityId, userId, state);
         evictActivityCache(activityId, false);
+    }
+
+    private void finalizeRegistrationFailure(Long activityId, Long userId, String requestId, String reason) {
+        transactionTemplate.executeWithoutResult(tx -> {
+            ActivityRegistration existing = activityRegistrationMapper.selectOne(new QueryWrapper<ActivityRegistration>()
+                    .eq("activity_id", activityId)
+                    .eq("user_id", userId));
+            if (existing == null) {
+                ActivityRegistration registration = new ActivityRegistration();
+                registration.setActivityId(activityId);
+                registration.setUserId(userId);
+                registration.setStatus(REGISTRATION_FAILED);
+                registration.setRequestId(requestId);
+                registration.setFailReason(reason);
+                registration.setCheckInStatus(CHECKED_OUT);
+                registration.setConfirmTime(LocalDateTime.now());
+                activityRegistrationMapper.insert(registration);
+            } else {
+                ActivityRegistration update = new ActivityRegistration();
+                update.setId(existing.getId());
+                update.setStatus(REGISTRATION_FAILED);
+                update.setRequestId(requestId);
+                update.setFailReason(reason);
+                update.setConfirmTime(LocalDateTime.now());
+                activityRegistrationMapper.updateById(update);
+            }
+        });
+        rollbackReservation(activityId, userId, requestId, reason);
+        ActivityRegistrationStatusDTO status = resolveRegistrationStatus(activityId, userId);
+        publishRegistrationResult(userId, status);
+    }
+
+    private void publishRegistrationResult(Long userId, ActivityRegistrationStatusDTO status) {
+        if (status == null) {
+            return;
+        }
+        ActivityRegistrationPushDTO push = new ActivityRegistrationPushDTO();
+        push.setEvent("activity_register_result");
+        push.setPayload(status);
+        activityRegistrationSessionRegistry.push(userId, push);
+    }
+
+    private ActivityRegistrationStatusDTO buildRegistrationStatus(ActivityRegistration registration, ActivityVoucher voucher) {
+        ActivityRegistrationStatusDTO status = new ActivityRegistrationStatusDTO();
+        if (registration != null) {
+            status.setActivityId(registration.getActivityId());
+            status.setUserId(registration.getUserId());
+            status.setRequestId(registration.getRequestId());
+            status.setStatus(mapRegistrationStatus(registration.getStatus()));
+            status.setFailReason(registration.getFailReason());
+            status.setConfirmTime(registration.getConfirmTime());
+            status.setMessage(buildRegistrationMessage(registration.getStatus(), registration.getFailReason()));
+        }
+        if (voucher != null) {
+            status.setVoucherId(voucher.getId());
+            status.setVoucherDisplayCode(voucher.getDisplayCode());
+            status.setVoucherStatus(voucher.getStatus());
+            status.setVoucherIssuedTime(voucher.getIssuedTime());
+            status.setVoucherCheckedInTime(voucher.getCheckedInTime());
+        }
+        return status;
+    }
+
+    private ActivityRegistrationStatusDTO resolveRegistrationStatus(Long activityId, Long userId) {
+        ActivityUserStateCache redisState = getUserStateFromRedis(activityId, userId);
+        if (redisState != null) {
+            return buildRegistrationStatus(redisState, activityId, userId);
+        }
+        ActivityRegistration registration = activityRegistrationMapper.selectOne(new QueryWrapper<ActivityRegistration>()
+                .eq("activity_id", activityId)
+                .eq("user_id", userId));
+        if (registration == null) {
+            ActivityRegistrationStatusDTO status = new ActivityRegistrationStatusDTO();
+            status.setActivityId(activityId);
+            status.setUserId(userId);
+            status.setStatus(REGISTRATION_STATUS_NONE);
+            status.setMessage("未报名");
+            return status;
+        }
+        ActivityVoucher voucher = registration.getVoucherId() == null ? null : activityVoucherMapper.selectById(registration.getVoucherId());
+        ActivityUserStateCache state = buildUserState(registration, voucher);
+        cacheUserRegistrationState(activityId, userId, state);
+        return buildRegistrationStatus(registration, voucher);
+    }
+
+    private ActivityRegistrationStatusDTO buildRegistrationStatus(ActivityUserStateCache state, Long activityId, Long userId) {
+        ActivityRegistrationStatusDTO status = new ActivityRegistrationStatusDTO();
+        status.setActivityId(activityId);
+        status.setUserId(userId);
+        status.setRequestId(state.getRequestId());
+        status.setStatus(state.getStatus());
+        status.setMessage(state.getMessage());
+        status.setFailReason(state.getFailReason());
+        status.setVoucherId(state.getVoucherId());
+        status.setVoucherDisplayCode(state.getVoucherDisplayCode());
+        status.setVoucherStatus(state.getVoucherStatus());
+        status.setConfirmTime(state.getConfirmTime());
+        status.setVoucherIssuedTime(state.getVoucherIssuedTime());
+        status.setVoucherCheckedInTime(state.getVoucherCheckedInTime());
+        return status;
+    }
+
+    private void cachePendingRegistrationStatus(Long activityId, Long userId, String requestId) {
+        ActivityUserStateCache state = new ActivityUserStateCache();
+        state.setStatus(REGISTRATION_STATUS_PENDING);
+        state.setRequestId(requestId);
+        state.setMessage("报名确认中，请稍候");
+        state.setRegistered(false);
+        cacheUserRegistrationState(activityId, userId, state);
+    }
+
+    private void cacheFinalRegistrationStatus(Long activityId, Long userId, ActivityRegistrationStatusDTO dto) {
+        ActivityUserStateCache state = new ActivityUserStateCache();
+        state.setStatus(dto.getStatus());
+        state.setRequestId(dto.getRequestId());
+        state.setMessage(dto.getMessage());
+        state.setFailReason(dto.getFailReason());
+        state.setVoucherId(dto.getVoucherId());
+        state.setVoucherDisplayCode(dto.getVoucherDisplayCode());
+        state.setVoucherStatus(dto.getVoucherStatus());
+        state.setConfirmTime(dto.getConfirmTime());
+        state.setVoucherIssuedTime(dto.getVoucherIssuedTime());
+        state.setVoucherCheckedInTime(dto.getVoucherCheckedInTime());
+        state.setRegistered(REGISTRATION_STATUS_SUCCESS.equals(dto.getStatus()));
+        state.setCheckedIn(VOUCHER_STATUS_CHECKED_IN.equals(dto.getVoucherStatus()));
+        cacheUserRegistrationState(activityId, userId, state);
+    }
+
+    private void cacheCanceledRegistrationStatus(Long activityId, Long userId, String requestId, String message) {
+        ActivityUserStateCache state = new ActivityUserStateCache();
+        state.setStatus(REGISTRATION_STATUS_CANCELED);
+        state.setRequestId(requestId);
+        state.setMessage(message);
+        state.setRegistered(false);
+        cacheUserRegistrationState(activityId, userId, state);
+    }
+
+    private ActivityUserStateCache buildUserState(ActivityRegistration registration, ActivityVoucher voucher) {
+        ActivityUserStateCache state = new ActivityUserStateCache();
+        if (registration == null) {
+            state.setStatus(REGISTRATION_STATUS_NONE);
+            state.setMessage("未报名");
+            state.setRegistered(false);
+            state.setCheckedIn(false);
+            return state;
+        }
+        state.setStatus(mapRegistrationStatus(registration.getStatus()));
+        state.setRequestId(registration.getRequestId());
+        state.setMessage(buildRegistrationMessage(registration.getStatus(), registration.getFailReason()));
+        state.setFailReason(registration.getFailReason());
+        state.setConfirmTime(registration.getConfirmTime());
+        state.setRegistered(Objects.equals(registration.getStatus(), REGISTRATION_SUCCESS));
+        state.setCheckedIn(voucher != null && VOUCHER_STATUS_CHECKED_IN.equals(voucher.getStatus()));
+        state.setVoucherId(voucher == null ? null : voucher.getId());
+        state.setVoucherDisplayCode(voucher == null ? null : voucher.getDisplayCode());
+        state.setVoucherStatus(voucher == null ? null : voucher.getStatus());
+        state.setVoucherIssuedTime(voucher == null ? null : voucher.getIssuedTime());
+        state.setVoucherCheckedInTime(voucher == null ? null : voucher.getCheckedInTime());
+        return state;
+    }
+
+    private ActivityUserStateCache getUserStateFromRedis(Long activityId, Long userId) {
+        Map<Object, Object> stateMap = stringRedisTemplate.opsForHash().entries(activityUserStateKey(activityId, userId));
+        if (stateMap == null || stateMap.isEmpty()) {
+            return null;
+        }
+        ActivityUserStateCache state = new ActivityUserStateCache();
+        state.setStatus((String) stateMap.get("status"));
+        state.setRequestId((String) stateMap.get("requestId"));
+        state.setMessage((String) stateMap.get("message"));
+        state.setFailReason((String) stateMap.get("failReason"));
+        state.setRegistered(Boolean.valueOf(String.valueOf(stateMap.getOrDefault("registered", "false"))));
+        state.setCheckedIn(Boolean.valueOf(String.valueOf(stateMap.getOrDefault("checkedIn", "false"))));
+        state.setVoucherId(parseLongValue(stateMap.get("voucherId")));
+        state.setVoucherDisplayCode((String) stateMap.get("voucherDisplayCode"));
+        state.setVoucherStatus((String) stateMap.get("voucherStatus"));
+        state.setConfirmTime(parseDateTimeValue(stateMap.get("confirmTime")));
+        state.setVoucherIssuedTime(parseDateTimeValue(stateMap.get("voucherIssuedTime")));
+        state.setVoucherCheckedInTime(parseDateTimeValue(stateMap.get("voucherCheckedInTime")));
+        return state;
+    }
+
+    private void cacheUserRegistrationState(Long activityId, Long userId, ActivityUserStateCache state) {
+        if (activityId == null || userId == null || state == null) {
+            return;
+        }
+        Map<String, String> payload = new HashMap<>();
+        payload.put("status", StrUtil.blankToDefault(state.getStatus(), REGISTRATION_STATUS_NONE));
+        payload.put("requestId", StrUtil.blankToDefault(state.getRequestId(), ""));
+        payload.put("message", StrUtil.blankToDefault(state.getMessage(), ""));
+        payload.put("failReason", StrUtil.blankToDefault(state.getFailReason(), ""));
+        payload.put("registered", String.valueOf(Boolean.TRUE.equals(state.getRegistered())));
+        payload.put("checkedIn", String.valueOf(Boolean.TRUE.equals(state.getCheckedIn())));
+        payload.put("voucherId", state.getVoucherId() == null ? "" : state.getVoucherId().toString());
+        payload.put("voucherDisplayCode", StrUtil.blankToDefault(state.getVoucherDisplayCode(), ""));
+        payload.put("voucherStatus", StrUtil.blankToDefault(state.getVoucherStatus(), ""));
+        payload.put("confirmTime", state.getConfirmTime() == null ? "" : state.getConfirmTime().toString());
+        payload.put("voucherIssuedTime", state.getVoucherIssuedTime() == null ? "" : state.getVoucherIssuedTime().toString());
+        payload.put("voucherCheckedInTime", state.getVoucherCheckedInTime() == null ? "" : state.getVoucherCheckedInTime().toString());
+        stringRedisTemplate.opsForHash().putAll(activityUserStateKey(activityId, userId), payload);
+        stringRedisTemplate.expire(activityUserStateKey(activityId, userId), ACTIVITY_USER_REGISTER_STATE_TTL_HOURS, TimeUnit.HOURS);
+    }
+
+    private String mapRegistrationStatus(Integer status) {
+        if (Objects.equals(status, REGISTRATION_PENDING)) {
+            return REGISTRATION_STATUS_PENDING;
+        }
+        if (Objects.equals(status, REGISTRATION_SUCCESS)) {
+            return REGISTRATION_STATUS_SUCCESS;
+        }
+        if (Objects.equals(status, REGISTRATION_FAILED)) {
+            return REGISTRATION_STATUS_FAILED;
+        }
+        if (Objects.equals(status, REGISTRATION_CANCELED)) {
+            return REGISTRATION_STATUS_CANCELED;
+        }
+        return REGISTRATION_STATUS_NONE;
+    }
+
+    private String buildRegistrationMessage(Integer status, String failReason) {
+        if (Objects.equals(status, REGISTRATION_PENDING)) {
+            return "报名确认中，请稍候";
+        }
+        if (Objects.equals(status, REGISTRATION_SUCCESS)) {
+            return "报名成功";
+        }
+        if (Objects.equals(status, REGISTRATION_FAILED)) {
+            return StrUtil.isBlank(failReason) ? "报名失败，请稍后重试" : failReason;
+        }
+        if (Objects.equals(status, REGISTRATION_CANCELED)) {
+            return "已退出活动";
+        }
+        return "未报名";
+    }
+
+    private String readRegistrationStatusText(Integer status) {
+        if (Objects.equals(status, REGISTRATION_PENDING)) {
+            return "报名确认中";
+        }
+        if (Objects.equals(status, REGISTRATION_SUCCESS)) {
+            return "报名成功";
+        }
+        if (Objects.equals(status, REGISTRATION_FAILED)) {
+            return "报名失败";
+        }
+        if (Objects.equals(status, REGISTRATION_CANCELED)) {
+            return "已取消";
+        }
+        return "未知状态";
+    }
+
+    private Long parseLongValue(Object value) {
+        if (value == null) {
+            return null;
+        }
+        String text = value.toString();
+        return StrUtil.isBlank(text) ? null : Long.valueOf(text);
+    }
+
+    private LocalDateTime parseDateTimeValue(Object value) {
+        if (value == null) {
+            return null;
+        }
+        String text = value.toString();
+        return StrUtil.isBlank(text) ? null : LocalDateTime.parse(text);
     }
 
     private void evictActivityCache(Long activityId, boolean evictCategoryCache) {
@@ -1186,7 +1571,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         if (activityId == null) {
             return;
         }
-        java.util.Set<String> userStateKeys = stringRedisTemplate.keys(CACHE_ACTIVITY_USER_STATE_KEY + activityId + ":*");
+        java.util.Set<String> userStateKeys = stringRedisTemplate.keys(activityUserStatePattern(activityId));
         if (userStateKeys != null && !userStateKeys.isEmpty()) {
             stringRedisTemplate.delete(userStateKeys);
         }
@@ -1196,12 +1581,17 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         }
         stringRedisTemplate.delete(CACHE_ACTIVITY_CHECK_IN_STATS_KEY + activityId);
         stringRedisTemplate.delete(activityMetaKey(activityId));
-        stringRedisTemplate.delete(activitySlotsKey(activityId));
+        stringRedisTemplate.delete(activityStockKey(activityId));
+        stringRedisTemplate.delete(activityFrozenKey(activityId));
         stringRedisTemplate.delete(activityRegisterUsersKey(activityId));
     }
 
     private String activityUserStateKey(Long activityId, Long userId) {
-        return CACHE_ACTIVITY_USER_STATE_KEY + activityId + ":" + userId;
+        return ACTIVITY_USER_REGISTER_STATE_KEY + activityId + ":" + userId;
+    }
+
+    private String activityUserStatePattern(Long activityId) {
+        return ACTIVITY_USER_REGISTER_STATE_KEY + activityId + ":*";
     }
 
     private String activityCheckInRecordsKey(Long activityId, Integer current, Integer pageSize) {
@@ -1212,8 +1602,12 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         return ACTIVITY_META_KEY + activityId;
     }
 
-    private String activitySlotsKey(Long activityId) {
-        return ACTIVITY_SLOTS_KEY + activityId;
+    private String activityStockKey(Long activityId) {
+        return ACTIVITY_STOCK_KEY + activityId;
+    }
+
+    private String activityFrozenKey(Long activityId) {
+        return ACTIVITY_FROZEN_KEY + activityId;
     }
 
     private String activityRegisterUsersKey(Long activityId) {
@@ -1343,9 +1737,14 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     private static class ActivityUserStateCache {
         private Boolean registered;
         private Boolean checkedIn;
+        private String status;
+        private String message;
+        private String requestId;
+        private String failReason;
         private Long voucherId;
         private String voucherDisplayCode;
         private String voucherStatus;
+        private LocalDateTime confirmTime;
         private LocalDateTime voucherIssuedTime;
         private LocalDateTime voucherCheckedInTime;
 
@@ -1363,6 +1762,38 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
 
         public void setCheckedIn(Boolean checkedIn) {
             this.checkedIn = checkedIn;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
+
+        public String getRequestId() {
+            return requestId;
+        }
+
+        public void setRequestId(String requestId) {
+            this.requestId = requestId;
+        }
+
+        public String getFailReason() {
+            return failReason;
+        }
+
+        public void setFailReason(String failReason) {
+            this.failReason = failReason;
         }
 
         public Long getVoucherId() {
@@ -1387,6 +1818,14 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
 
         public void setVoucherStatus(String voucherStatus) {
             this.voucherStatus = voucherStatus;
+        }
+
+        public LocalDateTime getConfirmTime() {
+            return confirmTime;
+        }
+
+        public void setConfirmTime(LocalDateTime confirmTime) {
+            this.confirmTime = confirmTime;
         }
 
         public LocalDateTime getVoucherIssuedTime() {

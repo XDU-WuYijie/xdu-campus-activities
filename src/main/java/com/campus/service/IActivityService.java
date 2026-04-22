@@ -21,6 +21,8 @@ public interface IActivityService extends IService<Activity> {
 
     Result register(Long activityId);
 
+    Result queryRegistrationStatus(Long activityId);
+
     Result cancelRegistration(Long activityId);
 
     Result queryMyRegistrations(Integer current, Integer pageSize);
