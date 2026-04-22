@@ -31,3 +31,19 @@ build/
 
 ### VS Code ###
 .vscode/
+# build
+target/
+*.log
+
+# IDEA
+.idea/
+*.iml
+
+# runtime data
+docker/mysql/data/
+docker/redis/data/
+docker/rocketmq/logs/
+docker/rocketmq/store/
+
+# temporary tool output
+.playwright-mcp/
