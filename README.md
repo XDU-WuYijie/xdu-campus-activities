@@ -1,0 +1,164 @@
+# XDU Campus Activities
+
+西电校园大型活动报名与签到平台。
+
+## 技术栈
+
+- 后端：Spring Boot 2.3.12, MyBatis-Plus, Redis, RocketMQ, WebSocket
+- 前端：原生 HTML + Vue 2 + Element UI
+- 数据库：MySQL 8.0
+- 缓存：Redis 7.2
+- 本地基础设施：Docker Compose
+- 静态资源代理：Nginx
+
+## 核心特性
+
+- 活动公开列表、分类、详情查询
+- 主办方创建和编辑活动
+- 学生报名、查看我的报名、活动开始前退出报名
+- 报名异步确认链路：Redis 冻结名额 + RocketMQ 消费确认 + WebSocket 推送
+- 报名成功后自动生成签到凭证
+- 主办方按展示码或凭证 ID 进行签到核销
+- 签到统计、核销记录、报名名单查询
+
+## 目录说明
+
+- `src/main/java`：后端 Java 代码
+- `src/main/resources/db`：数据库脚本
+- `front/html/campus`：前端静态页面
+- `docker-compose.yml`：本地 Docker 开发编排
+- `docker/rocketmq/RocketMQ.conf`：RocketMQ Broker 配置
+- `docker/nginx/nginx.conf`：Nginx 代理配置
+- `功能模块设计.md`：模块设计说明
+- `工程进展.md`：项目进展记录
+
+## 环境要求
+
+- JDK 8
+- Maven 3.6+
+- Docker Desktop
+- MySQL 客户端命令行工具：`mysql` / `mysqldump`
+
+## 本地启动
+
+### 1. 启动 Docker 基础设施
+
+项目当前通过 Docker Compose 启动以下服务：
+
+- MySQL 8.0
+- Redis 7.2
+- RocketMQ NameServer
+- RocketMQ Broker
+- Nginx
+
+启动命令：
+
+```powershell
+docker compose up -d
+```
+
+查看状态：
+
+```powershell
+docker compose ps
+docker compose logs -f
+```
+
+停止服务：
+
+```powershell
+docker compose down
+```
+
+### 2. 后端配置
+
+当前后端默认连接本机映射端口：
+
+- MySQL：`127.0.0.1:3306`
+- Redis：`127.0.0.1:6379`
+- RocketMQ NameServer：`127.0.0.1:9876`
+- Spring Boot：`127.0.0.1:8081`
+- Nginx：`http://127.0.0.1:8080`
+
+对应配置见 `src/main/resources/application.yaml`。
+
+如果使用 OSS 上传，还需要配置环境变量：
+
+```powershell
+$env:OSS_ACCESS_KEY_ID="your-key-id"
+$env:OSS_ACCESS_KEY_SECRET="your-key-secret"
+```
+
+### 3. 启动 Spring Boot
+
+```powershell
+mvn spring-boot:run
+```
+
+或：
+
+```powershell
+mvn -q -DskipTests compile
+```
+
+## 数据库初始化与迁移
+
+### 首次初始化
+
+MySQL 容器第一次启动时，会执行 `src/main/resources/db/init` 下的初始化脚本。
+
+如果你已经有本地 `campus` 库数据，建议使用导出 / 导入方式迁移。
+
+### 从本地 MySQL 迁移到 Docker MySQL
+
+导出本地数据库：
+
+```powershell
+mysqldump -u[用户名] -p[密码] --default-character-set=utf8mb4 --single-transaction --routines --triggers campus > D:\Java\IDEA_JAVA_projects\xdu-campus-activities\docker\mysql\campus.sql
+```
+
+导入到 Docker MySQL：
+
+```powershell
+mysql -h127.0.0.1 -P3306 -u[用户名] -p[密码] campus < "D:\Java\IDEA_JAVA_projects\xdu-campus-activities\docker\mysql\campus.sql"
+```
+
+## 报名异步确认链路
+
+当前报名不是“同步插库后直接成功”，而是异步确认流程：
+
+1. 前端调用 `POST /activity/{id}/register`
+2. 后端先通过 Redis + Lua 校验活动状态、报名时间、重复报名、剩余名额
+3. Redis 先冻结名额，接口返回 `PENDING_CONFIRM`
+4. RocketMQ 消费者异步落库并生成签到凭证
+5. 后端通过 WebSocket 推送最终结果
+6. 前端通过 `GET /activity/{id}/register/status` 兜底刷新状态
+
+相关资源：
+
+- Topic：`activity-register-topic`
+- WebSocket：`/ws/activity-registration?token={token}`
+- Lua 脚本：`src/main/resources/activity_register.lua`
+
+## 页面入口
+
+- 首页：`http://127.0.0.1:8080/index.html`
+- 活动详情：`http://127.0.0.1:8080/activity-detail.html?id={activityId}`
+- 活动管理：`http://127.0.0.1:8080/activity-manage.html`
+- 个人中心：`http://127.0.0.1:8080/info.html`
+
+## 角色说明
+
+- 主办方账号：可发起活动、编辑活动、查看报名名单、核销签到
+- 学生账号：可浏览活动、报名、查看凭证、退出未开始活动
+
+## 当前已知事项
+
+- 报名结果默认先显示“报名确认中”，随后由 RocketMQ 消费和 WebSocket / 轮询更新为最终结果
+- 如果 RocketMQ 或 WebSocket 未正常启动，前端可能会依赖状态轮询更新
+- Nginx 当前只代理静态页面和后端接口，Spring Boot 仍需单独启动
+
+## 参考文档
+
+- `功能模块设计.md`
+- `工程进展.md`
