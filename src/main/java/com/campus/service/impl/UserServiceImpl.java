@@ -34,8 +34,8 @@ import org.springframework.data.redis.connection.BitFieldSubCommands;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.Resource;
-import javax.servlet.http.HttpSession;
+import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpSession;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -399,7 +399,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             if (userRole == null) {
                 return;
             }
-            Integer exists = sysUserRoleMapper.selectCount(new QueryWrapper<SysUserRole>()
+            Long exists = sysUserRoleMapper.selectCount(new QueryWrapper<SysUserRole>()
                     .eq("user_id", userId)
                     .eq("role_id", userRole.getId()));
             if (exists != null && exists > 0) {
@@ -424,7 +424,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         if (role == null) {
             return;
         }
-        Integer exists = sysUserRoleMapper.selectCount(new QueryWrapper<SysUserRole>()
+        Long exists = sysUserRoleMapper.selectCount(new QueryWrapper<SysUserRole>()
                 .eq("user_id", userId)
                 .eq("role_id", role.getId()));
         if (exists != null && exists > 0) {

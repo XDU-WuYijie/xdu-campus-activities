@@ -4,7 +4,7 @@
 
 ## 技术栈
 
-- 后端：Spring Boot 2.3.12, MyBatis-Plus, Redis, RocketMQ, WebSocket, Elasticsearch
+- 后端：Spring Boot 3.5.x, JDK 17, MyBatis-Plus, Redis, RocketMQ, WebSocket, Elasticsearch
 - 前端：原生 HTML + Vue 2 + Element UI
 - 数据库：MySQL 8.0
 - 缓存：Redis 7.2
@@ -39,7 +39,7 @@
 
 ## 环境要求
 
-- JDK 8
+- JDK 17
 - Maven 3.6+
 - Docker Desktop
 - MySQL 客户端命令行工具：`mysql` / `mysqldump`
