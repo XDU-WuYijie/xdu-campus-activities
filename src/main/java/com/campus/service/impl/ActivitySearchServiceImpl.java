@@ -15,6 +15,7 @@ import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.core.CountRequest;
@@ -53,6 +54,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -87,8 +89,7 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
             return;
         }
         try {
-            ensureIndex();
-            bootstrapIndexIfEmpty();
+            initializeIndexWithRecovery();
         } catch (Exception e) {
             log.warn("初始化活动搜索索引失败，将保留 MySQL 降级能力", e);
         }
@@ -245,6 +246,20 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
         log.info("活动搜索索引启动全量同步完成，总计 {} 条", activities.size());
     }
 
+    private void initializeIndexWithRecovery() throws IOException {
+        try {
+            ensureIndex();
+            bootstrapIndexIfEmpty();
+        } catch (Exception e) {
+            if (!isBrokenIndexException(e)) {
+                throw e;
+            }
+            log.warn("检测到活动搜索索引异常，准备删除并重建 index={}", indexName(), e);
+            rebuildIndex();
+            bootstrapIndexIfEmpty();
+        }
+    }
+
     private LocalDateTime resolveRepairLowerBound() {
         if (lastRepairTime != null) {
             return lastRepairTime.minusMinutes(5);
@@ -301,6 +316,41 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
                 .put("analysis.analyzer.campus_text_analyzer.tokenizer", "campus_ngram_tokenizer"));
         request.mapping(buildMapping());
         restHighLevelClient.indices().create(request, RequestOptions.DEFAULT);
+    }
+
+    private void rebuildIndex() throws IOException {
+        GetIndexRequest getIndexRequest = new GetIndexRequest(indexName());
+        boolean exists = restHighLevelClient.indices().exists(getIndexRequest, RequestOptions.DEFAULT);
+        if (exists) {
+            restHighLevelClient.indices().delete(new DeleteIndexRequest(indexName()), RequestOptions.DEFAULT);
+        }
+        ensureIndex();
+    }
+
+    private boolean isBrokenIndexException(Exception exception) {
+        Throwable current = exception;
+        while (current != null) {
+            if (current instanceof ElasticsearchStatusException statusException) {
+                String message = StrUtil.nullToEmpty(statusException.getMessage());
+                if (containsBrokenIndexHint(message)) {
+                    return true;
+                }
+            }
+            String message = StrUtil.nullToEmpty(current.getMessage());
+            if (containsBrokenIndexHint(message)) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private boolean containsBrokenIndexHint(String message) {
+        String normalized = message.toLowerCase(Locale.ROOT);
+        return StrUtil.containsAny(normalized,
+                "all shards failed",
+                "no_shard_available_action_exception",
+                "unavailable_shards_exception");
     }
 
     private XContentBuilder buildMapping() throws IOException {
