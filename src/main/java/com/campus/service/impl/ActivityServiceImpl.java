@@ -10,14 +10,18 @@ import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.campus.config.ActivityRegisterProperties;
+import com.campus.config.ActivitySearchProperties;
 import com.campus.dto.ActivityCheckInResultDTO;
 import com.campus.dto.ActivityCheckInStatsDTO;
 import com.campus.dto.ActivityCheckInVerifyDTO;
 import com.campus.dto.ActivityRegisterResponseDTO;
+import com.campus.dto.ActivitySearchPageDTO;
+import com.campus.dto.ActivitySearchSyncEventDTO;
 import com.campus.dto.ActivityRegistrationEventDTO;
 import com.campus.dto.ActivityRegistrationPushDTO;
 import com.campus.dto.ActivityRegistrationStatusDTO;
 import com.campus.dto.Result;
+import com.campus.dto.ReviewActionDTO;
 import com.campus.dto.UserDTO;
 import com.campus.entity.Activity;
 import com.campus.entity.ActivityCheckInRecord;
@@ -29,9 +33,12 @@ import com.campus.mapper.ActivityMapper;
 import com.campus.mapper.ActivityRegistrationMapper;
 import com.campus.mapper.ActivityVoucherMapper;
 import com.campus.mapper.UserMapper;
+import com.campus.service.ActivitySearchService;
 import com.campus.service.IActivityService;
 import com.campus.utils.CacheClient;
+import com.campus.utils.AuthorizationUtils;
 import com.campus.utils.RedisIdWorker;
+import com.campus.utils.RbacConstants;
 import com.campus.utils.SystemConstants;
 import com.campus.utils.UserHolder;
 import com.campus.websocket.ActivityRegistrationSessionRegistry;
@@ -43,6 +50,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.annotation.Resource;
@@ -82,13 +91,20 @@ import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_LIST_TTL;
 @Service
 public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> implements IActivityService {
 
+    private static final int STATUS_PENDING_REVIEW = 1;
     private static final int STATUS_PUBLISHED = 2;
+    private static final int STATUS_REJECTED = 3;
     private static final int REGISTRATION_PENDING = 0;
     private static final int REGISTRATION_SUCCESS = 1;
     private static final int REGISTRATION_FAILED = 2;
     private static final int REGISTRATION_CANCELED = 3;
     private static final int CHECKED_IN = 1;
     private static final int CHECKED_OUT = 0;
+    private static final String MY_REGISTRATION_FILTER_ALL = "ALL";
+    private static final String MY_REGISTRATION_FILTER_PENDING_CHECK_IN = "PENDING_CHECK_IN";
+    private static final String MY_REGISTRATION_FILTER_CHECKED_IN = "CHECKED_IN";
+    private static final String MY_REGISTRATION_FILTER_FINISHED = "FINISHED";
+    private static final String MY_REGISTRATION_FILTER_CANCELED = "CANCELED";
     private static final String REGISTRATION_STATUS_PENDING = "PENDING_CONFIRM";
     private static final String REGISTRATION_STATUS_SUCCESS = "SUCCESS";
     private static final String REGISTRATION_STATUS_FAILED = "FAILED";
@@ -152,34 +168,61 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     @Resource
     private ActivityRegistrationSessionRegistry activityRegistrationSessionRegistry;
 
+    @Resource
+    private ActivitySearchService activitySearchService;
+
+    @Resource
+    private ActivitySearchProperties activitySearchProperties;
+
     @Override
-    public Result queryPublicActivities(String keyword, String category, Integer status, Integer current, Integer pageSize) {
-        CachedActivityPage cachedPage = queryCachedActivityPage(keyword, category, status, current, pageSize);
-        List<Activity> records = cachedPage.getRecords();
+    public Result queryPublicActivities(String keyword,
+                                        String category,
+                                        Integer status,
+                                        String location,
+                                        String organizerName,
+                                        String sortBy,
+                                        LocalDateTime startTimeFrom,
+                                        LocalDateTime startTimeTo,
+                                        Integer current,
+                                        Integer pageSize) {
+        List<Activity> records;
+        Long total;
+        try {
+            if (activitySearchService.isAvailable()) {
+                ActivitySearchPageDTO searchPage = activitySearchService.searchActivities(
+                        keyword, category, status, location, organizerName, sortBy,
+                        startTimeFrom, startTimeTo, current, pageSize);
+                records = searchPage.getRecords();
+                total = searchPage.getTotal();
+            } else {
+                CachedActivityPage cachedPage = queryCachedActivityPage(keyword, category, status, location,
+                        organizerName, sortBy, startTimeFrom, startTimeTo, current, pageSize);
+                records = cachedPage.getRecords();
+                total = cachedPage.getTotal();
+            }
+        } catch (Exception e) {
+            log.warn("活动列表 ES 查询失败，降级 MySQL keyword={}, category={}, sortBy={}",
+                    keyword, category, sortBy, e);
+            CachedActivityPage cachedPage = queryCachedActivityPage(keyword, category, status, location,
+                    organizerName, sortBy, startTimeFrom, startTimeTo, current, pageSize);
+            records = cachedPage.getRecords();
+            total = cachedPage.getTotal();
+        }
         syncRemainingSlots(records);
         enrichActivities(records, UserHolder.getUser());
-        return Result.ok(records, cachedPage.getTotal());
+        return Result.ok(records, total);
     }
 
     @Override
     public Result queryPublicCategories() {
-        String key = CACHE_ACTIVITY_CATEGORIES_KEY;
-        String categoriesJson = stringRedisTemplate.opsForValue().get(key);
-        if (StrUtil.isNotBlank(categoriesJson)) {
-            return Result.ok(JSONUtil.parseArray(categoriesJson).toList(String.class));
+        try {
+            if (activitySearchService.isAvailable()) {
+                return Result.ok(activitySearchService.queryCategories(STATUS_PUBLISHED));
+            }
+        } catch (Exception e) {
+            log.warn("活动分类 ES 聚合失败，降级 MySQL", e);
         }
-        QueryWrapper<Activity> wrapper = new QueryWrapper<>();
-        wrapper.select("DISTINCT category")
-                .isNotNull("category")
-                .ne("category", "")
-                .eq("status", STATUS_PUBLISHED)
-                .orderByAsc("category");
-        List<String> categories = listObjs(wrapper, item -> item == null ? null : item.toString())
-                .stream()
-                .filter(StrUtil::isNotBlank)
-                .collect(Collectors.toList());
-        stringRedisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(categories), CACHE_ACTIVITY_CATEGORIES_TTL, TimeUnit.MINUTES);
-        return Result.ok(categories);
+        return Result.ok(queryCachedCategories());
     }
 
     @Override
@@ -195,8 +238,15 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         if (activity == null) {
             return Result.fail("活动不存在");
         }
+        UserDTO currentUser = UserHolder.getUser();
+        boolean canViewUnpublished = currentUser != null
+                && (Objects.equals(activity.getCreatorId(), currentUser.getId())
+                || AuthorizationUtils.hasPermission(currentUser, RbacConstants.PERM_ACTIVITY_APPROVE));
+        if (!Objects.equals(activity.getStatus(), STATUS_PUBLISHED) && !canViewUnpublished) {
+            return Result.fail("活动尚未公开");
+        }
         syncRemainingSlots(Collections.singletonList(activity));
-        enrichActivities(Collections.singletonList(activity), UserHolder.getUser());
+        enrichActivities(Collections.singletonList(activity), currentUser);
         return Result.ok(activity);
     }
 
@@ -204,6 +254,10 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     @Transactional
     public Result createActivity(Activity activity) {
         UserDTO user = UserHolder.getUser();
+        Result authResult = requirePermission(RbacConstants.PERM_ACTIVITY_CREATE, "无权发起活动");
+        if (authResult != null) {
+            return authResult;
+        }
         String error = validateActivity(activity);
         if (error != null) {
             return Result.fail(error);
@@ -217,7 +271,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
             activity.setRegisteredCount(0);
         }
         if (activity.getStatus() == null) {
-            activity.setStatus(STATUS_PUBLISHED);
+            activity.setStatus(STATUS_PENDING_REVIEW);
         }
         activity.setCheckInEnabled(true);
         activity.setCheckInCode(null);
@@ -231,6 +285,10 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     @Override
     @Transactional
     public Result updateActivity(Activity activity) {
+        Result authResult = requirePermission(RbacConstants.PERM_ACTIVITY_UPDATE, "无权修改活动");
+        if (authResult != null) {
+            return authResult;
+        }
         if (activity.getId() == null) {
             return Result.fail("活动ID不能为空");
         }
@@ -258,7 +316,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         existing.setRegistrationEndTime(activity.getRegistrationEndTime());
         existing.setEventStartTime(activity.getEventStartTime());
         existing.setEventEndTime(activity.getEventEndTime());
-        existing.setStatus(activity.getStatus() == null ? STATUS_PUBLISHED : activity.getStatus());
+        existing.setStatus(STATUS_PENDING_REVIEW);
         existing.setCheckInEnabled(true);
         existing.setCheckInCode(null);
         existing.setCheckInCodeExpireTime(null);
@@ -270,6 +328,10 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
 
     @Override
     public Result queryMyCreatedActivities(Integer current, Integer pageSize) {
+        Result authResult = requirePermission(RbacConstants.PERM_ACTIVITY_CREATE, "无权查看我发起的活动");
+        if (authResult != null) {
+            return authResult;
+        }
         Page<Activity> page = query()
                 .eq("creator_id", UserHolder.getUser().getId())
                 .orderByDesc("create_time")
@@ -282,14 +344,15 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
 
     @Override
     public Result register(Long activityId) {
+        Result authResult = requirePermission(RbacConstants.PERM_REGISTRATION_CREATE, "无权报名活动");
+        if (authResult != null) {
+            return authResult;
+        }
         Activity activity = getById(activityId);
         if (activity == null) {
             return Result.fail("活动不存在");
         }
         UserDTO currentUser = UserHolder.getUser();
-        if (currentUser != null && Objects.equals(currentUser.getRoleType(), UserDTO.ROLE_ORGANIZER)) {
-            return Result.fail("主办方账号不能报名参加活动");
-        }
         ensureActivityRegistrationCache(activity);
         Long userId = currentUser.getId();
         String requestId = String.valueOf(redisIdWorker.nextId("activity-register"));
@@ -348,6 +411,10 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
 
     @Override
     public Result queryRegistrationStatus(Long activityId) {
+        Result authResult = requirePermission(RbacConstants.PERM_REGISTRATION_VIEW_SELF, "无权查看报名状态");
+        if (authResult != null) {
+            return authResult;
+        }
         Activity activity = getById(activityId);
         if (activity == null) {
             return Result.fail("活动不存在");
@@ -360,14 +427,15 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     @Override
     @Transactional
     public Result cancelRegistration(Long activityId) {
+        Result authResult = requirePermission(RbacConstants.PERM_REGISTRATION_CANCEL, "无权退出报名");
+        if (authResult != null) {
+            return authResult;
+        }
         Activity activity = getById(activityId);
         if (activity == null) {
             return Result.fail("活动不存在");
         }
         UserDTO currentUser = UserHolder.getUser();
-        if (currentUser != null && Objects.equals(currentUser.getRoleType(), UserDTO.ROLE_ORGANIZER)) {
-            return Result.fail("主办方账号不能退出报名");
-        }
         LocalDateTime now = LocalDateTime.now();
         if (activity.getEventStartTime() != null && !now.isBefore(activity.getEventStartTime())) {
             return Result.fail("活动已开始，无法退出报名");
@@ -412,20 +480,32 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     }
 
     @Override
-    public Result queryMyRegistrations(Integer current, Integer pageSize) {
-        Page<ActivityRegistration> page = new Page<>(current, normalizePageSize(pageSize));
+    public Result queryMyRegistrations(String filter, Integer current, Integer pageSize) {
+        Result authResult = requirePermission(RbacConstants.PERM_REGISTRATION_VIEW_SELF, "无权查看我的报名");
+        if (authResult != null) {
+            return authResult;
+        }
         QueryWrapper<ActivityRegistration> wrapper = new QueryWrapper<ActivityRegistration>()
                 .eq("user_id", UserHolder.getUser().getId())
                 .orderByDesc("create_time");
-        activityRegistrationMapper.selectPage(page, wrapper);
-        List<ActivityRegistration> records = page.getRecords();
+        List<ActivityRegistration> records = activityRegistrationMapper.selectList(wrapper);
         enrichRegistrationActivities(records);
         enrichRegistrationVoucherInfo(records);
-        return Result.ok(records, page.getTotal());
+        List<ActivityRegistration> filteredRecords = filterMyRegistrations(records, filter);
+        int normalizedPageSize = normalizePageSize(pageSize);
+        int currentPage = current == null || current < 1 ? 1 : current;
+        int fromIndex = Math.min((currentPage - 1) * normalizedPageSize, filteredRecords.size());
+        int toIndex = Math.min(fromIndex + normalizedPageSize, filteredRecords.size());
+        List<ActivityRegistration> pagedRecords = filteredRecords.subList(fromIndex, toIndex);
+        return Result.ok(pagedRecords, (long) filteredRecords.size());
     }
 
     @Override
     public Result queryActivityRegistrations(Long activityId, Integer current, Integer pageSize) {
+        Result authResult = requirePermission(RbacConstants.PERM_REGISTRATION_VIEW_ALL, "无权查看该活动报名名单");
+        if (authResult != null) {
+            return authResult;
+        }
         Activity activity = getById(activityId);
         if (activity == null) {
             return Result.fail("活动不存在");
@@ -446,6 +526,10 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
 
     @Override
     public Result verifyCheckIn(Long activityId, ActivityCheckInVerifyDTO dto, String idempotencyKey) {
+        Result authResult = requirePermission(RbacConstants.PERM_CHECKIN_VERIFY, "无权执行签到核销");
+        if (authResult != null) {
+            return authResult;
+        }
         Activity activity = getById(activityId);
         if (activity == null) {
             return Result.fail("活动不存在");
@@ -492,6 +576,10 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
 
     @Override
     public Result queryCheckInStats(Long activityId) {
+        Result authResult = requirePermission(RbacConstants.PERM_CHECKIN_VIEW_RECORDS, "无权查看签到统计");
+        if (authResult != null) {
+            return authResult;
+        }
         Activity activity = getById(activityId);
         if (activity == null) {
             return Result.fail("活动不存在");
@@ -512,6 +600,10 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
 
     @Override
     public Result queryCheckInRecords(Long activityId, Integer current, Integer pageSize) {
+        Result authResult = requirePermission(RbacConstants.PERM_CHECKIN_VIEW_RECORDS, "无权查看签到记录");
+        if (authResult != null) {
+            return authResult;
+        }
         Activity activity = getById(activityId);
         if (activity == null) {
             return Result.fail("活动不存在");
@@ -521,6 +613,46 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         }
         CachedCheckInRecordPage cachedPage = queryCachedCheckInRecordPage(activityId, current, pageSize);
         return Result.ok(cachedPage.getRecords(), cachedPage.getTotal());
+    }
+
+    @Override
+    public Result queryPendingReviewActivities() {
+        List<Activity> activities = query()
+                .eq("status", STATUS_PENDING_REVIEW)
+                .orderByAsc("create_time")
+                .list();
+        if (activities.isEmpty()) {
+            return Result.ok(Collections.emptyList());
+        }
+        List<Long> creatorIds = activities.stream().map(Activity::getCreatorId).filter(Objects::nonNull).distinct().collect(Collectors.toList());
+        Map<Long, User> creatorMap = creatorIds.isEmpty() ? Collections.emptyMap() : userMapper.selectBatchIds(creatorIds)
+                .stream().collect(Collectors.toMap(User::getId, item -> item));
+        for (Activity activity : activities) {
+            User creator = creatorMap.get(activity.getCreatorId());
+            if (creator != null && StrUtil.isBlank(activity.getOrganizerName())) {
+                activity.setOrganizerName(creator.getNickName());
+            }
+        }
+        return Result.ok(activities);
+    }
+
+    @Override
+    @Transactional
+    public Result reviewActivity(Long activityId, ReviewActionDTO dto) {
+        if (activityId == null) {
+            return Result.fail("活动ID不能为空");
+        }
+        if (dto == null || dto.getApproved() == null) {
+            return Result.fail("审核结果不能为空");
+        }
+        Activity activity = getById(activityId);
+        if (activity == null) {
+            return Result.fail("活动不存在");
+        }
+        activity.setStatus(Boolean.TRUE.equals(dto.getApproved()) ? STATUS_PUBLISHED : STATUS_REJECTED);
+        updateById(activity);
+        refreshActivityCacheState(activityId, true);
+        return Result.ok();
     }
 
     private Result doVerifyCheckIn(Activity activity, ActivityCheckInVerifyDTO dto, Long operatorId,
@@ -772,7 +904,9 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
             }
             activity.setRegistered(registered);
             activity.setCheckedIn(userState != null && Boolean.TRUE.equals(userState.getCheckedIn()));
-            boolean canManage = user != null && Objects.equals(activity.getCreatorId(), user.getId());
+            boolean canManage = user != null
+                    && AuthorizationUtils.hasPermission(user, RbacConstants.PERM_ACTIVITY_UPDATE)
+                    && Objects.equals(activity.getCreatorId(), user.getId());
             activity.setCanManage(canManage);
             activity.setRegistrationOpen(isRegistrationOpen(activity, now));
             activity.setRegistrationStatus(userState == null ? REGISTRATION_STATUS_NONE : userState.getStatus());
@@ -1028,7 +1162,16 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         activity.setRegisteredCount(Math.max(registeredCount, 0));
     }
 
-    private CachedActivityPage queryCachedActivityPage(String keyword, String category, Integer status, Integer current, Integer pageSize) {
+    private CachedActivityPage queryCachedActivityPage(String keyword,
+                                                       String category,
+                                                       Integer status,
+                                                       String location,
+                                                       String organizerName,
+                                                       String sortBy,
+                                                       LocalDateTime startTimeFrom,
+                                                       LocalDateTime startTimeTo,
+                                                       Integer current,
+                                                       Integer pageSize) {
         int normalizedPageSize = normalizePageSize(pageSize);
         int currentPage = current == null || current < 1 ? 1 : current;
         Integer targetStatus = status == null ? STATUS_PUBLISHED : status;
@@ -1036,6 +1179,11 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                 "status=" + targetStatus,
                 "category=" + StrUtil.blankToDefault(category, ""),
                 "keyword=" + StrUtil.blankToDefault(keyword, ""),
+                "location=" + StrUtil.blankToDefault(location, ""),
+                "organizerName=" + StrUtil.blankToDefault(organizerName, ""),
+                "sortBy=" + StrUtil.blankToDefault(sortBy, ""),
+                "startTimeFrom=" + (startTimeFrom == null ? "" : startTimeFrom),
+                "startTimeTo=" + (startTimeTo == null ? "" : startTimeTo),
                 "current=" + currentPage,
                 "pageSize=" + normalizedPageSize);
         String key = CACHE_ACTIVITY_LIST_KEY + DigestUtil.md5Hex(params);
@@ -1048,8 +1196,11 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         wrapper.eq("status", targetStatus)
                 .like(StrUtil.isNotBlank(keyword), "title", keyword)
                 .eq(StrUtil.isNotBlank(category), "category", category)
-                .orderByAsc("event_start_time")
-                .orderByDesc("create_time");
+                .like(StrUtil.isNotBlank(location), "location", location)
+                .like(StrUtil.isNotBlank(organizerName), "organizer_name", organizerName)
+                .ge(startTimeFrom != null, "event_start_time", startTimeFrom)
+                .le(startTimeTo != null, "event_start_time", startTimeTo);
+        applyMysqlFallbackSort(wrapper, sortBy);
         Page<Activity> page = page(new Page<>(currentPage, normalizedPageSize), wrapper);
 
         Map<String, Object> cacheValue = new HashMap<>(2);
@@ -1057,6 +1208,72 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         cacheValue.put("records", page.getRecords());
         stringRedisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(cacheValue), CACHE_ACTIVITY_LIST_TTL, TimeUnit.MINUTES);
         return new CachedActivityPage(page.getRecords(), page.getTotal());
+    }
+
+    private List<ActivityRegistration> filterMyRegistrations(List<ActivityRegistration> records, String filter) {
+        String targetFilter = StrUtil.blankToDefault(StrUtil.trim(filter), MY_REGISTRATION_FILTER_ALL).toUpperCase();
+        if (MY_REGISTRATION_FILTER_ALL.equals(targetFilter)) {
+            return records;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        return records.stream()
+                .filter(record -> matchesMyRegistrationFilter(record, targetFilter, now))
+                .collect(Collectors.toList());
+    }
+
+    private boolean matchesMyRegistrationFilter(ActivityRegistration record, String filter, LocalDateTime now) {
+        if (record == null) {
+            return false;
+        }
+        if (MY_REGISTRATION_FILTER_CANCELED.equals(filter)) {
+            return Objects.equals(record.getStatus(), REGISTRATION_CANCELED);
+        }
+        if (MY_REGISTRATION_FILTER_PENDING_CHECK_IN.equals(filter)) {
+            return Objects.equals(record.getStatus(), REGISTRATION_SUCCESS)
+                    && !Objects.equals(record.getCheckInStatus(), CHECKED_IN)
+                    && (record.getEventEndTime() == null || !now.isAfter(record.getEventEndTime()));
+        }
+        if (MY_REGISTRATION_FILTER_CHECKED_IN.equals(filter)) {
+            return Objects.equals(record.getStatus(), REGISTRATION_SUCCESS)
+                    && Objects.equals(record.getCheckInStatus(), CHECKED_IN);
+        }
+        if (MY_REGISTRATION_FILTER_FINISHED.equals(filter)) {
+            return record.getEventEndTime() != null && now.isAfter(record.getEventEndTime());
+        }
+        return true;
+    }
+
+    private List<String> queryCachedCategories() {
+        String key = CACHE_ACTIVITY_CATEGORIES_KEY;
+        String categoriesJson = stringRedisTemplate.opsForValue().get(key);
+        if (StrUtil.isNotBlank(categoriesJson)) {
+            return JSONUtil.parseArray(categoriesJson).toList(String.class);
+        }
+        QueryWrapper<Activity> wrapper = new QueryWrapper<>();
+        wrapper.select("DISTINCT category")
+                .isNotNull("category")
+                .ne("category", "")
+                .eq("status", STATUS_PUBLISHED)
+                .orderByAsc("category");
+        List<String> categories = listObjs(wrapper, item -> item == null ? null : item.toString())
+                .stream()
+                .filter(StrUtil::isNotBlank)
+                .collect(Collectors.toList());
+        stringRedisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(categories), CACHE_ACTIVITY_CATEGORIES_TTL, TimeUnit.MINUTES);
+        return categories;
+    }
+
+    private void applyMysqlFallbackSort(QueryWrapper<Activity> wrapper, String sortBy) {
+        String targetSort = StrUtil.blankToDefault(sortBy, "composite");
+        if ("publishTimeDesc".equals(targetSort)) {
+            wrapper.orderByDesc("create_time");
+            return;
+        }
+        if ("signupCountDesc".equals(targetSort) || "heatScoreDesc".equals(targetSort)) {
+            wrapper.orderByDesc("registered_count").orderByDesc("create_time");
+            return;
+        }
+        wrapper.orderByAsc("event_start_time").orderByDesc("create_time");
     }
 
     private CachedActivityPage parseCachedActivityPage(String cacheJson) {
@@ -1071,10 +1288,50 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         Activity latest = getById(activityId);
         if (latest == null) {
             evictActivityCache(activityId, evictCategoryCache);
+            dispatchActivitySearchSyncEvent(activityId, "DELETE");
             return;
         }
         evictActivityCache(activityId, evictCategoryCache);
         initActivityRegistrationCache(latest);
+        dispatchActivitySearchSyncEvent(activityId, evictCategoryCache ? "UPSERT" : "STATE_REFRESH");
+    }
+
+    private void dispatchActivitySearchSyncEvent(Long activityId, String trigger) {
+        if (activityId == null || StrUtil.isBlank(activitySearchProperties.getSync().getTopic())) {
+            return;
+        }
+        Runnable action = () -> sendActivitySearchSyncEvent(activityId, trigger);
+        if (TransactionSynchronizationManager.isSynchronizationActive()
+                && TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    action.run();
+                }
+            });
+            return;
+        }
+        action.run();
+    }
+
+    private void sendActivitySearchSyncEvent(Long activityId, String trigger) {
+        ActivitySearchSyncEventDTO event = new ActivitySearchSyncEventDTO();
+        event.setActivityId(activityId);
+        event.setTrigger(trigger);
+        event.setEventTime(LocalDateTime.now());
+        try {
+            rocketMQTemplate.convertAndSend(activitySearchProperties.getSync().getTopic(), event);
+        } catch (Exception e) {
+            log.warn("发送活动搜索索引同步消息失败，改走本地补偿 activityId={}, trigger={}",
+                    activityId, trigger, e);
+            try {
+                if (activitySearchService.isAvailable()) {
+                    activitySearchService.syncActivity(activityId);
+                }
+            } catch (Exception syncException) {
+                log.error("本地补偿同步活动搜索索引失败 activityId={}", activityId, syncException);
+            }
+        }
     }
 
     private void ensureActivityRegistrationCache(Activity activity) {
@@ -1635,6 +1892,14 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
             return SystemConstants.DEFAULT_PAGE_SIZE;
         }
         return Math.min(pageSize, 20);
+    }
+
+    private Result requirePermission(String permissionCode, String failMessage) {
+        UserDTO user = UserHolder.getUser();
+        if (AuthorizationUtils.hasPermission(user, permissionCode)) {
+            return null;
+        }
+        return Result.fail(failMessage);
     }
 
     private String validateActivity(Activity activity) {

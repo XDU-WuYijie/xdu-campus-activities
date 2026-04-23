@@ -9,6 +9,8 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -39,6 +41,8 @@ public class RefreshTokenInterceptor implements HandlerInterceptor {
         }
         // 5.将查询到的hash数据转为UserDTO
         UserDTO userDTO = BeanUtil.fillBeanWithMap(userMap, new UserDTO(), false);
+        userDTO.setRoleCodes(parseCsvValue(userMap.get("roleCodes")));
+        userDTO.setPermissions(parseCsvValue(userMap.get("permissions")));
         // 6.存在，保存用户信息到 ThreadLocal
         UserHolder.saveUser(userDTO);
         // 7.刷新token有效期
@@ -51,5 +55,16 @@ public class RefreshTokenInterceptor implements HandlerInterceptor {
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
         // 移除用户
         UserHolder.removeUser();
+    }
+
+    private List<String> parseCsvValue(Object value) {
+        if (value == null) {
+            return Collections.emptyList();
+        }
+        String text = value.toString();
+        if (StrUtil.isBlank(text)) {
+            return Collections.emptyList();
+        }
+        return StrUtil.split(text, ',');
     }
 }

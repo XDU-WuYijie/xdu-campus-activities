@@ -1,16 +1,21 @@
 package com.campus.controller;
 
 import com.campus.dto.ActivityCheckInVerifyDTO;
+import com.campus.dto.ReviewActionDTO;
 import com.campus.dto.Result;
 import com.campus.entity.Activity;
 import com.campus.service.IActivityService;
 import com.campus.service.OssService;
+import com.campus.utils.AuthorizationUtils;
+import com.campus.utils.RbacConstants;
 import com.campus.utils.SystemConstants;
 import com.campus.utils.UserHolder;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
+import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/activity")
@@ -27,9 +32,15 @@ public class ActivityController {
             @RequestParam(value = "keyword", required = false) String keyword,
             @RequestParam(value = "category", required = false) String category,
             @RequestParam(value = "status", required = false) Integer status,
+            @RequestParam(value = "location", required = false) String location,
+            @RequestParam(value = "organizerName", required = false) String organizerName,
+            @RequestParam(value = "sortBy", required = false) String sortBy,
+            @RequestParam(value = "startTimeFrom", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTimeFrom,
+            @RequestParam(value = "startTimeTo", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTimeTo,
             @RequestParam(value = "current", defaultValue = "1") Integer current,
             @RequestParam(value = "pageSize", defaultValue = "" + SystemConstants.MAX_PAGE_SIZE) Integer pageSize) {
-        return activityService.queryPublicActivities(keyword, category, status, current, pageSize);
+        return activityService.queryPublicActivities(keyword, category, status, location, organizerName,
+                sortBy, startTimeFrom, startTimeTo, current, pageSize);
     }
 
     @GetMapping("/public/categories")
@@ -76,9 +87,10 @@ public class ActivityController {
 
     @GetMapping("/registration/mine")
     public Result queryMyRegistrations(
+            @RequestParam(value = "filter", required = false) String filter,
             @RequestParam(value = "current", defaultValue = "1") Integer current,
             @RequestParam(value = "pageSize", defaultValue = "" + SystemConstants.MAX_PAGE_SIZE) Integer pageSize) {
-        return activityService.queryMyRegistrations(current, pageSize);
+        return activityService.queryMyRegistrations(filter, current, pageSize);
     }
 
     @GetMapping("/manage/{id}/registrations")
@@ -91,6 +103,9 @@ public class ActivityController {
 
     @PostMapping("/manage/image")
     public Result uploadActivityImage(@RequestParam("file") MultipartFile file) {
+        if (!AuthorizationUtils.hasPermission(UserHolder.getUser(), RbacConstants.PERM_ACTIVITY_CREATE)) {
+            return Result.fail("无权上传活动图片");
+        }
         String url = ossService.uploadActivityImage(UserHolder.getUser().getId(), file);
         return Result.ok(url);
     }
@@ -114,5 +129,21 @@ public class ActivityController {
             @RequestParam(value = "current", defaultValue = "1") Integer current,
             @RequestParam(value = "pageSize", defaultValue = "" + SystemConstants.MAX_PAGE_SIZE) Integer pageSize) {
         return activityService.queryCheckInRecords(activityId, current, pageSize);
+    }
+
+    @GetMapping("/admin/review-list")
+    public Result queryPendingReviewActivities() {
+        if (!AuthorizationUtils.hasPermission(UserHolder.getUser(), RbacConstants.PERM_ACTIVITY_APPROVE)) {
+            return Result.fail("无权查看待审核活动");
+        }
+        return activityService.queryPendingReviewActivities();
+    }
+
+    @PostMapping("/admin/{id}/review")
+    public Result reviewActivity(@PathVariable("id") Long activityId, @RequestBody ReviewActionDTO dto) {
+        if (!AuthorizationUtils.hasPermission(UserHolder.getUser(), RbacConstants.PERM_ACTIVITY_APPROVE)) {
+            return Result.fail("无权审核活动");
+        }
+        return activityService.reviewActivity(activityId, dto);
     }
 }

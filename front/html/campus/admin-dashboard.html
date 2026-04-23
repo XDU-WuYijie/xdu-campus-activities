@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <title>平台管理后台</title>
+  <link rel="stylesheet" href="./css/element.css">
+  <link href="./css/main.css" rel="stylesheet">
+  <style>
+    body { background: linear-gradient(180deg, #eef3f9 0%, #f8fbff 100%); }
+    .page { max-width: 1100px; margin: 0 auto; padding: 20px 16px 80px; }
+    .hero { background: linear-gradient(135deg, #10233d, #2a5f97); color: #fff; border-radius: 24px; padding: 22px; box-shadow: 0 18px 40px rgba(16,35,61,.16); margin-bottom: 18px; }
+    .hero-title { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+    .hero-meta { opacity: .88; }
+    .card { background:#fff; border-radius:18px; padding:16px; box-shadow:0 12px 30px rgba(16,35,61,.08); margin-bottom:12px; }
+    .item-title { font-size:18px; font-weight:700; color:#10233d; margin-bottom:8px; }
+    .item-line { color:#556273; font-size:14px; line-height:1.9; }
+    .item-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+    .empty { color:#708198; text-align:center; padding:28px 0; }
+  </style>
+</head>
+<body>
+<div id="app" class="page">
+  <section class="hero">
+    <div class="hero-title">平台管理员后台</div>
+    <div class="hero-meta">审核活动发布，审核普通用户成为活动主办方。</div>
+  </section>
+
+  <el-tabs v-model="tab">
+    <el-tab-pane label="活动审核" name="activities">
+      <div class="card" v-for="item in activities" :key="item.id">
+        <div class="item-title">{{ item.title }}</div>
+        <div class="item-line">主办方：{{ item.organizerName || '未填写' }}</div>
+        <div class="item-line">分类：{{ item.category }}</div>
+        <div class="item-line">地点：{{ item.location }}</div>
+        <div class="item-line">活动时间：{{ formatTime(item.eventStartTime) }} - {{ formatTime(item.eventEndTime) }}</div>
+        <div class="item-line">报名时间：{{ formatTime(item.registrationStartTime) }} - {{ formatTime(item.registrationEndTime) }}</div>
+        <div class="item-actions">
+          <el-button size="mini" type="success" @click="reviewActivity(item.id, true)">通过</el-button>
+          <el-button size="mini" type="danger" plain @click="reviewActivity(item.id, false)">驳回</el-button>
+          <el-button size="mini" plain @click="viewDetail(item.id)">查看详情</el-button>
+        </div>
+      </div>
+      <div class="card empty" v-if="!activities.length">暂无待审核活动</div>
+    </el-tab-pane>
+
+    <el-tab-pane label="主办方申请审核" name="organizers">
+      <div class="card" v-for="item in organizerApplications" :key="item.id">
+        <div class="item-title">{{ item.applicantName || item.applicantUsername || ('用户' + item.userId) }}</div>
+        <div class="item-line">登录账号：{{ item.applicantUsername || '未设置' }}</div>
+        <div class="item-line">申请组织：{{ item.orgName }}</div>
+        <div class="item-line">申请理由：{{ item.reason || '未填写' }}</div>
+        <div class="item-line">申请时间：{{ formatTime(item.createTime) }}</div>
+        <div class="item-actions">
+          <el-button size="mini" type="success" @click="reviewOrganizer(item.id, true)">通过</el-button>
+          <el-button size="mini" type="danger" plain @click="reviewOrganizer(item.id, false)">驳回</el-button>
+        </div>
+      </div>
+      <div class="card empty" v-if="!organizerApplications.length">暂无待审核主办方申请</div>
+    </el-tab-pane>
+  </el-tabs>
+
+  <div class="card">
+    <el-button style="width:100%;" type="danger" plain @click="logout">退出登录</el-button>
+  </div>
+</div>
+
+<script src="js/vue.js"></script>
+<script src="js/axios.min.js"></script>
+<script src="js/element.js"></script>
+<script src="js/common.js"></script>
+<script>
+  new Vue({
+    el: '#app',
+    data: {
+      tab: 'activities',
+      activities: [],
+      organizerApplications: []
+    },
+    created() {
+      this.queryCurrentUser();
+    },
+    methods: {
+      queryCurrentUser() {
+        axios.get('/user/me')
+          .then(({data}) => {
+            const user = data || {};
+            window.auth.setUser(user);
+            const roleCodes = user.roleCodes || [];
+            if (!roleCodes.includes('PLATFORM_ADMIN')) {
+              location.replace('/index.html');
+              return;
+            }
+            this.queryActivities();
+            this.queryOrganizerApplications();
+          })
+          .catch(() => location.replace('/login.html'));
+      },
+      queryActivities() {
+        axios.get('/activity/admin/review-list')
+          .then(({data}) => this.activities = data || [])
+          .catch(err => this.$message.error(err));
+      },
+      queryOrganizerApplications() {
+        axios.get('/user/admin/organizer-applications', { params: { status: 'PENDING' } })
+          .then(({data}) => this.organizerApplications = data || [])
+          .catch(err => this.$message.error(err));
+      },
+      reviewActivity(id, approved) {
+        axios.post('/activity/admin/' + id + '/review', { approved: approved })
+          .then(() => {
+            this.$message.success(approved ? '活动已通过' : '活动已驳回');
+            this.queryActivities();
+          })
+          .catch(err => this.$message.error(err));
+      },
+      reviewOrganizer(id, approved) {
+        axios.post('/user/admin/organizer-applications/' + id + '/review', { approved: approved })
+          .then(() => {
+            this.$message.success(approved ? '申请已通过' : '申请已驳回');
+            this.queryOrganizerApplications();
+          })
+          .catch(err => this.$message.error(err));
+      },
+      viewDetail(id) {
+        location.href = '/activity-detail.html?id=' + id;
+      },
+      logout() {
+        axios.post('/user/logout')
+          .then(() => {
+            window.auth.clearUser();
+            window.auth.clearToken();
+            location.href = '/login.html';
+          })
+          .catch(err => this.$message.error(err));
+      },
+      formatTime(value) {
+        return value ? String(value).replace('T', ' ') : '待定';
+      }
+    }
+  });
+</script>
+</body>
+</html>

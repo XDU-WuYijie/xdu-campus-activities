@@ -29,7 +29,9 @@ Vue.component("footBar", {
     axios.get('/user/me')
       .then(({data}) => {
         window.auth.setUser(data || {});
-        this.showCreateEntry = !data || data.roleType !== 2;
+        const permissions = (data && data.permissions) || [];
+        const roleCodes = (data && data.roleCodes) || [];
+        this.showCreateEntry = permissions.includes('activity:create') && !roleCodes.includes('PLATFORM_ADMIN');
       })
       .catch(() => {
         this.showCreateEntry = true;

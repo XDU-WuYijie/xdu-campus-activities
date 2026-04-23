@@ -85,7 +85,8 @@
         })
         .then(({data}) => {
             window.auth.setUser(data || {});
-            location.href = "/index.html"
+            const roleCodes = (data && data.roleCodes) || [];
+            location.href = roleCodes.includes('PLATFORM_ADMIN') ? "/admin-dashboard.html" : "/index.html"
         })
         .catch(err => this.$message.error(err))
       },

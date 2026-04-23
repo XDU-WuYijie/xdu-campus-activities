@@ -23,12 +23,12 @@
         radial-gradient(circle at top left, rgba(66, 118, 186, .14), transparent 28%),
         linear-gradient(180deg, #f7f9fc 0%, #eef3f9 100%);
     }
-    .page { padding: 20px 16px 28px; max-width: 980px; margin: 0 auto; }
+    .page { padding: 20px 16px 28px; max-width: 980px; margin: 0 auto; position: relative; }
     .toolbar {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto auto;
+      grid-template-columns: minmax(0, 1fr);
       gap: 12px;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       align-items: center;
       background: rgba(255,255,255,.8);
       border: 1px solid var(--line);
@@ -37,7 +37,7 @@
       padding: 12px;
       backdrop-filter: blur(10px);
     }
-    .search-bar { display:grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+    .search-bar { display:grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; }
     .search-bar .el-input__inner {
       height: 46px;
       border-radius: 16px;
@@ -52,6 +52,19 @@
       background: linear-gradient(135deg, #17324d, #2a5f97);
       color: #fff;
       box-shadow: 0 10px 22px rgba(23,50,77,.18);
+    }
+    .filter-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 220px));
+      gap: 10px;
+      justify-content: start;
+    }
+    .filter-box .el-input__inner,
+    .sort-box .el-input__inner {
+      height: 46px;
+      border-radius: 16px;
+      border: 1px solid rgba(23,50,77,.10);
+      background: var(--bg-soft);
     }
     .hero-profile {
       width: 50px;
@@ -69,40 +82,6 @@
     }
     .hero-profile img { width:100%; height:100%; object-fit:cover; display:block; }
     .hero-profile i { font-size: 20px; color:#17324d; }
-    .create-btn {
-      height: 50px;
-      border-radius: 16px;
-      padding: 0 18px;
-      border: none;
-      background: linear-gradient(135deg, #17324d, #2a5f97);
-      color: #fff;
-      box-shadow: 0 10px 22px rgba(23,50,77,.18);
-      font-weight: 700;
-    }
-    .category-bar {
-      display: flex;
-      gap: 10px;
-      overflow-x: auto;
-      padding: 6px 2px 8px;
-      margin-bottom: 18px;
-    }
-    .category-btn {
-      flex: none;
-      border-radius: 999px;
-      padding: 10px 16px;
-      border: 1px solid rgba(23,50,77,.08);
-      background: rgba(255,255,255,.88);
-      color: var(--brand);
-      cursor: pointer;
-      transition: .2s ease;
-      box-shadow: 0 8px 20px rgba(16,35,61,.05);
-    }
-    .category-btn.active {
-      background: linear-gradient(135deg, #17324d, #2a5f97);
-      color: #fff;
-      border-color: transparent;
-      box-shadow: 0 10px 24px rgba(23,50,77,.18);
-    }
     .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
     .activity-card {
       background: rgba(255,255,255,.92);
@@ -161,11 +140,8 @@
       color: var(--brand);
     }
     @media (max-width: 720px) {
-      .toolbar {
-        grid-template-columns: 1fr auto;
-      }
-      .search-bar {
-        grid-column: 1 / -1;
+      .filter-row {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -178,17 +154,24 @@
         <i slot="prefix" class="el-input__icon el-icon-search"></i>
       </el-input>
       <el-button type="primary" plain @click="refreshActivities">搜索</el-button>
+      <div class="hero-profile" @click="goProfile">
+        <img v-if="user.icon" :src="user.icon" alt="">
+        <i v-else class="el-icon-user-solid"></i>
+      </div>
     </div>
-    <el-button v-if="canManageActivities" class="create-btn" @click="goManage">发布活动</el-button>
-    <div class="hero-profile" @click="goProfile">
-      <img v-if="user.icon" :src="user.icon" alt="">
-      <i v-else class="el-icon-user-solid"></i>
+    <div class="filter-row">
+      <el-select v-model="selectedCategory" class="filter-box" @change="refreshActivities">
+        <el-option label="全部分类" value=""></el-option>
+        <el-option v-for="item in categories" :key="item" :label="item" :value="item"></el-option>
+      </el-select>
+      <el-select v-model="sortBy" class="sort-box" @change="refreshActivities">
+        <el-option label="综合排序" value="composite"></el-option>
+        <el-option label="即将开始" value="startTimeAsc"></el-option>
+        <el-option label="最新发布" value="publishTimeDesc"></el-option>
+        <el-option label="报名人数最多" value="signupCountDesc"></el-option>
+        <el-option label="热门优先" value="heatScoreDesc"></el-option>
+      </el-select>
     </div>
-  </div>
-
-  <div class="category-bar">
-    <button class="category-btn" :class="{active: selectedCategory === ''}" @click="changeCategory('')">全部</button>
-    <button class="category-btn" v-for="item in categories" :key="item" :class="{active: selectedCategory === item}" @click="changeCategory(item)">{{item}}</button>
   </div>
 
   <section class="card-grid" v-if="activities.length">
@@ -234,6 +217,7 @@
       activities: [],
       keyword: '',
       selectedCategory: '',
+      sortBy: 'composite',
       current: 1,
       pageSize: 6,
       total: 0,
@@ -243,11 +227,6 @@
       this.queryUser();
       this.queryCategories();
       this.queryActivities();
-    },
-    computed: {
-      canManageActivities() {
-        return this.user && this.user.roleType === 1;
-      }
     },
     methods: {
       queryUser() {
@@ -272,7 +251,8 @@
             current: this.current,
             pageSize: this.pageSize,
             keyword: this.keyword,
-            category: this.selectedCategory
+            category: this.selectedCategory,
+            sortBy: this.sortBy
           }
         }).then(({data, total}) => {
           this.total = total || 0;
@@ -283,10 +263,6 @@
         this.current = 1;
         this.queryActivities(false);
       },
-      changeCategory(category) {
-        this.selectedCategory = category;
-        this.refreshActivities();
-      },
       loadMore() {
         this.current += 1;
         this.queryActivities(true);
@@ -294,11 +270,15 @@
       openDetail(id) {
         location.href = '/activity-detail.html?id=' + id;
       },
-      goManage() {
-        location.href = '/activity-manage.html';
-      },
       goProfile() {
-        location.href = window.auth.getToken() ? '/info.html' : '/login.html';
+        const user = window.auth.getUser();
+        if (!window.auth.getToken()) {
+          location.href = '/login.html';
+          return;
+        }
+        location.href = user && user.roleCodes && user.roleCodes.includes('PLATFORM_ADMIN')
+          ? '/admin-dashboard.html'
+          : '/info.html';
       },
       formatTime(value) {
         if (!value) return '待定';

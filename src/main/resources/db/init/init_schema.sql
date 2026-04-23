@@ -98,6 +98,7 @@ CREATE TABLE IF NOT EXISTS `tb_sign` (
 CREATE TABLE IF NOT EXISTS `tb_user` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `phone` varchar(11) NOT NULL,
+  `username` varchar(64) DEFAULT NULL,
   `password` varchar(128) DEFAULT '',
   `nick_name` varchar(32) DEFAULT '',
   `icon` varchar(255) DEFAULT '',
@@ -105,7 +106,8 @@ CREATE TABLE IF NOT EXISTS `tb_user` (
   `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uniqe_key_phone` (`phone`)
+  UNIQUE KEY `uniqe_key_phone` (`phone`),
+  UNIQUE KEY `uk_tb_user_username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `tb_user_info` (
@@ -124,6 +126,68 @@ CREATE TABLE IF NOT EXISTS `tb_user_info` (
   `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `organizer_apply` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint unsigned NOT NULL,
+  `apply_status` varchar(32) NOT NULL DEFAULT 'PENDING',
+  `org_name` varchar(128) NOT NULL,
+  `reason` varchar(512) DEFAULT NULL,
+  `reviewer_id` bigint unsigned DEFAULT NULL,
+  `review_remark` varchar(255) DEFAULT NULL,
+  `review_time` datetime DEFAULT NULL,
+  `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_organizer_apply_user` (`user_id`),
+  KEY `idx_organizer_apply_status` (`apply_status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `sys_role` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `role_code` varchar(64) NOT NULL,
+  `role_name` varchar(128) NOT NULL,
+  `description` varchar(255) DEFAULT NULL,
+  `status` tinyint(1) NOT NULL DEFAULT 1,
+  `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_sys_role_code` (`role_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `sys_permission` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `permission_code` varchar(128) NOT NULL,
+  `permission_name` varchar(128) NOT NULL,
+  `permission_type` varchar(32) NOT NULL DEFAULT 'API',
+  `path` varchar(255) DEFAULT NULL,
+  `description` varchar(255) DEFAULT NULL,
+  `status` tinyint(1) NOT NULL DEFAULT 1,
+  `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_sys_permission_code` (`permission_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `sys_user_role` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint unsigned NOT NULL,
+  `role_id` bigint unsigned NOT NULL,
+  `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_sys_user_role` (`user_id`,`role_id`),
+  KEY `idx_sys_user_role_role` (`role_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `sys_role_permission` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `role_id` bigint unsigned NOT NULL,
+  `permission_id` bigint unsigned NOT NULL,
+  `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_sys_role_permission` (`role_id`,`permission_id`),
+  KEY `idx_sys_role_permission_permission` (`permission_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 SET FOREIGN_KEY_CHECKS = 1;

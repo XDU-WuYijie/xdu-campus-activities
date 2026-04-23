@@ -4,7 +4,9 @@ package com.campus.controller;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 import com.campus.dto.LoginFormDTO;
+import com.campus.dto.OrganizerApplyDTO;
 import com.campus.dto.Result;
+import com.campus.dto.ReviewActionDTO;
 import com.campus.dto.UserDTO;
 import com.campus.dto.UserProfileUpdateDTO;
 import com.campus.entity.User;
@@ -159,6 +161,34 @@ public class UserController {
     @PostMapping("/sign")
     public Result sign(){
         return userService.sign();
+    }
+
+    @PostMapping("/organizer/apply")
+    public Result applyOrganizer(@RequestBody OrganizerApplyDTO dto) {
+        return userService.applyOrganizer(dto);
+    }
+
+    @GetMapping("/organizer/apply/me")
+    public Result queryMyOrganizerApplication() {
+        return userService.queryMyOrganizerApplication();
+    }
+
+    @GetMapping("/admin/organizer-applications")
+    public Result queryOrganizerApplications(@RequestParam(value = "status", required = false) String status) {
+        UserDTO currentUser = UserHolder.getUser();
+        if (currentUser == null || !currentUser.hasPermission("platform:user_manage")) {
+            return Result.fail("无权查看主办方申请");
+        }
+        return userService.queryOrganizerApplications(status);
+    }
+
+    @PostMapping("/admin/organizer-applications/{id}/review")
+    public Result reviewOrganizerApplication(@PathVariable("id") Long id, @RequestBody ReviewActionDTO dto) {
+        UserDTO currentUser = UserHolder.getUser();
+        if (currentUser == null || !currentUser.hasPermission("platform:user_manage")) {
+            return Result.fail("无权审核主办方申请");
+        }
+        return userService.reviewOrganizerApplication(id, dto);
     }
 
     @GetMapping("/sign/count")

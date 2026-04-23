@@ -20,10 +20,16 @@
     .meta { opacity:.85; font-size: 13px; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .profile-arrow { font-size: 18px; opacity: .9; }
     .card { background:#fff; border-radius:18px; padding:16px; box-shadow:0 12px 30px rgba(16,35,61,.08); margin-bottom:12px; }
+    .section-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    .section-title { font-size:16px; font-weight:700; color:#10233d; }
+    .create-btn { border:none; border-radius:14px; background:linear-gradient(135deg, #17324d, #2a5f97); color:#fff; box-shadow:0 10px 22px rgba(23,50,77,.14); }
+    .filter-select { width: 170px; margin-bottom: 12px; }
     .item-title { font-size:18px; font-weight:700; color:#10233d; margin-bottom:6px; }
     .item-line { color:#556273; font-size:14px; line-height:1.8; }
     .item-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
     .logout-fixed { margin-top: 18px; }
+    .apply-box { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .apply-meta { color:#556273; font-size:14px; line-height:1.8; }
   </style>
 </head>
 <body>
@@ -43,8 +49,28 @@
     </div>
   </section>
 
+  <section class="card" v-if="showOrganizerApply">
+    <div class="section-head">
+      <div class="section-title">活动主办方申请</div>
+      <el-button size="mini" type="primary" class="create-btn" @click="openApplyDialog">申请成为主办方</el-button>
+    </div>
+    <div class="apply-meta" v-if="organizerApplication">
+      当前申请状态：{{ organizerStatusText }}
+    </div>
+    <div class="apply-meta" v-if="organizerApplication && organizerApplication.orgName">申请组织：{{ organizerApplication.orgName }}</div>
+    <div class="apply-meta" v-if="organizerApplication && organizerApplication.reviewRemark">审核备注：{{ organizerApplication.reviewRemark }}</div>
+    <div class="apply-meta" v-if="!organizerApplication">成为主办方后可发起活动、管理报名名单与执行签到核销。</div>
+  </section>
+
   <el-tabs v-model="tab">
     <el-tab-pane label="我的报名" name="registrations">
+      <el-select v-model="registrationFilter" class="filter-select" @change="queryRegistrations">
+        <el-option label="全部活动" value="ALL"></el-option>
+        <el-option label="待签到" value="PENDING_CHECK_IN"></el-option>
+        <el-option label="已签到" value="CHECKED_IN"></el-option>
+        <el-option label="已结束" value="FINISHED"></el-option>
+        <el-option label="已取消" value="CANCELED"></el-option>
+      </el-select>
       <div class="card" v-for="item in registrations" :key="item.id">
         <div class="item-title">{{item.activityTitle}}</div>
         <div class="item-line">活动分类：{{item.category}}</div>
@@ -52,8 +78,8 @@
         <div class="item-line">活动时间：{{formatTime(item.eventStartTime)}} - {{formatTime(item.eventEndTime)}}</div>
         <div class="item-line">报名状态：{{item.statusText || '未知状态'}}</div>
         <div class="item-line">状态说明：{{item.failReason || (item.status === 0 ? '系统确认中，请稍候刷新。' : '已受理')}}</div>
-        <div class="item-line">签到凭证：{{item.voucherDisplayCode || (item.status === 0 ? '生成中' : '待生成')}}</div>
-        <div class="item-line">签到状态：{{item.status === 1 ? (item.checkInStatus ? '已签到' : '未签到') : '待报名确认'}}</div>
+        <div v-if="item.status !== 3" class="item-line">签到凭证：{{item.voucherDisplayCode || (item.status === 0 ? '生成中' : '待生成')}}</div>
+        <div v-if="item.status !== 3" class="item-line">签到状态：{{item.status === 1 ? (item.checkInStatus ? '已签到' : '未签到') : '待报名确认'}}</div>
         <div class="item-actions">
           <el-button size="mini" type="primary" plain @click="viewDetail(item.activityId)">查看详情</el-button>
           <el-button v-if="canCancelRegistration(item)" size="mini" type="danger" plain @click="cancelRegistration(item.activityId)">退出活动</el-button>
@@ -63,10 +89,15 @@
     </el-tab-pane>
 
     <el-tab-pane v-if="canManageActivities" label="我发起的活动" name="created">
+      <div class="section-head">
+        <div class="section-title">我发起的活动</div>
+        <el-button class="create-btn" size="mini" @click="createActivity">发起活动</el-button>
+      </div>
       <div class="card" v-for="item in createdActivities" :key="item.id">
         <div class="item-title">{{item.title}}</div>
         <div class="item-line">分类：{{item.category}}</div>
         <div class="item-line">地点：{{item.location}}</div>
+        <div class="item-line">审核状态：{{activityAuditStatusText(item.status)}}</div>
         <div class="item-line">报名人数：{{item.registeredCount || 0}} / {{item.maxParticipants}}</div>
         <div class="item-line">签到：{{item.checkInEnabled ? '已开启' : '未开启'}}</div>
         <div class="item-actions">
@@ -95,6 +126,9 @@
       tab: 'registrations',
       user: window.auth.getUser() || {},
       profile: {},
+      organizerApplication: null,
+      applyForm: { orgName: '', reason: '' },
+      registrationFilter: 'ALL',
       registrations: [],
       createdActivities: []
     },
@@ -103,7 +137,23 @@
     },
     computed: {
       canManageActivities() {
-        return this.user && this.user.roleType === 1;
+        const permissions = (this.user && this.user.permissions) || [];
+        return permissions.includes('activity:create');
+      },
+      isPlatformAdmin() {
+        const roleCodes = (this.user && this.user.roleCodes) || [];
+        return roleCodes.includes('PLATFORM_ADMIN');
+      },
+      showOrganizerApply() {
+        return this.user && !this.canManageActivities && !this.isPlatformAdmin;
+      },
+      organizerStatusText() {
+        if (!this.organizerApplication) return '未申请';
+        const status = this.organizerApplication.applyStatus;
+        if (status === 'PENDING') return '待审核';
+        if (status === 'APPROVED') return '已通过';
+        if (status === 'REJECTED') return '已驳回';
+        return status || '未知';
       },
       profileMeta() {
         const grade = this.profile.grade || '';
@@ -118,7 +168,12 @@
           .then(({data}) => {
             this.user = data || {};
             window.auth.setUser(this.user);
+            if (this.isPlatformAdmin) {
+              location.replace('/admin-dashboard.html');
+              return;
+            }
             this.queryProfile();
+            this.queryMyOrganizerApplication();
             this.queryRegistrations();
             if (this.canManageActivities) {
               this.queryCreatedActivities();
@@ -135,8 +190,21 @@
           .then(({data}) => this.profile = data || {})
           .catch(() => this.profile = {});
       },
+      queryMyOrganizerApplication() {
+        if (!this.showOrganizerApply) {
+          this.organizerApplication = null;
+          return;
+        }
+        axios.get('/user/organizer/apply/me')
+          .then(({data}) => this.organizerApplication = data || null)
+          .catch(() => this.organizerApplication = null);
+      },
       queryRegistrations() {
-        axios.get('/activity/registration/mine')
+        axios.get('/activity/registration/mine', {
+          params: {
+            filter: this.registrationFilter
+          }
+        })
           .then(({data}) => this.registrations = data || [])
           .catch(err => this.$message.error(err));
       },
@@ -155,6 +223,9 @@
       editActivity(id) {
         location.href = '/activity-manage.html?id=' + id;
       },
+      createActivity() {
+        location.href = '/activity-manage.html';
+      },
       viewDetail(id) {
         location.href = '/activity-detail.html?id=' + id;
       },
@@ -166,6 +237,29 @@
             location.href = '/login.html';
           })
           .catch(err => this.$message.error(err));
+      },
+      openApplyDialog() {
+        this.$prompt('请填写申请组织/社团名称', '申请成为主办方', {
+          confirmButtonText: '下一步',
+          cancelButtonText: '取消',
+          inputValue: this.applyForm.orgName || ''
+        }).then(({ value }) => {
+          this.applyForm.orgName = value;
+          this.$prompt('请填写申请理由', '申请成为主办方', {
+            confirmButtonText: '提交申请',
+            cancelButtonText: '取消',
+            inputType: 'textarea',
+            inputValue: this.applyForm.reason || ''
+          }).then(({ value: reason }) => {
+            this.applyForm.reason = reason;
+            axios.post('/user/organizer/apply', this.applyForm)
+              .then(() => {
+                this.$message.success('申请已提交');
+                this.queryMyOrganizerApplication();
+              })
+              .catch(err => this.$message.error(err));
+          }).catch(() => {});
+        }).catch(() => {});
       },
       canCancelRegistration(item) {
         if (!item || item.status !== 1 || item.checkInStatus) return false;
@@ -188,6 +282,12 @@
       },
       formatTime(value) {
         return value ? value.replace('T', ' ') : '待定';
+      },
+      activityAuditStatusText(status) {
+        if (status === 1) return '待审核';
+        if (status === 2) return '已通过';
+        if (status === 3) return '已驳回';
+        return '未知';
       }
     }
   })

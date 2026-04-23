@@ -586,7 +586,8 @@
     },
     computed: {
       canManageActivities() {
-        return this.user && this.user.roleType === 1;
+        const permissions = (this.user && this.user.permissions) || [];
+        return permissions.includes('activity:create');
       },
       visibleImageList() {
         return this.imageList.slice(0, 5);
@@ -602,6 +603,11 @@
             this.user = data || {};
             window.auth.setUser(this.user);
             this.permissionLoaded = true;
+            const roleCodes = this.user.roleCodes || [];
+            if (roleCodes.includes('PLATFORM_ADMIN')) {
+              location.replace('/admin-dashboard.html');
+              return;
+            }
             if (!this.canManageActivities) {
               this.$message.warning('当前账号无发起活动权限');
               return;
@@ -668,7 +674,7 @@
         this.submitting = true;
         const request = payload.id ? axios.put('/activity', payload) : axios.post('/activity', payload);
         request.then(({data}) => {
-          this.$message.success(payload.id ? '活动已更新' : '活动已创建');
+          this.$message.success(payload.id ? '活动已保存，等待平台审核' : '活动已提交，等待平台审核');
           if (!payload.id && data) {
             this.form.id = data;
           }

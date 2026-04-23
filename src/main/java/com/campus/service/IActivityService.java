@@ -2,12 +2,24 @@ package com.campus.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.campus.dto.ActivityCheckInVerifyDTO;
+import com.campus.dto.ReviewActionDTO;
 import com.campus.dto.Result;
 import com.campus.entity.Activity;
 
+import java.time.LocalDateTime;
+
 public interface IActivityService extends IService<Activity> {
 
-    Result queryPublicActivities(String keyword, String category, Integer status, Integer current, Integer pageSize);
+    Result queryPublicActivities(String keyword,
+                                 String category,
+                                 Integer status,
+                                 String location,
+                                 String organizerName,
+                                 String sortBy,
+                                 LocalDateTime startTimeFrom,
+                                 LocalDateTime startTimeTo,
+                                 Integer current,
+                                 Integer pageSize);
 
     Result queryPublicCategories();
 
@@ -25,7 +37,7 @@ public interface IActivityService extends IService<Activity> {
 
     Result cancelRegistration(Long activityId);
 
-    Result queryMyRegistrations(Integer current, Integer pageSize);
+    Result queryMyRegistrations(String filter, Integer current, Integer pageSize);
 
     Result queryActivityRegistrations(Long activityId, Integer current, Integer pageSize);
 
@@ -34,4 +46,8 @@ public interface IActivityService extends IService<Activity> {
     Result queryCheckInStats(Long activityId);
 
     Result queryCheckInRecords(Long activityId, Integer current, Integer pageSize);
+
+    Result queryPendingReviewActivities();
+
+    Result reviewActivity(Long activityId, ReviewActionDTO dto);
 }

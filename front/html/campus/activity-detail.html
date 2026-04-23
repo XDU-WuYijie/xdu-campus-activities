@@ -579,7 +579,8 @@
         return this.activity.coverImage ? [this.activity.coverImage] : [];
       },
       isOrganizerUser() {
-        return this.user && this.user.roleType === 1;
+        const permissions = (this.user && this.user.permissions) || [];
+        return permissions.includes('activity:create');
       },
       canCancelRegistration() {
         if (!this.activity || !this.activity.registered || this.activity.canManage) return false;
@@ -824,7 +825,8 @@
         location.href = '/activity-manage.html?id=' + this.activity.id;
       },
       goMy() {
-        location.href = '/info.html';
+        const roleCodes = (this.user && this.user.roleCodes) || [];
+        location.href = roleCodes.includes('PLATFORM_ADMIN') ? '/admin-dashboard.html' : '/info.html';
       },
       goBack() {
         history.back();

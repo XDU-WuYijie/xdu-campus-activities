@@ -30,6 +30,21 @@ campus:
     register:
       topic: activity-register-topic
       consumer-group: activity-register-consumer-group
+    search:
+      sync:
+        topic: activity-search-sync-topic
+        consumer-group: activity-search-sync-consumer-group
+      es:
+        enabled: true
+        uris: ${ACTIVITY_SEARCH_ES_URIS:http://127.0.0.1:9200}
+        username: ${ACTIVITY_SEARCH_ES_USERNAME:}
+        password: ${ACTIVITY_SEARCH_ES_PASSWORD:}
+        index-name: ${ACTIVITY_SEARCH_ES_INDEX:activity_index_dev}
+        connect-timeout-millis: 2000
+        socket-timeout-millis: 3000
+        repair-cron: 0 */10 * * * ?
+        repair-lookback-hours: 24
+        repair-page-size: 200
 mybatis-plus:
   type-aliases-package: com.campus.entity # 别名扫描包
 logging:

@@ -38,6 +38,11 @@ public class User implements Serializable {
     private String phone;
 
     /**
+     * 登录账号
+     */
+    private String username;
+
+    /**
      * 密码，加密存储
      */
     private String password;

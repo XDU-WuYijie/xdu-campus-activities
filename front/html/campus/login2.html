@@ -28,7 +28,7 @@
     </div>
     <div class="content">
       <div class="login-form">
-        <el-input placeholder="请输入手机号" v-model="form.phone">
+        <el-input placeholder="请输入手机号或账号" v-model="form.phone">
         </el-input>
         <div style="height: 5px"></div>
         <el-input placeholder="请输入密码" v-model="form.password">
@@ -81,7 +81,8 @@
           })
           .then(({data}) => {
             window.auth.setUser(data || {});
-            location.href = "/info.html"
+            const roleCodes = (data && data.roleCodes) || [];
+            location.href = roleCodes.includes('PLATFORM_ADMIN') ? "/admin-dashboard.html" : "/index.html"
           })
           .catch(err => this.$message.error(err))
       },

@@ -65,6 +65,22 @@ services:
     networks:
       - campus-net
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.24
+    container_name: campus-elasticsearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+      xpack.security.enabled: "false"
+      TZ: Asia/Shanghai
+    ports:
+      - "9200:9200"
+    volumes:
+      - ./docker/elasticsearch/data:/usr/share/elasticsearch/data
+    networks:
+      - campus-net
+
   nginx:
     image: nginx:1.27-alpine
     container_name: campus-nginx
@@ -73,6 +89,7 @@ services:
       - mysql
       - redis
       - rocketmq-broker
+      - elasticsearch
     ports:
       - "8080:8080"
     volumes:
