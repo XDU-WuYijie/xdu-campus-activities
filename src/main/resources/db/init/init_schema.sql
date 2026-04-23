@@ -407,4 +407,88 @@ FROM `tb_user` u
 WHERE u.`username` = 'test'
   AND NOT EXISTS (SELECT 1 FROM `tb_activity` WHERE `title` = '秦岭环保公益行');
 
+INSERT INTO `tb_activity` (`creator_id`, `organizer_name`, `title`, `cover_image`, `images`, `summary`, `content`, `category`, `location`, `max_participants`, `registered_count`, `registration_start_time`, `registration_end_time`, `event_start_time`, `event_end_time`, `check_in_enabled`, `status`)
+WITH RECURSIVE seq(n) AS (
+  SELECT 1
+  UNION ALL
+  SELECT n + 1 FROM seq WHERE n < 295
+)
+SELECT u.`id`,
+       '西电活动中心',
+       CONCAT(
+         CASE MOD(n, 10)
+           WHEN 0 THEN '秦岭生态公益实践'
+           WHEN 1 THEN '校园创新工坊开放日'
+           WHEN 2 THEN '大型活动志愿者训练营'
+           WHEN 3 THEN '毕业季草坪音乐会'
+           WHEN 4 THEN '网络安全竞赛体验营'
+           WHEN 5 THEN '社区公益服务行动'
+           WHEN 6 THEN '智能硬件创客挑战'
+           WHEN 7 THEN '校园迎新志愿服务'
+           WHEN 8 THEN '青年艺术展演活动'
+           ELSE '算法挑战赛训练营'
+         END,
+         ' 第', n, '期'
+       ),
+       CASE MOD(n, 10)
+         WHEN 0 THEN 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1200&q=80'
+         WHEN 1 THEN 'https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=1200&q=80'
+         WHEN 2 THEN 'https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=1200&q=80'
+         WHEN 3 THEN 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80'
+         WHEN 4 THEN 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80'
+         WHEN 5 THEN 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80'
+         WHEN 6 THEN 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80'
+         WHEN 7 THEN 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=80'
+         WHEN 8 THEN 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&w=1200&q=80'
+         ELSE 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80'
+       END,
+       CASE MOD(n, 10)
+         WHEN 0 THEN 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80'
+         WHEN 1 THEN 'https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80'
+         WHEN 2 THEN 'https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=80'
+         WHEN 3 THEN 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&w=1200&q=80'
+         WHEN 4 THEN 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80'
+         WHEN 5 THEN 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1200&q=80'
+         WHEN 6 THEN 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=1200&q=80'
+         WHEN 7 THEN 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=1200&q=80'
+         WHEN 8 THEN 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80'
+         ELSE 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80'
+       END,
+       CASE MOD(n, 5)
+         WHEN 0 THEN '面向全校学生的公益实践项目，包含志愿服务、环保行动与社区协作。'
+         WHEN 1 THEN '聚焦创新实践和团队协作，适合希望了解校园项目孵化的同学参加。'
+         WHEN 2 THEN '大型校园活动现场服务训练，覆盖签到、引导、秩序维护和应急沟通。'
+         WHEN 3 THEN '校园文化艺术活动，包含演出、展演、互动体验和现场签到。'
+         ELSE '竞赛训练与能力提升活动，包含讲解、实操、分组任务和导师答疑。'
+       END,
+       CONCAT('本活动由西电活动中心组织，设置报名审核和现场签到环节。活动第', n, '期将围绕主题开展分组实践、经验分享和成果交流，报名通过后请按时到场签到。'),
+       CASE MOD(n, 5)
+         WHEN 0 THEN '公益活动'
+         WHEN 1 THEN '创新实践'
+         WHEN 2 THEN '志愿服务'
+         WHEN 3 THEN '文艺活动'
+         ELSE '竞赛训练'
+       END,
+       CASE MOD(n, 8)
+         WHEN 0 THEN '南校区大学生活动中心一楼大厅'
+         WHEN 1 THEN '北校区中心草坪'
+         WHEN 2 THEN '南校区体育馆会议室'
+         WHEN 3 THEN '网安大楼 C305 实训室'
+         WHEN 4 THEN '创新创业学院路演厅'
+         WHEN 5 THEN '教学楼 B203'
+         WHEN 6 THEN '图书馆报告厅'
+         ELSE '秦岭生态保护实践基地'
+       END,
+       40 + MOD(n * 7, 260),
+       0,
+       DATE_ADD('2026-05-01 09:00:00', INTERVAL n DAY),
+       DATE_ADD('2026-05-05 18:00:00', INTERVAL n DAY),
+       DATE_ADD('2026-05-08 14:00:00', INTERVAL n DAY),
+       DATE_ADD('2026-05-08 17:00:00', INTERVAL n DAY),
+       1,
+       CASE WHEN MOD(n, 20) = 0 THEN 1 WHEN MOD(n, 25) = 0 THEN 5 ELSE 2 END
+FROM seq
+JOIN `tb_user` u ON u.`username` = 'test'
+WHERE NOT EXISTS (SELECT 1 FROM `tb_activity` WHERE `title` = CONCAT('校园创新工坊开放日 第1期'));
+
 SET FOREIGN_KEY_CHECKS = 1;

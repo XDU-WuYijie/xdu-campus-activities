@@ -19,6 +19,10 @@
     .item-line { color:#556273; font-size:14px; line-height:1.9; }
     .item-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
     .empty { color:#708198; text-align:center; padding:28px 0; }
+    .count-text { color:#607086; font-size:14px; font-weight:600; margin:0 0 12px; }
+    .inline-search { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px; }
+    .inline-search .el-input { width:260px; }
+    .load-more { text-align:center; margin:14px 0; }
   </style>
 </head>
 <body>
@@ -37,6 +41,7 @@
 
   <el-tabs v-model="tab">
     <el-tab-pane label="活动审核" name="activities">
+      <div class="count-text">共 {{activities.length}} 条待审核活动</div>
       <div class="card" v-for="item in activities" :key="item.id">
         <div class="item-title">{{ item.title }}</div>
         <div class="item-line">审核类型：{{ pendingActivityTypeText(item.status) }}</div>
@@ -55,9 +60,12 @@
     </el-tab-pane>
 
     <el-tab-pane label="已发布活动" name="published">
-      <div class="item-actions" style="margin-bottom:12px;">
-        <el-button size="mini" type="primary" plain @click="queryPublishedActivities">刷新</el-button>
+      <div class="inline-search">
+        <el-input size="mini" v-model="publishedKeyword" clearable placeholder="搜索已发布活动" @keyup.enter.native="refreshPublishedActivities"></el-input>
+        <el-button size="mini" type="primary" plain @click="refreshPublishedActivities">搜索</el-button>
+        <el-button size="mini" plain @click="refreshPublishedActivities">刷新</el-button>
       </div>
+      <div class="count-text">共 {{publishedTotal}} 条已发布活动，当前显示 {{publishedActivities.length}} 条</div>
       <div class="card" v-for="item in publishedActivities" :key="item.id">
         <div class="item-title">{{ item.title }}</div>
         <div class="item-line">主办方：{{ item.organizerName || '未填写' }}</div>
@@ -71,9 +79,13 @@
         </div>
       </div>
       <div class="card empty" v-if="!publishedActivities.length">暂无已发布活动</div>
+      <div class="load-more" v-if="publishedActivities.length < publishedTotal">
+        <el-button size="mini" plain @click="loadMorePublishedActivities">加载更多</el-button>
+      </div>
     </el-tab-pane>
 
     <el-tab-pane label="主办方申请审核" name="organizers">
+      <div class="count-text">共 {{organizerApplications.length}} 条主办方申请</div>
       <div class="card" v-for="item in organizerApplications" :key="item.id">
         <div class="item-title">{{ item.applicantName || item.applicantUsername || ('用户' + item.userId) }}</div>
         <div class="item-line">登录账号：{{ item.applicantUsername || '未设置' }}</div>
@@ -93,6 +105,7 @@
         <el-button size="mini" type="primary" plain @click="queryReviewHistory">刷新</el-button>
         <el-button size="mini" type="danger" plain @click="clearReviewHistory">一键删除</el-button>
       </div>
+      <div class="count-text">共 {{reviewHistory.length}} 条审核历史</div>
       <div class="card" v-for="item in reviewHistory" :key="item.id">
         <div class="item-title">{{ item.bizTitle }}</div>
         <div class="item-line">审核对象：{{ item.targetName || ('用户' + item.targetUserId) }}</div>
@@ -124,6 +137,10 @@
       tab: 'activities',
       activities: [],
       publishedActivities: [],
+      publishedTotal: 0,
+      publishedKeyword: '',
+      publishedCurrent: 1,
+      publishedPageSize: 20,
       organizerApplications: [],
       reviewHistory: [],
       unreadCount: 0
@@ -144,7 +161,7 @@
               return;
             }
             this.queryActivities();
-            this.queryPublishedActivities();
+            this.refreshPublishedActivities();
             this.queryOrganizerApplications();
             this.queryReviewHistory();
           })
@@ -155,10 +172,28 @@
           .then(({data}) => this.activities = data || [])
           .catch(err => this.$message.error(err));
       },
-      queryPublishedActivities() {
-        axios.get('/activity/admin/published-list', { params: { current: 1, pageSize: 100 } })
-          .then(({data}) => this.publishedActivities = data || [])
+      queryPublishedActivities(append) {
+        axios.get('/activity/admin/published-list', {
+          params: {
+            current: this.publishedCurrent,
+            pageSize: this.publishedPageSize,
+            keyword: this.publishedKeyword
+          }
+        })
+          .then(({data, total}) => {
+            const rows = data || [];
+            this.publishedActivities = append ? this.publishedActivities.concat(rows) : rows;
+            this.publishedTotal = total === undefined || total === null ? this.publishedActivities.length : total;
+          })
           .catch(err => this.$message.error(err));
+      },
+      refreshPublishedActivities() {
+        this.publishedCurrent = 1;
+        this.queryPublishedActivities(false);
+      },
+      loadMorePublishedActivities() {
+        this.publishedCurrent += 1;
+        this.queryPublishedActivities(true);
       },
       queryOrganizerApplications() {
         axios.get('/user/admin/organizer-applications', { params: { status: 'PENDING' } })
@@ -180,7 +215,7 @@
               this.$message.success(approved ? '活动已通过' : '活动已驳回');
             }
             this.queryActivities();
-            this.queryPublishedActivities();
+            this.refreshPublishedActivities();
             this.queryReviewHistory();
           })
           .catch(err => this.$message.error(err));
@@ -205,7 +240,7 @@
             reviewRemark: value
           }).then(() => {
             this.$message.success('活动已下架');
-            this.queryPublishedActivities();
+            this.refreshPublishedActivities();
             this.queryReviewHistory();
           }).catch(err => this.$message.error(err));
         }).catch(() => {});

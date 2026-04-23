@@ -24,6 +24,7 @@
     .notice-content { color:#556273; font-size:14px; line-height:1.8; }
     .notice-foot { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; }
     .notice-type { color:#2a5f97; font-size:12px; background:#eef4fb; padding:4px 8px; border-radius:999px; }
+    .count-text { color:#607086; font-size:14px; font-weight:600; margin:0 0 12px; }
     .empty { background:#fff; border-radius:18px; padding:38px 18px; text-align:center; color:#7a8897; box-shadow:0 12px 30px rgba(16,35,61,.08); }
     .load-more { text-align:center; margin-top:14px; }
     @media (max-width: 640px) {
@@ -60,6 +61,8 @@
       <el-button type="danger" plain @click="clearMailbox">清空信箱</el-button>
     </div>
   </div>
+
+  <div class="count-text">共 {{total}} 条通知，当前显示 {{notifications.length}} 条</div>
 
   <div v-if="notifications.length">
     <article class="notice" v-for="item in notifications" :key="item.id" :class="{unread: !item.isRead}" @click="openNotice(item)">

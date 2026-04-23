@@ -65,9 +65,10 @@ public class ActivityController {
 
     @GetMapping("/manage/mine")
     public Result queryMyCreatedActivities(
+            @RequestParam(value = "keyword", required = false) String keyword,
             @RequestParam(value = "current", defaultValue = "1") Integer current,
             @RequestParam(value = "pageSize", defaultValue = "" + SystemConstants.MAX_PAGE_SIZE) Integer pageSize) {
-        return activityService.queryMyCreatedActivities(current, pageSize);
+        return activityService.queryMyCreatedActivities(keyword, current, pageSize);
     }
 
     @PostMapping("/manage/{id}/offline-apply")
@@ -167,12 +168,13 @@ public class ActivityController {
 
     @GetMapping("/admin/published-list")
     public Result queryPublishedActivitiesForAdmin(
+            @RequestParam(value = "keyword", required = false) String keyword,
             @RequestParam(value = "current", defaultValue = "1") Integer current,
             @RequestParam(value = "pageSize", defaultValue = "" + SystemConstants.MAX_PAGE_SIZE) Integer pageSize) {
         if (!AuthorizationUtils.hasPermission(UserHolder.getUser(), RbacConstants.PERM_ACTIVITY_OFFLINE)) {
             return Result.fail("无权查看已发布活动");
         }
-        return activityService.queryPublishedActivitiesForAdmin(current, pageSize);
+        return activityService.queryPublishedActivitiesForAdmin(keyword, current, pageSize);
     }
 
     @PostMapping("/admin/{id}/review")

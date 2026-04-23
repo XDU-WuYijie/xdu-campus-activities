@@ -29,7 +29,7 @@ public interface IActivityService extends IService<Activity> {
 
     Result updateActivity(Activity activity);
 
-    Result queryMyCreatedActivities(Integer current, Integer pageSize);
+    Result queryMyCreatedActivities(String keyword, Integer current, Integer pageSize);
 
     Result requestOfflineActivity(Long activityId, ReviewActionDTO dto);
 
@@ -57,7 +57,7 @@ public interface IActivityService extends IService<Activity> {
 
     Result queryPendingReviewActivities();
 
-    Result queryPublishedActivitiesForAdmin(Integer current, Integer pageSize);
+    Result queryPublishedActivitiesForAdmin(String keyword, Integer current, Integer pageSize);
 
     Result reviewActivity(Long activityId, ReviewActionDTO dto);
 

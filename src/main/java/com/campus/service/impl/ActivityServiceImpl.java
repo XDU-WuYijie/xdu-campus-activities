@@ -60,6 +60,7 @@ import jakarta.annotation.Resource;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -98,6 +99,13 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     private static final int STATUS_REJECTED = 3;
     private static final int STATUS_OFFLINE = 4;
     private static final int STATUS_OFFLINE_PENDING_REVIEW = 5;
+    private static final List<String> ACTIVITY_CATEGORY_OPTIONS = Arrays.asList(
+            "公益活动",
+            "创新实践",
+            "志愿服务",
+            "文艺活动",
+            "竞赛训练"
+    );
     private static final int REGISTRATION_PENDING = 0;
     private static final int REGISTRATION_SUCCESS = 1;
     private static final int REGISTRATION_FAILED = 2;
@@ -345,15 +353,31 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     }
 
     @Override
-    public Result queryMyCreatedActivities(Integer current, Integer pageSize) {
+    public Result queryMyCreatedActivities(String keyword, Integer current, Integer pageSize) {
         Result authResult = requirePermission(RbacConstants.PERM_ACTIVITY_CREATE, "无权查看我发起的活动");
         if (authResult != null) {
             return authResult;
         }
-        Page<Activity> page = query()
+        QueryWrapper<Activity> wrapper = new QueryWrapper<Activity>()
                 .eq("creator_id", UserHolder.getUser().getId())
-                .orderByDesc("create_time")
-                .page(new Page<>(current, normalizePageSize(pageSize)));
+                .and(StrUtil.isNotBlank(keyword), query -> query
+                        .like("title", keyword)
+                        .or()
+                        .like("summary", keyword)
+                        .or()
+                        .like("content", keyword)
+                        .or()
+                        .like("category", keyword)
+                        .or()
+                        .like("location", keyword))
+                .orderByDesc("create_time");
+        Page<Activity> page = page(
+                new Page<>(
+                        current == null || current < 1 ? 1 : current,
+                        normalizePageSize(pageSize)
+                ),
+                wrapper
+        );
         List<Activity> records = page.getRecords();
         syncRemainingSlots(records);
         enrichActivities(records, UserHolder.getUser());
@@ -770,9 +794,43 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     }
 
     @Override
-    public Result queryPublishedActivitiesForAdmin(Integer current, Integer pageSize) {
+    public Result queryPublishedActivitiesForAdmin(String keyword, Integer current, Integer pageSize) {
+        if (StrUtil.isNotBlank(keyword) && activitySearchService.isAvailable()) {
+            try {
+                ActivitySearchPageDTO searchPage = activitySearchService.searchActivities(
+                        keyword,
+                        null,
+                        STATUS_PUBLISHED,
+                        null,
+                        null,
+                        "publishTimeDesc",
+                        null,
+                        null,
+                        current,
+                        pageSize
+                );
+                List<Activity> records = searchPage.getRecords();
+                syncRemainingSlots(records);
+                enrichActivities(records, UserHolder.getUser());
+                return Result.ok(records, searchPage.getTotal());
+            } catch (Exception e) {
+                log.warn("管理员已发布活动 ES 搜索失败，降级 MySQL keyword={}", keyword, e);
+            }
+        }
         Page<Activity> page = query()
                 .eq("status", STATUS_PUBLISHED)
+                .and(StrUtil.isNotBlank(keyword), query -> query
+                        .like("title", keyword)
+                        .or()
+                        .like("summary", keyword)
+                        .or()
+                        .like("content", keyword)
+                        .or()
+                        .like("category", keyword)
+                        .or()
+                        .like("organizer_name", keyword)
+                        .or()
+                        .like("location", keyword))
                 .orderByDesc("create_time")
                 .page(new Page<>(
                         current == null || current < 1 ? 1 : current,
@@ -2440,6 +2498,9 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         }
         if (StrUtil.isBlank(activity.getCategory())) {
             return "活动分类不能为空";
+        }
+        if (!ACTIVITY_CATEGORY_OPTIONS.contains(activity.getCategory())) {
+            return "活动分类只能选择公益活动、创新实践、志愿服务、文艺活动、竞赛训练";
         }
         if (StrUtil.isBlank(activity.getLocation())) {
             return "活动地点不能为空";

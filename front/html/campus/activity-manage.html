@@ -482,7 +482,9 @@
             <div class="fact-content">
               <div class="fact-label">活动分类</div>
               <el-form-item>
-                <el-input v-model="form.category" placeholder="例如：讲座 / 招募 / 志愿服务"></el-input>
+                <el-select v-model="form.category" placeholder="请选择活动分类" style="width:100%;">
+                  <el-option v-for="item in categoryOptions" :key="item" :label="item" :value="item"></el-option>
+                </el-select>
               </el-form-item>
             </div>
           </div>
@@ -573,6 +575,7 @@
         status: null
       },
       imageList: [],
+      categoryOptions: ['公益活动', '创新实践', '志愿服务', '文艺活动', '竞赛训练'],
       user: window.auth.getUser() || {},
       permissionLoaded: false,
       submitting: false
