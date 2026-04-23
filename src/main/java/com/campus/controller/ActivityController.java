@@ -70,6 +70,11 @@ public class ActivityController {
         return activityService.queryMyCreatedActivities(current, pageSize);
     }
 
+    @PostMapping("/manage/{id}/offline-apply")
+    public Result requestOfflineActivity(@PathVariable("id") Long activityId, @RequestBody(required = false) ReviewActionDTO dto) {
+        return activityService.requestOfflineActivity(activityId, dto);
+    }
+
     @PostMapping("/{id}/register")
     public Result register(@PathVariable("id") Long activityId) {
         return activityService.register(activityId);
@@ -99,6 +104,27 @@ public class ActivityController {
             @RequestParam(value = "current", defaultValue = "1") Integer current,
             @RequestParam(value = "pageSize", defaultValue = "" + SystemConstants.MAX_PAGE_SIZE) Integer pageSize) {
         return activityService.queryActivityRegistrations(activityId, current, pageSize);
+    }
+
+    @GetMapping("/manage/registration-reviews")
+    public Result queryMyPendingRegistrationReviews(
+            @RequestParam(value = "current", defaultValue = "1") Integer current,
+            @RequestParam(value = "pageSize", defaultValue = "" + SystemConstants.MAX_PAGE_SIZE) Integer pageSize) {
+        return activityService.queryMyPendingRegistrationReviews(current, pageSize);
+    }
+
+    @PostMapping("/manage/{id}/registrations/{registrationId}/review")
+    public Result reviewRegistration(@PathVariable("id") Long activityId,
+                                     @PathVariable("registrationId") Long registrationId,
+                                     @RequestBody ReviewActionDTO dto) {
+        return activityService.reviewRegistration(activityId, registrationId, dto);
+    }
+
+    @PostMapping("/manage/{id}/registrations/{registrationId}/cancel-review")
+    public Result reviewCancelRegistration(@PathVariable("id") Long activityId,
+                                           @PathVariable("registrationId") Long registrationId,
+                                           @RequestBody ReviewActionDTO dto) {
+        return activityService.reviewCancelRegistration(activityId, registrationId, dto);
     }
 
     @PostMapping("/manage/image")
@@ -139,11 +165,29 @@ public class ActivityController {
         return activityService.queryPendingReviewActivities();
     }
 
+    @GetMapping("/admin/published-list")
+    public Result queryPublishedActivitiesForAdmin(
+            @RequestParam(value = "current", defaultValue = "1") Integer current,
+            @RequestParam(value = "pageSize", defaultValue = "" + SystemConstants.MAX_PAGE_SIZE) Integer pageSize) {
+        if (!AuthorizationUtils.hasPermission(UserHolder.getUser(), RbacConstants.PERM_ACTIVITY_OFFLINE)) {
+            return Result.fail("无权查看已发布活动");
+        }
+        return activityService.queryPublishedActivitiesForAdmin(current, pageSize);
+    }
+
     @PostMapping("/admin/{id}/review")
     public Result reviewActivity(@PathVariable("id") Long activityId, @RequestBody ReviewActionDTO dto) {
         if (!AuthorizationUtils.hasPermission(UserHolder.getUser(), RbacConstants.PERM_ACTIVITY_APPROVE)) {
             return Result.fail("无权审核活动");
         }
         return activityService.reviewActivity(activityId, dto);
+    }
+
+    @PostMapping("/admin/{id}/offline")
+    public Result offlineActivity(@PathVariable("id") Long activityId, @RequestBody(required = false) ReviewActionDTO dto) {
+        if (!AuthorizationUtils.hasPermission(UserHolder.getUser(), RbacConstants.PERM_ACTIVITY_OFFLINE)) {
+            return Result.fail("无权下架活动");
+        }
+        return activityService.offlineActivity(activityId, dto);
     }
 }

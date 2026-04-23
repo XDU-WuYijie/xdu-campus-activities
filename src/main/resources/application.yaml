@@ -27,6 +27,9 @@ rocketmq:
     group: campus-activity-register-producer
 
 campus:
+  notification:
+    topic: campus-notification-topic
+    consumer-group: campus-notification-consumer-group
   activity:
     register:
       topic: activity-register-topic

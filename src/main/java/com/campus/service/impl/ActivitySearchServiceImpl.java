@@ -25,6 +25,7 @@ import org.elasticsearch.client.indices.GetIndexRequest;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.MultiMatchQueryBuilder;
+import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
@@ -62,6 +63,7 @@ import java.util.stream.Collectors;
 public class ActivitySearchServiceImpl implements ActivitySearchService {
 
     private static final int STATUS_PUBLISHED = 2;
+    private static final int STATUS_OFFLINE_PENDING_REVIEW = 5;
     private static final String SORT_COMPOSITE = "composite";
     private static final String SORT_START_TIME_ASC = "startTimeAsc";
     private static final String SORT_PUBLISH_TIME_DESC = "publishTimeDesc";
@@ -170,7 +172,7 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
         try {
             ensureIndex();
             Activity activity = activityMapper.selectById(activityId);
-            if (activity == null || !Objects.equals(activity.getStatus(), STATUS_PUBLISHED)) {
+            if (activity == null || !isPublicActivityStatus(activity.getStatus())) {
                 restHighLevelClient.delete(new DeleteRequest(indexName(), String.valueOf(activityId)), RequestOptions.DEFAULT);
                 return;
             }
@@ -237,7 +239,7 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
         }
         log.info("活动搜索索引为空，开始执行启动全量同步 index={}", indexName());
         QueryWrapper<Activity> wrapper = new QueryWrapper<Activity>()
-                .eq("status", STATUS_PUBLISHED)
+                .in("status", STATUS_PUBLISHED, STATUS_OFFLINE_PENDING_REVIEW)
                 .orderByAsc("id");
         List<Activity> activities = activityMapper.selectList(wrapper);
         for (Activity activity : activities) {
@@ -277,7 +279,7 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
             return Collections.emptyList();
         }
         Map<Long, Activity> activityMap = activities.stream()
-                .filter(item -> Objects.equals(item.getStatus(), STATUS_PUBLISHED))
+                .filter(item -> isPublicActivityStatus(item.getStatus()))
                 .collect(Collectors.toMap(Activity::getId, item -> item, (a, b) -> a, HashMap::new));
         List<Activity> ordered = new ArrayList<>(ids.size());
         for (Long id : ids) {
@@ -312,6 +314,7 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
                 .put("analysis.tokenizer.campus_ngram_tokenizer.type", "ngram")
                 .put("analysis.tokenizer.campus_ngram_tokenizer.min_gram", 1)
                 .put("analysis.tokenizer.campus_ngram_tokenizer.max_gram", 2)
+                .putList("analysis.tokenizer.campus_ngram_tokenizer.token_chars", "letter", "digit")
                 .putList("analysis.analyzer.campus_text_analyzer.filter", "lowercase")
                 .put("analysis.analyzer.campus_text_analyzer.tokenizer", "campus_ngram_tokenizer"));
         request.mapping(buildMapping());
@@ -351,6 +354,18 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
                 "all shards failed",
                 "no_shard_available_action_exception",
                 "unavailable_shards_exception");
+    }
+
+    private boolean isAsciiKeyword(String keyword) {
+        if (StrUtil.isBlank(keyword)) {
+            return false;
+        }
+        for (int i = 0; i < keyword.length(); i++) {
+            if (keyword.charAt(i) > 127) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private XContentBuilder buildMapping() throws IOException {
@@ -421,12 +436,36 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
                                               LocalDateTime startTimeFrom,
                                               LocalDateTime startTimeTo) {
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
-        boolQuery.filter(QueryBuilders.termQuery("status", status == null ? STATUS_PUBLISHED : status));
+        if (status == null) {
+            boolQuery.filter(QueryBuilders.termsQuery("status", List.of(STATUS_PUBLISHED, STATUS_OFFLINE_PENDING_REVIEW)));
+        } else {
+            boolQuery.filter(QueryBuilders.termQuery("status", status));
+        }
         if (StrUtil.isNotBlank(keyword)) {
-            MultiMatchQueryBuilder multiMatchQuery = QueryBuilders.multiMatchQuery(keyword,
-                            "title^4", "summary^2", "organizerName^2", "location", "content")
+            String normalizedKeyword = keyword.trim();
+            MultiMatchQueryBuilder multiMatchQuery = QueryBuilders.multiMatchQuery(normalizedKeyword)
+                    .field("title", 4.0f)
+                    .field("summary", 2.0f)
+                    .field("organizerName", 2.0f)
+                    .field("location")
+                    .field("content")
                     .type(MultiMatchQueryBuilder.Type.BEST_FIELDS);
-            boolQuery.must(multiMatchQuery);
+            BoolQueryBuilder keywordQuery = QueryBuilders.boolQuery()
+                    .should(multiMatchQuery)
+                    .should(QueryBuilders.matchPhraseQuery("title", normalizedKeyword).boost(6.0f))
+                    .should(QueryBuilders.matchPhraseQuery("location", normalizedKeyword).boost(4.0f))
+                    .minimumShouldMatch(1);
+            if (isAsciiKeyword(normalizedKeyword)) {
+                keywordQuery.should(QueryBuilders.wildcardQuery("title.keyword", "*" + normalizedKeyword + "*")
+                        .caseInsensitive(true)
+                        .boost(5.0f));
+                keywordQuery.should(QueryBuilders.wildcardQuery("location.keyword", "*" + normalizedKeyword + "*")
+                        .caseInsensitive(true)
+                        .boost(4.0f));
+                keywordQuery.should(QueryBuilders.matchQuery("title", normalizedKeyword).operator(Operator.AND).boost(3.0f));
+                keywordQuery.should(QueryBuilders.matchQuery("location", normalizedKeyword).operator(Operator.AND).boost(3.0f));
+            }
+            boolQuery.must(keywordQuery);
         }
         if (StrUtil.isNotBlank(category)) {
             boolQuery.filter(QueryBuilders.termQuery("category", category));
@@ -518,7 +557,7 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
     }
 
     private String resolveStageStatus(Activity activity) {
-        if (!Objects.equals(activity.getStatus(), STATUS_PUBLISHED)) {
+        if (!isPublicActivityStatus(activity.getStatus())) {
             return "OFFLINE";
         }
         LocalDateTime now = LocalDateTime.now();
@@ -550,6 +589,11 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
 
     private Integer defaultNumber(Integer value) {
         return value == null ? 0 : value;
+    }
+
+    private boolean isPublicActivityStatus(Integer status) {
+        return Objects.equals(status, STATUS_PUBLISHED)
+                || Objects.equals(status, STATUS_OFFLINE_PENDING_REVIEW);
     }
 
     private String formatDate(LocalDateTime value) {

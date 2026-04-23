@@ -9,8 +9,10 @@
   <style>
     body { background: #f6f8fb; }
     .page { max-width: 960px; margin: 0 auto; padding: 18px 16px 90px; }
-    .topbar { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+    .topbar-left { display:flex; align-items:center; gap:12px; }
     .back-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: #ffffff; color:#17324d; box-shadow:0 10px 24px rgba(16,35,61,.08); cursor:pointer; }
+    .notice-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: #ffffff; color:#17324d; box-shadow:0 10px 24px rgba(16,35,61,.08); cursor:pointer; }
     .top-title { font-size: 18px; font-weight: 700; color:#17324d; }
     .profile { background: #17324d; color: #fff; border-radius: 20px; padding: 18px 16px; margin-bottom: 16px; cursor: pointer; }
     .profile-main { display:flex; align-items:center; gap:14px; }
@@ -35,8 +37,13 @@
 <body>
 <div id="app" class="page">
   <div class="topbar">
-    <button class="back-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
-    <div class="top-title">个人主页</div>
+    <div class="topbar-left">
+      <button class="back-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
+      <div class="top-title">个人主页</div>
+    </div>
+    <el-badge :value="unreadCount" :hidden="!unreadCount">
+      <button class="notice-btn" @click="goNotifications"><i class="el-icon-bell"></i></button>
+    </el-badge>
   </div>
   <section class="profile" @click="goEditProfile">
     <div class="profile-main">
@@ -63,7 +70,7 @@
   </section>
 
   <el-tabs v-model="tab">
-    <el-tab-pane label="我的报名" name="registrations">
+    <el-tab-pane v-if="!canManageActivities" label="我的报名" name="registrations">
       <el-select v-model="registrationFilter" class="filter-select" @change="queryRegistrations">
         <el-option label="全部活动" value="ALL"></el-option>
         <el-option label="待签到" value="PENDING_CHECK_IN"></el-option>
@@ -88,6 +95,31 @@
       <div class="card" v-if="!registrations.length">还没有报名任何活动。</div>
     </el-tab-pane>
 
+    <el-tab-pane v-if="canManageActivities" label="待审核请求" name="reviews">
+      <div class="section-head">
+        <div class="section-title">待审核请求</div>
+        <el-button class="create-btn" size="mini" @click="queryPendingReviews">刷新</el-button>
+      </div>
+      <div class="card" v-for="item in pendingReviews" :key="item.id">
+        <div class="item-title">{{item.activityTitle}}</div>
+        <div class="item-line">申请用户：{{item.userNickName || ('用户' + item.userId)}}</div>
+        <div class="item-line">请求类型：{{registrationReviewTypeText(item.status)}}</div>
+        <div class="item-line">提交时间：{{formatTime(item.createTime)}}</div>
+        <div class="item-line" v-if="item.failReason">状态说明：{{item.failReason}}</div>
+        <div class="item-actions" v-if="item.status === 0">
+          <el-button size="mini" type="success" @click="reviewRegistration(item, true)">通过报名</el-button>
+          <el-button size="mini" type="danger" plain @click="reviewRegistration(item, false)">驳回报名</el-button>
+          <el-button size="mini" plain @click="viewDetail(item.activityId)">查看活动</el-button>
+        </div>
+        <div class="item-actions" v-if="item.status === 4">
+          <el-button size="mini" type="success" @click="reviewCancelRegistration(item, true)">同意退出</el-button>
+          <el-button size="mini" type="danger" plain @click="reviewCancelRegistration(item, false)">拒绝退出</el-button>
+          <el-button size="mini" plain @click="viewDetail(item.activityId)">查看活动</el-button>
+        </div>
+      </div>
+      <div class="card" v-if="!pendingReviews.length">暂无待审核请求。</div>
+    </el-tab-pane>
+
     <el-tab-pane v-if="canManageActivities" label="我发起的活动" name="created">
       <div class="section-head">
         <div class="section-title">我发起的活动</div>
@@ -106,6 +138,28 @@
         </div>
       </div>
       <div class="card" v-if="!createdActivities.length">你还没有发起任何活动。</div>
+    </el-tab-pane>
+
+    <el-tab-pane v-if="canManageActivities" label="审核历史" name="reviewHistory">
+      <div class="section-head">
+        <div class="section-title">审核历史</div>
+        <div class="item-actions">
+          <el-button class="create-btn" size="mini" @click="queryReviewHistory">刷新</el-button>
+          <el-button size="mini" type="danger" plain @click="clearReviewHistory">一键删除</el-button>
+        </div>
+      </div>
+      <div class="card" v-for="item in reviewHistory" :key="item.id">
+        <div class="item-title">{{item.bizTitle}}</div>
+        <div class="item-line">审核对象：{{item.targetName || ('用户' + item.targetUserId)}}</div>
+        <div class="item-line">审核类型：{{reviewBizTypeText(item.bizType)}}</div>
+        <div class="item-line">审核结果：{{reviewActionText(item.action)}}</div>
+        <div class="item-line" v-if="item.remark">备注：{{item.remark}}</div>
+        <div class="item-line">审核时间：{{formatTime(item.createdAt)}}</div>
+        <div class="item-actions">
+          <el-button size="mini" type="danger" plain @click="deleteReviewRecord(item.id)">删除</el-button>
+        </div>
+      </div>
+      <div class="card" v-if="!reviewHistory.length">暂无审核历史。</div>
     </el-tab-pane>
   </el-tabs>
 
@@ -130,10 +184,14 @@
       applyForm: { orgName: '', reason: '' },
       registrationFilter: 'ALL',
       registrations: [],
-      createdActivities: []
+      pendingReviews: [],
+      createdActivities: [],
+      reviewHistory: [],
+      unreadCount: 0
     },
     created() {
       this.queryUser();
+      this.initNotifications();
     },
     computed: {
       canManageActivities() {
@@ -174,12 +232,17 @@
             }
             this.queryProfile();
             this.queryMyOrganizerApplication();
-            this.queryRegistrations();
             if (this.canManageActivities) {
+              this.tab = util.getUrlParam('tab') || 'reviews';
+              this.queryPendingReviews();
               this.queryCreatedActivities();
+              this.queryReviewHistory();
             } else {
-              this.createdActivities = [];
               this.tab = 'registrations';
+              this.queryRegistrations();
+              this.pendingReviews = [];
+              this.createdActivities = [];
+              this.reviewHistory = [];
             }
           })
           .catch(() => location.href = '/login.html');
@@ -214,11 +277,45 @@
           .then(({data}) => this.createdActivities = data || [])
           .catch(err => this.$message.error(err));
       },
+      queryPendingReviews() {
+        if (!this.canManageActivities) return;
+        axios.get('/activity/manage/registration-reviews')
+          .then(({data}) => this.pendingReviews = data || [])
+          .catch(err => this.$message.error(err));
+      },
+      queryReviewHistory() {
+        if (!this.canManageActivities) return;
+        axios.get('/review-records/mine', { params: { reviewType: 'ACTIVITY_ADMIN' } })
+          .then(({data}) => this.reviewHistory = data || [])
+          .catch(err => this.$message.error(err));
+      },
       goBack() {
         location.href = '/index.html';
       },
       goEditProfile() {
         location.href = '/info-edit.html';
+      },
+      goNotifications() {
+        location.href = '/notification.html';
+      },
+      initNotifications() {
+        window.notificationClient.fetchUnread().then(count => this.unreadCount = count || 0);
+        window.notificationClient.connect({
+          onUnread: count => this.unreadCount = count,
+          onMessage: message => {
+            if (message && message.payload) {
+              this.$message.info(message.payload.title);
+              this.queryMyOrganizerApplication();
+              if (this.canManageActivities) {
+                this.queryPendingReviews();
+                this.queryCreatedActivities();
+                this.queryReviewHistory();
+              } else {
+                this.queryRegistrations();
+              }
+            }
+          }
+        });
       },
       editActivity(id) {
         location.href = '/activity-manage.html?id=' + id;
@@ -267,15 +364,104 @@
         return new Date(item.eventStartTime.replace(/-/g, '/')).getTime() > Date.now();
       },
       cancelRegistration(activityId) {
-        this.$confirm('退出活动后会释放名额并删除签到凭证，确认继续吗？', '退出活动', {
-          confirmButtonText: '确认退出',
+        this.$confirm('退出活动需要主办方审核，通过后才会释放名额并删除签到凭证。', '申请退出活动', {
+          confirmButtonText: '提交申请',
           cancelButtonText: '再想想',
           type: 'warning'
         }).then(() => {
           axios.delete('/activity/' + activityId + '/register')
             .then(() => {
-              this.$message.success('已退出活动');
+              this.$message.success('退出申请已提交');
               this.queryRegistrations();
+            })
+            .catch(err => this.$message.error(err));
+        }).catch(() => {});
+      },
+      reviewRegistration(item, approved) {
+        if (approved) {
+          axios.post('/activity/manage/' + item.activityId + '/registrations/' + item.id + '/review', { approved: true })
+            .then(() => {
+              this.$message.success('报名已通过');
+              this.queryPendingReviews();
+              this.queryReviewHistory();
+            })
+            .catch(err => this.$message.error(err));
+          return;
+        }
+        this.$prompt('请输入驳回原因', '驳回报名', {
+          confirmButtonText: '确认驳回',
+          cancelButtonText: '取消',
+          inputType: 'textarea'
+        }).then(({ value }) => {
+          axios.post('/activity/manage/' + item.activityId + '/registrations/' + item.id + '/review', {
+            approved: false,
+            reviewRemark: value
+          }).then(() => {
+            this.$message.success('报名已驳回');
+            this.queryPendingReviews();
+            this.queryReviewHistory();
+          }).catch(err => this.$message.error(err));
+        }).catch(() => {});
+      },
+      reviewCancelRegistration(item, approved) {
+        if (approved) {
+          axios.post('/activity/manage/' + item.activityId + '/registrations/' + item.id + '/cancel-review', { approved: true })
+            .then(() => {
+              this.$message.success('已同意退出');
+              this.queryPendingReviews();
+              this.queryReviewHistory();
+            })
+            .catch(err => this.$message.error(err));
+          return;
+        }
+        this.$prompt('请输入拒绝原因', '拒绝退出', {
+          confirmButtonText: '确认拒绝',
+          cancelButtonText: '取消',
+          inputType: 'textarea'
+        }).then(({ value }) => {
+          axios.post('/activity/manage/' + item.activityId + '/registrations/' + item.id + '/cancel-review', {
+            approved: false,
+            reviewRemark: value
+          }).then(() => {
+            this.$message.success('已拒绝退出');
+            this.queryPendingReviews();
+            this.queryReviewHistory();
+          }).catch(err => this.$message.error(err));
+        }).catch(() => {});
+      },
+      registrationReviewTypeText(status) {
+        if (status === 0) return '报名申请';
+        if (status === 4) return '退出申请';
+        return '未知请求';
+      },
+      reviewBizTypeText(type) {
+        if (type === 'REGISTRATION') return '报名审核';
+        if (type === 'REGISTRATION_CANCEL') return '退出审核';
+        return type || '审核';
+      },
+      reviewActionText(action) {
+        if (action === 'APPROVED') return '通过';
+        if (action === 'REJECTED') return '驳回';
+        return action || '未知';
+      },
+      deleteReviewRecord(id) {
+        axios.delete('/review-records/' + id)
+          .then(() => {
+            this.$message.success('记录已删除');
+            this.queryReviewHistory();
+          })
+          .catch(err => this.$message.error(err));
+      },
+      clearReviewHistory() {
+        this.$confirm('确认删除全部审核历史记录吗？不会影响已审核的业务结果。', '删除审核历史', {
+          confirmButtonText: '确认删除',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }).then(() => {
+          axios.delete('/review-records/clear', { params: { reviewType: 'ACTIVITY_ADMIN' } })
+            .then(() => {
+              this.reviewHistory = [];
+              this.$message.success('审核历史已清空');
             })
             .catch(err => this.$message.error(err));
         }).catch(() => {});
@@ -287,6 +473,8 @@
         if (status === 1) return '待审核';
         if (status === 2) return '已通过';
         if (status === 3) return '已驳回';
+        if (status === 4) return '已下架';
+        if (status === 5) return '下架待审核';
         return '未知';
       }
     }

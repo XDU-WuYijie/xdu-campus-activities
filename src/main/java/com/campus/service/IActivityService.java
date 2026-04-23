@@ -31,6 +31,8 @@ public interface IActivityService extends IService<Activity> {
 
     Result queryMyCreatedActivities(Integer current, Integer pageSize);
 
+    Result requestOfflineActivity(Long activityId, ReviewActionDTO dto);
+
     Result register(Long activityId);
 
     Result queryRegistrationStatus(Long activityId);
@@ -41,6 +43,12 @@ public interface IActivityService extends IService<Activity> {
 
     Result queryActivityRegistrations(Long activityId, Integer current, Integer pageSize);
 
+    Result queryMyPendingRegistrationReviews(Integer current, Integer pageSize);
+
+    Result reviewRegistration(Long activityId, Long registrationId, ReviewActionDTO dto);
+
+    Result reviewCancelRegistration(Long activityId, Long registrationId, ReviewActionDTO dto);
+
     Result verifyCheckIn(Long activityId, ActivityCheckInVerifyDTO dto, String idempotencyKey);
 
     Result queryCheckInStats(Long activityId);
@@ -49,5 +57,9 @@ public interface IActivityService extends IService<Activity> {
 
     Result queryPendingReviewActivities();
 
+    Result queryPublishedActivitiesForAdmin(Integer current, Integer pageSize);
+
     Result reviewActivity(Long activityId, ReviewActionDTO dto);
+
+    Result offlineActivity(Long activityId, ReviewActionDTO dto);
 }

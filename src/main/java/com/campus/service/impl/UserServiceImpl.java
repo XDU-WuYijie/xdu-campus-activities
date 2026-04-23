@@ -24,6 +24,8 @@ import com.campus.mapper.SysRoleMapper;
 import com.campus.mapper.SysRolePermissionMapper;
 import com.campus.mapper.SysUserRoleMapper;
 import com.campus.mapper.UserMapper;
+import com.campus.service.INotificationService;
+import com.campus.service.IReviewRecordService;
 import com.campus.service.IUserService;
 import com.campus.utils.RegexUtils;
 import com.campus.utils.AuthorizationUtils;
@@ -39,6 +41,7 @@ import jakarta.servlet.http.HttpSession;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -81,6 +84,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
     @Resource
     private OrganizerApplicationMapper organizerApplicationMapper;
+
+    @Resource
+    private INotificationService notificationService;
+
+    @Resource
+    private IReviewRecordService reviewRecordService;
 
     @Override
     public Result sendCode(String phone, HttpSession session) {
@@ -184,6 +193,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
                 .setReviewRemark(null)
                 .setReviewTime(null);
         organizerApplicationMapper.insert(application);
+        notificationService.notifyRole(
+                RbacConstants.ROLE_PLATFORM_ADMIN,
+                "有新的主办方申请",
+                "用户提交了主办方申请，申请组织：“" + application.getOrgName() + "”。",
+                "ORGANIZER_APPLY_PENDING",
+                "ORGANIZER_APPLICATION",
+                application.getId()
+        );
         return Result.ok();
     }
 
@@ -230,6 +247,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         if (Boolean.TRUE.equals(dto.getApproved())) {
             bindRole(application.getUserId(), RbacConstants.ROLE_ACTIVITY_ADMIN);
         }
+        notifyOrganizerReviewResult(application, dto);
+        String applicantName = queryUserNameMap(Collections.singletonList(application.getUserId()))
+                .getOrDefault(application.getUserId(), "");
+        reviewRecordService.record(
+                RbacConstants.ROLE_PLATFORM_ADMIN,
+                "PLATFORM_ADMIN",
+                "ORGANIZER_APPLICATION",
+                application.getId(),
+                application.getOrgName(),
+                application.getUserId(),
+                applicantName,
+                Boolean.TRUE.equals(dto.getApproved()) ? "APPROVED" : "REJECTED",
+                dto.getReviewRemark()
+        );
         return Result.ok();
     }
 
@@ -431,6 +462,35 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             return;
         }
         sysUserRoleMapper.insert(new SysUserRole().setUserId(userId).setRoleId(role.getId()));
+    }
+
+    private void notifyOrganizerReviewResult(OrganizerApplication application, ReviewActionDTO dto) {
+        if (application == null || application.getUserId() == null || dto == null) {
+            return;
+        }
+        boolean approved = Boolean.TRUE.equals(dto.getApproved());
+        StringBuilder content = new StringBuilder();
+        content.append("你的主办方申请“").append(application.getOrgName()).append("”")
+                .append(approved ? "已审核通过，现在可以发起和管理活动。" : "未通过审核。");
+        if (!approved && StrUtil.isNotBlank(dto.getReviewRemark())) {
+            content.append("原因：").append(dto.getReviewRemark());
+        }
+        notificationService.notifyUsers(
+                Collections.singletonList(application.getUserId()),
+                approved ? "主办方申请已通过" : "主办方申请未通过",
+                content.toString(),
+                approved ? "ORGANIZER_APPLY_APPROVED" : "ORGANIZER_APPLY_REJECTED",
+                "ORGANIZER_APPLICATION",
+                application.getId()
+        );
+    }
+
+    private Map<Long, String> queryUserNameMap(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return listByIds(userIds).stream()
+                .collect(Collectors.toMap(User::getId, User::getNickName, (a, b) -> a));
     }
 
     private void enrichOrganizerApplications(List<OrganizerApplication> records) {

@@ -16,7 +16,7 @@ if redis.call('exists', metaKey) == 0 then
 end
 
 local status = tonumber(redis.call('hget', metaKey, 'status') or '-1')
-if status ~= 2 then
+if status ~= 2 and status ~= 5 then
     return 3
 end
 
@@ -40,7 +40,7 @@ if userState ~= nil and #userState > 0 then
     for i = 1, #userState, 2 do
         stateMap[userState[i]] = userState[i + 1]
     end
-    if stateMap['status'] == 'PENDING_CONFIRM' or stateMap['status'] == 'SUCCESS' then
+    if stateMap['status'] == 'PENDING_CONFIRM' or stateMap['status'] == 'SUCCESS' or stateMap['status'] == 'CANCEL_PENDING' then
         return 2
     end
 end
@@ -57,7 +57,7 @@ redis.call('sadd', usersKey, userId)
 redis.call('hmset', userStateKey,
     'status', 'PENDING_CONFIRM',
     'requestId', requestId,
-    'message', '报名确认中，请稍候'
+    'message', '报名申请已提交，等待主办方审核'
 )
 redis.call('expire', userStateKey, 43200)
 

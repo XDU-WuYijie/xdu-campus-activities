@@ -9,10 +9,10 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import jakarta.annotation.Resource;
 
 @Component
-public class ActivityRegistrationWebSocketHandler extends TextWebSocketHandler {
+public class NotificationWebSocketHandler extends TextWebSocketHandler {
 
     @Resource
-    private ActivityRegistrationSessionRegistry sessionRegistry;
+    private NotificationSessionRegistry sessionRegistry;
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {

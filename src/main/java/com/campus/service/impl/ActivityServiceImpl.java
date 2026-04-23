@@ -35,6 +35,8 @@ import com.campus.mapper.ActivityVoucherMapper;
 import com.campus.mapper.UserMapper;
 import com.campus.service.ActivitySearchService;
 import com.campus.service.IActivityService;
+import com.campus.service.INotificationService;
+import com.campus.service.IReviewRecordService;
 import com.campus.utils.CacheClient;
 import com.campus.utils.AuthorizationUtils;
 import com.campus.utils.RedisIdWorker;
@@ -94,10 +96,13 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     private static final int STATUS_PENDING_REVIEW = 1;
     private static final int STATUS_PUBLISHED = 2;
     private static final int STATUS_REJECTED = 3;
+    private static final int STATUS_OFFLINE = 4;
+    private static final int STATUS_OFFLINE_PENDING_REVIEW = 5;
     private static final int REGISTRATION_PENDING = 0;
     private static final int REGISTRATION_SUCCESS = 1;
     private static final int REGISTRATION_FAILED = 2;
     private static final int REGISTRATION_CANCELED = 3;
+    private static final int REGISTRATION_CANCEL_PENDING = 4;
     private static final int CHECKED_IN = 1;
     private static final int CHECKED_OUT = 0;
     private static final String MY_REGISTRATION_FILTER_ALL = "ALL";
@@ -109,6 +114,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     private static final String REGISTRATION_STATUS_SUCCESS = "SUCCESS";
     private static final String REGISTRATION_STATUS_FAILED = "FAILED";
     private static final String REGISTRATION_STATUS_CANCELED = "CANCELED";
+    private static final String REGISTRATION_STATUS_CANCEL_PENDING = "CANCEL_PENDING";
     private static final String REGISTRATION_STATUS_NONE = "NOT_REGISTERED";
     private static final int DISPLAY_CODE_LENGTH = 8;
     private static final String DISPLAY_CODE_CHARS = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
@@ -173,6 +179,12 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
 
     @Resource
     private ActivitySearchProperties activitySearchProperties;
+
+    @Resource
+    private INotificationService notificationService;
+
+    @Resource
+    private IReviewRecordService reviewRecordService;
 
     @Override
     public Result queryPublicActivities(String keyword,
@@ -242,7 +254,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         boolean canViewUnpublished = currentUser != null
                 && (Objects.equals(activity.getCreatorId(), currentUser.getId())
                 || AuthorizationUtils.hasPermission(currentUser, RbacConstants.PERM_ACTIVITY_APPROVE));
-        if (!Objects.equals(activity.getStatus(), STATUS_PUBLISHED) && !canViewUnpublished) {
+        if (!isPublicActivityStatus(activity.getStatus()) && !canViewUnpublished) {
             return Result.fail("活动尚未公开");
         }
         syncRemainingSlots(Collections.singletonList(activity));
@@ -279,6 +291,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         normalizeActivityImages(activity);
         save(activity);
         refreshActivityCacheState(activity.getId(), true);
+        notifyActivitySubmitted(activity);
         return Result.ok(activity.getId());
     }
 
@@ -299,6 +312,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         if (!Objects.equals(existing.getCreatorId(), UserHolder.getUser().getId())) {
             return Result.fail("无权修改该活动");
         }
+        String oldLocation = existing.getLocation();
         String error = validateActivity(activity);
         if (error != null) {
             return Result.fail(error);
@@ -323,6 +337,10 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         normalizeActivityImages(existing);
         updateById(existing);
         refreshActivityCacheState(existing.getId(), true);
+        notifyActivitySubmitted(existing);
+        if (!Objects.equals(oldLocation, existing.getLocation())) {
+            notifyActivityLocationChanged(existing, oldLocation);
+        }
         return Result.ok();
     }
 
@@ -340,6 +358,53 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         syncRemainingSlots(records);
         enrichActivities(records, UserHolder.getUser());
         return Result.ok(records, page.getTotal());
+    }
+
+    @Override
+    @Transactional
+    public Result requestOfflineActivity(Long activityId, ReviewActionDTO dto) {
+        Result authResult = requirePermission(RbacConstants.PERM_ACTIVITY_UPDATE, "无权申请下架活动");
+        if (authResult != null) {
+            return authResult;
+        }
+        if (activityId == null) {
+            return Result.fail("活动ID不能为空");
+        }
+        Activity activity = getById(activityId);
+        if (activity == null) {
+            return Result.fail("活动不存在");
+        }
+        if (!Objects.equals(activity.getCreatorId(), UserHolder.getUser().getId())) {
+            return Result.fail("无权操作该活动");
+        }
+        if (!Objects.equals(activity.getStatus(), STATUS_PUBLISHED)) {
+            return Result.fail("只有已发布活动可以申请下架");
+        }
+        if (activity.getEventStartTime() != null && !LocalDateTime.now().isBefore(activity.getEventStartTime())) {
+            return Result.fail("活动已开始，不能申请下架");
+        }
+        activity.setStatus(STATUS_OFFLINE_PENDING_REVIEW);
+        updateById(activity);
+        refreshActivityCacheState(activityId, true);
+        String remark = dto == null ? null : dto.getReviewRemark();
+        notificationService.notifyUsers(
+                Collections.singletonList(activity.getCreatorId()),
+                "下架申请已提交",
+                "你提交的“" + activity.getTitle() + "”下架申请已进入平台审核，请等待处理。"
+                        + (StrUtil.isBlank(remark) ? "" : "原因：" + remark),
+                "ACTIVITY_OFFLINE_APPLY_SUBMITTED",
+                "ACTIVITY",
+                activity.getId()
+        );
+        notificationService.notifyRole(
+                RbacConstants.ROLE_PLATFORM_ADMIN,
+                "有新的活动下架申请",
+                "主办方申请下架活动“" + activity.getTitle() + "”，请及时审核。",
+                "ACTIVITY_OFFLINE_REVIEW_PENDING",
+                "ACTIVITY",
+                activity.getId()
+        );
+        return Result.ok();
     }
 
     @Override
@@ -378,12 +443,12 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                         activityId,
                         requestId,
                         REGISTRATION_STATUS_PENDING,
-                        "报名确认中，请稍候"
+                        "报名申请已提交，等待主办方审核"
                 ));
             } catch (Exception e) {
                 log.error("活动报名消息发送失败，执行缓存补偿 activityId={}, userId={}, requestId={}",
                         activityId, userId, requestId, e);
-                rollbackReservation(activityId, userId, requestId, "报名失败，请稍后重试");
+                rollbackReservation(activityId, userId, requestId, "报名申请提交失败，请稍后重试");
                 return Result.fail("报名失败，请稍后重试");
             }
         }
@@ -453,29 +518,15 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
             return Result.fail("已签到记录不可退出");
         }
 
-        if (voucher != null) {
-            activityVoucherMapper.deleteById(voucher.getId());
-            if (StrUtil.isNotBlank(voucher.getDisplayCode())) {
-                stringRedisTemplate.delete(ACTIVITY_VOUCHER_DISPLAY_KEY + voucher.getDisplayCode());
-            }
-        }
         ActivityRegistration update = new ActivityRegistration();
         update.setId(registration.getId());
-        update.setStatus(REGISTRATION_CANCELED);
-        update.setFailReason("用户主动取消报名");
-        update.setVoucherId(null);
-        update.setConfirmTime(LocalDateTime.now());
+        update.setStatus(REGISTRATION_CANCEL_PENDING);
+        update.setFailReason("退出申请待审核");
         activityRegistrationMapper.updateById(update);
-        UpdateWrapper<Activity> wrapper = new UpdateWrapper<>();
-        wrapper.setSql("registered_count = registered_count - 1")
-                .eq("id", activityId)
-                .gt("registered_count", 0);
-        update(null, wrapper);
 
-        stringRedisTemplate.opsForSet().remove(activityRegisterUsersKey(activityId), currentUser.getId().toString());
-        stringRedisTemplate.opsForValue().increment(activityStockKey(activityId));
-        cacheCanceledRegistrationStatus(activityId, currentUser.getId(), registration.getRequestId(), "已退出活动");
+        cacheCancelPendingRegistrationStatus(activityId, currentUser.getId(), registration.getRequestId(), "退出申请已提交，等待主办方审核");
         refreshActivityCacheState(activityId, false);
+        notifyRegistrationCancelRequested(activity, registration);
         return Result.ok();
     }
 
@@ -522,6 +573,88 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         enrichParticipantUsers(records);
         enrichRegistrationVoucherInfo(records);
         return Result.ok(records, page.getTotal());
+    }
+
+    @Override
+    public Result queryMyPendingRegistrationReviews(Integer current, Integer pageSize) {
+        Result authResult = requirePermission(RbacConstants.PERM_REGISTRATION_VIEW_ALL, "无权查看待审核请求");
+        if (authResult != null) {
+            return authResult;
+        }
+        Long creatorId = UserHolder.getUser().getId();
+        List<Activity> myActivities = query().eq("creator_id", creatorId).list();
+        if (myActivities == null || myActivities.isEmpty()) {
+            return Result.ok(Collections.emptyList(), 0L);
+        }
+        Map<Long, Activity> activityMap = myActivities.stream()
+                .collect(Collectors.toMap(Activity::getId, item -> item, (a, b) -> a));
+        List<Long> activityIds = new ArrayList<>(activityMap.keySet());
+        Page<ActivityRegistration> page = new Page<>(
+                current == null || current < 1 ? 1 : current,
+                normalizePageSize(pageSize)
+        );
+        QueryWrapper<ActivityRegistration> wrapper = new QueryWrapper<ActivityRegistration>()
+                .in("activity_id", activityIds)
+                .in("status", REGISTRATION_PENDING, REGISTRATION_CANCEL_PENDING)
+                .orderByAsc("create_time");
+        activityRegistrationMapper.selectPage(page, wrapper);
+        List<ActivityRegistration> records = page.getRecords();
+        enrichRegistrationActivitiesFromMap(records, activityMap);
+        enrichParticipantUsers(records);
+        enrichRegistrationVoucherInfo(records);
+        return Result.ok(records, page.getTotal());
+    }
+
+    @Override
+    @Transactional
+    public Result reviewRegistration(Long activityId, Long registrationId, ReviewActionDTO dto) {
+        Result checkResult = checkRegistrationReviewRequest(activityId, registrationId, dto);
+        if (checkResult != null) {
+            return checkResult;
+        }
+        Activity activity = getById(activityId);
+        if (!Objects.equals(activity.getCreatorId(), UserHolder.getUser().getId())) {
+            return Result.fail("无权审核该活动报名");
+        }
+        ActivityRegistration registration = activityRegistrationMapper.selectById(registrationId);
+        if (registration == null || !Objects.equals(registration.getActivityId(), activityId)) {
+            return Result.fail("报名记录不存在");
+        }
+        if (!Objects.equals(registration.getStatus(), REGISTRATION_PENDING)) {
+            return Result.fail("该报名申请已处理");
+        }
+        if (Boolean.TRUE.equals(dto.getApproved())) {
+            approveRegistration(activity, registration);
+            return Result.ok();
+        }
+        rejectRegistration(activity, registration, dto);
+        return Result.ok();
+    }
+
+    @Override
+    @Transactional
+    public Result reviewCancelRegistration(Long activityId, Long registrationId, ReviewActionDTO dto) {
+        Result checkResult = checkRegistrationReviewRequest(activityId, registrationId, dto);
+        if (checkResult != null) {
+            return checkResult;
+        }
+        Activity activity = getById(activityId);
+        if (!Objects.equals(activity.getCreatorId(), UserHolder.getUser().getId())) {
+            return Result.fail("无权审核该活动退出申请");
+        }
+        ActivityRegistration registration = activityRegistrationMapper.selectById(registrationId);
+        if (registration == null || !Objects.equals(registration.getActivityId(), activityId)) {
+            return Result.fail("报名记录不存在");
+        }
+        if (!Objects.equals(registration.getStatus(), REGISTRATION_CANCEL_PENDING)) {
+            return Result.fail("该退出申请已处理");
+        }
+        if (Boolean.TRUE.equals(dto.getApproved())) {
+            approveCancelRegistration(activity, registration);
+            return Result.ok();
+        }
+        rejectCancelRegistration(activity, registration, dto);
+        return Result.ok();
     }
 
     @Override
@@ -618,7 +751,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     @Override
     public Result queryPendingReviewActivities() {
         List<Activity> activities = query()
-                .eq("status", STATUS_PENDING_REVIEW)
+                .in("status", STATUS_PENDING_REVIEW, STATUS_OFFLINE_PENDING_REVIEW)
                 .orderByAsc("create_time")
                 .list();
         if (activities.isEmpty()) {
@@ -637,6 +770,21 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     }
 
     @Override
+    public Result queryPublishedActivitiesForAdmin(Integer current, Integer pageSize) {
+        Page<Activity> page = query()
+                .eq("status", STATUS_PUBLISHED)
+                .orderByDesc("create_time")
+                .page(new Page<>(
+                        current == null || current < 1 ? 1 : current,
+                        normalizePageSize(pageSize)
+                ));
+        List<Activity> records = page.getRecords();
+        syncRemainingSlots(records);
+        enrichActivities(records, UserHolder.getUser());
+        return Result.ok(records, page.getTotal());
+    }
+
+    @Override
     @Transactional
     public Result reviewActivity(Long activityId, ReviewActionDTO dto) {
         if (activityId == null) {
@@ -649,9 +797,70 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         if (activity == null) {
             return Result.fail("活动不存在");
         }
-        activity.setStatus(Boolean.TRUE.equals(dto.getApproved()) ? STATUS_PUBLISHED : STATUS_REJECTED);
+        boolean offlineApply = Objects.equals(activity.getStatus(), STATUS_OFFLINE_PENDING_REVIEW);
+        if (offlineApply) {
+            activity.setStatus(Boolean.TRUE.equals(dto.getApproved()) ? STATUS_OFFLINE : STATUS_PUBLISHED);
+        } else {
+            activity.setStatus(Boolean.TRUE.equals(dto.getApproved()) ? STATUS_PUBLISHED : STATUS_REJECTED);
+        }
         updateById(activity);
         refreshActivityCacheState(activityId, true);
+        if (offlineApply) {
+            notifyActivityOfflineReviewResult(activity, dto);
+        } else {
+            notifyActivityReviewResult(activity, dto);
+        }
+        reviewRecordService.record(
+                RbacConstants.ROLE_PLATFORM_ADMIN,
+                "PLATFORM_ADMIN",
+                offlineApply ? "ACTIVITY_OFFLINE_APPLY" : "ACTIVITY",
+                activity.getId(),
+                activity.getTitle(),
+                activity.getCreatorId(),
+                activity.getOrganizerName(),
+                Boolean.TRUE.equals(dto.getApproved()) ? "APPROVED" : "REJECTED",
+                dto.getReviewRemark()
+        );
+        return Result.ok();
+    }
+
+    @Override
+    @Transactional
+    public Result offlineActivity(Long activityId, ReviewActionDTO dto) {
+        if (activityId == null) {
+            return Result.fail("活动ID不能为空");
+        }
+        Activity activity = getById(activityId);
+        if (activity == null) {
+            return Result.fail("活动不存在");
+        }
+        if (!Objects.equals(activity.getStatus(), STATUS_PUBLISHED)) {
+            return Result.fail("只有已发布活动可以下架");
+        }
+        activity.setStatus(STATUS_OFFLINE);
+        updateById(activity);
+        refreshActivityCacheState(activityId, true);
+        String remark = dto == null ? null : dto.getReviewRemark();
+        reviewRecordService.record(
+                RbacConstants.ROLE_PLATFORM_ADMIN,
+                "PLATFORM_ADMIN",
+                "ACTIVITY_OFFLINE",
+                activity.getId(),
+                activity.getTitle(),
+                activity.getCreatorId(),
+                activity.getOrganizerName(),
+                "OFFLINE",
+                remark
+        );
+        notificationService.notifyUsers(
+                Collections.singletonList(activity.getCreatorId()),
+                "活动已被下架",
+                "你发布的“" + activity.getTitle() + "”已被平台管理员下架。"
+                        + (StrUtil.isBlank(remark) ? "" : "原因：" + remark),
+                "ACTIVITY_OFFLINE",
+                "ACTIVITY",
+                activity.getId()
+        );
         return Result.ok();
     }
 
@@ -897,10 +1106,14 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         LocalDateTime now = LocalDateTime.now();
         for (Activity activity : activities) {
             ActivityUserStateCache userState = userStateMap.get(activity.getId());
-            boolean registered = userState != null && REGISTRATION_STATUS_SUCCESS.equals(userState.getStatus());
+            boolean registered = userState != null
+                    && (REGISTRATION_STATUS_SUCCESS.equals(userState.getStatus())
+                    || REGISTRATION_STATUS_CANCEL_PENDING.equals(userState.getStatus()));
             if (!registered && user != null) {
                 Boolean member = stringRedisTemplate.opsForSet().isMember(activityRegisterUsersKey(activity.getId()), user.getId().toString());
-                registered = Boolean.TRUE.equals(member) && userState != null && REGISTRATION_STATUS_SUCCESS.equals(userState.getStatus());
+                registered = Boolean.TRUE.equals(member) && userState != null
+                        && (REGISTRATION_STATUS_SUCCESS.equals(userState.getStatus())
+                        || REGISTRATION_STATUS_CANCEL_PENDING.equals(userState.getStatus()));
             }
             activity.setRegistered(registered);
             activity.setCheckedIn(userState != null && Boolean.TRUE.equals(userState.getCheckedIn()));
@@ -929,6 +1142,13 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         }
         List<Long> activityIds = registrations.stream().map(ActivityRegistration::getActivityId).distinct().collect(Collectors.toList());
         Map<Long, Activity> activityMap = listByIds(activityIds).stream().collect(Collectors.toMap(Activity::getId, a -> a));
+        enrichRegistrationActivitiesFromMap(registrations, activityMap);
+    }
+
+    private void enrichRegistrationActivitiesFromMap(List<ActivityRegistration> registrations, Map<Long, Activity> activityMap) {
+        if (registrations == null || registrations.isEmpty() || activityMap == null || activityMap.isEmpty()) {
+            return;
+        }
         for (ActivityRegistration registration : registrations) {
             Activity activity = activityMap.get(registration.getActivityId());
             if (activity == null) {
@@ -1113,6 +1333,148 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                 .collect(Collectors.toMap(User::getId, User::getNickName, (a, b) -> a));
     }
 
+    private Result checkRegistrationReviewRequest(Long activityId, Long registrationId, ReviewActionDTO dto) {
+        Result authResult = requirePermission(RbacConstants.PERM_REGISTRATION_VIEW_ALL, "无权审核报名申请");
+        if (authResult != null) {
+            return authResult;
+        }
+        if (activityId == null) {
+            return Result.fail("活动ID不能为空");
+        }
+        if (registrationId == null) {
+            return Result.fail("报名记录ID不能为空");
+        }
+        if (dto == null || dto.getApproved() == null) {
+            return Result.fail("审核结果不能为空");
+        }
+        Activity activity = getById(activityId);
+        if (activity == null) {
+            return Result.fail("活动不存在");
+        }
+        return null;
+    }
+
+    private void approveRegistration(Activity activity, ActivityRegistration registration) {
+        ActivityRegistration update = new ActivityRegistration();
+        update.setId(registration.getId());
+        update.setStatus(REGISTRATION_SUCCESS);
+        update.setFailReason(null);
+        update.setCheckInStatus(CHECKED_OUT);
+        update.setConfirmTime(LocalDateTime.now());
+        activityRegistrationMapper.updateById(update);
+        registration.setStatus(REGISTRATION_SUCCESS);
+        registration.setFailReason(null);
+        registration.setCheckInStatus(CHECKED_OUT);
+        registration.setConfirmTime(update.getConfirmTime());
+
+        UpdateWrapper<Activity> wrapper = new UpdateWrapper<>();
+        wrapper.setSql("registered_count = registered_count + 1")
+                .eq("id", activity.getId())
+                .lt("registered_count", activity.getMaxParticipants());
+        boolean updated = update(null, wrapper);
+        if (!updated) {
+            throw new IllegalStateException("报名审核通过时名额不足");
+        }
+
+        ActivityVoucher voucher = ensureVoucherForRegistration(registration);
+        registration.setVoucherId(voucher.getId());
+        ActivityRegistrationStatusDTO status = buildRegistrationStatus(registration, voucher);
+        stringRedisTemplate.opsForValue().decrement(activityFrozenKey(activity.getId()));
+        cacheFinalRegistrationStatus(activity.getId(), registration.getUserId(), status);
+        refreshActivityCacheState(activity.getId(), false);
+        publishRegistrationResult(registration.getUserId(), status);
+        notifyRegistrationSuccess(activity, registration.getUserId());
+        recordActivityAdminReview(activity, registration, "REGISTRATION", "APPROVED", null);
+    }
+
+    private void rejectRegistration(Activity activity, ActivityRegistration registration, ReviewActionDTO dto) {
+        String reason = StrUtil.blankToDefault(StrUtil.trim(dto.getReviewRemark()), "主办方未通过报名申请");
+        ActivityRegistration update = new ActivityRegistration();
+        update.setId(registration.getId());
+        update.setStatus(REGISTRATION_FAILED);
+        update.setFailReason(reason);
+        update.setConfirmTime(LocalDateTime.now());
+        activityRegistrationMapper.updateById(update);
+        rollbackReservation(activity.getId(), registration.getUserId(), registration.getRequestId(), reason);
+        refreshActivityCacheState(activity.getId(), false);
+        ActivityRegistrationStatusDTO status = resolveRegistrationStatus(activity.getId(), registration.getUserId());
+        publishRegistrationResult(registration.getUserId(), status);
+        notifyRegistrationFailed(activity.getId(), registration.getUserId(), reason);
+        recordActivityAdminReview(activity, registration, "REGISTRATION", "REJECTED", reason);
+    }
+
+    private void approveCancelRegistration(Activity activity, ActivityRegistration registration) {
+        ActivityVoucher voucher = activityVoucherMapper.selectOne(new QueryWrapper<ActivityVoucher>()
+                .eq("registration_id", registration.getId()));
+        if (voucher != null) {
+            activityVoucherMapper.deleteById(voucher.getId());
+            if (StrUtil.isNotBlank(voucher.getDisplayCode())) {
+                stringRedisTemplate.delete(ACTIVITY_VOUCHER_DISPLAY_KEY + voucher.getDisplayCode());
+            }
+        }
+        ActivityRegistration update = new ActivityRegistration();
+        update.setId(registration.getId());
+        update.setStatus(REGISTRATION_CANCELED);
+        update.setFailReason("退出申请已通过");
+        update.setVoucherId(null);
+        update.setConfirmTime(LocalDateTime.now());
+        activityRegistrationMapper.updateById(update);
+        UpdateWrapper<Activity> wrapper = new UpdateWrapper<>();
+        wrapper.setSql("registered_count = registered_count - 1")
+                .eq("id", activity.getId())
+                .gt("registered_count", 0);
+        update(null, wrapper);
+        stringRedisTemplate.opsForSet().remove(activityRegisterUsersKey(activity.getId()), registration.getUserId().toString());
+        stringRedisTemplate.opsForValue().increment(activityStockKey(activity.getId()));
+        cacheCanceledRegistrationStatus(activity.getId(), registration.getUserId(), registration.getRequestId(), "已退出活动");
+        refreshActivityCacheState(activity.getId(), false);
+        ActivityRegistrationStatusDTO status = resolveRegistrationStatus(activity.getId(), registration.getUserId());
+        publishRegistrationResult(registration.getUserId(), status);
+        notifyRegistrationCancelApproved(activity, registration.getUserId());
+        recordActivityAdminReview(activity, registration, "REGISTRATION_CANCEL", "APPROVED", null);
+    }
+
+    private void rejectCancelRegistration(Activity activity, ActivityRegistration registration, ReviewActionDTO dto) {
+        String reason = StrUtil.blankToDefault(StrUtil.trim(dto.getReviewRemark()), "主办方未通过退出申请");
+        ActivityRegistration update = new ActivityRegistration();
+        update.setId(registration.getId());
+        update.setStatus(REGISTRATION_SUCCESS);
+        update.setFailReason(null);
+        update.setConfirmTime(LocalDateTime.now());
+        activityRegistrationMapper.updateById(update);
+        registration.setStatus(REGISTRATION_SUCCESS);
+        registration.setFailReason(null);
+        registration.setConfirmTime(update.getConfirmTime());
+        ActivityVoucher voucher = activityVoucherMapper.selectOne(new QueryWrapper<ActivityVoucher>()
+                .eq("registration_id", registration.getId()));
+        ActivityRegistrationStatusDTO status = buildRegistrationStatus(registration, voucher);
+        cacheFinalRegistrationStatus(activity.getId(), registration.getUserId(), status);
+        refreshActivityCacheState(activity.getId(), false);
+        publishRegistrationResult(registration.getUserId(), status);
+        notifyRegistrationCancelRejected(activity, registration.getUserId(), reason);
+        recordActivityAdminReview(activity, registration, "REGISTRATION_CANCEL", "REJECTED", reason);
+    }
+
+    private void recordActivityAdminReview(Activity activity, ActivityRegistration registration,
+                                           String bizType, String action, String remark) {
+        if (activity == null || registration == null) {
+            return;
+        }
+        String targetName = queryUserNameMap(Collections.singletonList(registration.getUserId()))
+                .getOrDefault(registration.getUserId(), "");
+        reviewRecordService.record(
+                RbacConstants.ROLE_ACTIVITY_ADMIN,
+                "ACTIVITY_ADMIN",
+                bizType,
+                registration.getId(),
+                activity.getTitle(),
+                registration.getUserId(),
+                targetName,
+                action,
+                remark
+        );
+    }
+
     private void attachVoucherUserInfo(List<ActivityVoucher> vouchers) {
         if (vouchers == null || vouchers.isEmpty()) {
             return;
@@ -1128,38 +1490,8 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     }
 
     private void syncRemainingSlots(List<Activity> activities) {
-        if (activities == null || activities.isEmpty()) {
-            return;
-        }
-        List<String> slotKeys = activities.stream()
-                .map(activity -> activityStockKey(activity.getId()))
-                .collect(Collectors.toList());
-        List<String> remainingList = stringRedisTemplate.opsForValue().multiGet(slotKeys);
-        List<Activity> missingActivities = new ArrayList<>();
-        for (int i = 0; i < activities.size(); i++) {
-            Activity activity = activities.get(i);
-            String remainingValue = remainingList == null ? null : remainingList.get(i);
-            if (StrUtil.isBlank(remainingValue)) {
-                missingActivities.add(activity);
-                continue;
-            }
-            applyRegisteredCount(activity, Integer.parseInt(remainingValue));
-        }
-        for (Activity activity : missingActivities) {
-            ensureActivityRegistrationCache(activity);
-            String remainingValue = stringRedisTemplate.opsForValue().get(activityStockKey(activity.getId()));
-            if (StrUtil.isNotBlank(remainingValue)) {
-                applyRegisteredCount(activity, Integer.parseInt(remainingValue));
-            }
-        }
-    }
-
-    private void applyRegisteredCount(Activity activity, int remainingSlots) {
-        if (activity.getMaxParticipants() == null) {
-            return;
-        }
-        int registeredCount = activity.getMaxParticipants() - Math.max(remainingSlots, 0);
-        activity.setRegisteredCount(Math.max(registeredCount, 0));
+        // 报名改为主办方审核后，公开展示人数只代表已审核通过人数。
+        // Redis stock 包含待审核冻结名额，只用于容量控制，不能反推展示人数。
     }
 
     private CachedActivityPage queryCachedActivityPage(String keyword,
@@ -1174,9 +1506,9 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                                                        Integer pageSize) {
         int normalizedPageSize = normalizePageSize(pageSize);
         int currentPage = current == null || current < 1 ? 1 : current;
-        Integer targetStatus = status == null ? STATUS_PUBLISHED : status;
+        Integer targetStatus = status == null ? null : status;
         String params = StrUtil.join("|",
-                "status=" + targetStatus,
+                "status=" + (targetStatus == null ? "PUBLIC" : targetStatus),
                 "category=" + StrUtil.blankToDefault(category, ""),
                 "keyword=" + StrUtil.blankToDefault(keyword, ""),
                 "location=" + StrUtil.blankToDefault(location, ""),
@@ -1193,7 +1525,8 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         }
 
         QueryWrapper<Activity> wrapper = new QueryWrapper<>();
-        wrapper.eq("status", targetStatus)
+        wrapper.in(targetStatus == null, "status", STATUS_PUBLISHED, STATUS_OFFLINE_PENDING_REVIEW)
+                .eq(targetStatus != null, "status", targetStatus)
                 .like(StrUtil.isNotBlank(keyword), "title", keyword)
                 .eq(StrUtil.isNotBlank(category), "category", category)
                 .like(StrUtil.isNotBlank(location), "location", location)
@@ -1334,6 +1667,187 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         }
     }
 
+    private void notifyActivitySubmitted(Activity activity) {
+        if (activity == null || activity.getId() == null) {
+            return;
+        }
+        notificationService.notifyUsers(
+                Collections.singletonList(activity.getCreatorId()),
+                "活动已提交审核",
+                "你提交的“" + activity.getTitle() + "”已进入平台审核，请等待处理。",
+                "ACTIVITY_SUBMITTED",
+                "ACTIVITY",
+                activity.getId()
+        );
+        notificationService.notifyRole(
+                RbacConstants.ROLE_PLATFORM_ADMIN,
+                "有新的待审核活动",
+                "主办方提交了活动“" + activity.getTitle() + "”，请及时审核。",
+                "ACTIVITY_REVIEW_PENDING",
+                "ACTIVITY",
+                activity.getId()
+        );
+    }
+
+    private void notifyActivityReviewResult(Activity activity, ReviewActionDTO dto) {
+        if (activity == null || activity.getCreatorId() == null || dto == null) {
+            return;
+        }
+        boolean approved = Boolean.TRUE.equals(dto.getApproved());
+        String title = approved ? "活动审核通过" : "活动审核未通过";
+        StringBuilder content = new StringBuilder();
+        content.append("你提交的“").append(activity.getTitle()).append("”")
+                .append(approved ? "已审核通过并发布。" : "未通过平台审核。");
+        if (!approved && StrUtil.isNotBlank(dto.getReviewRemark())) {
+            content.append("原因：").append(dto.getReviewRemark());
+        }
+        notificationService.notifyUsers(
+                Collections.singletonList(activity.getCreatorId()),
+                title,
+                content.toString(),
+                approved ? "ACTIVITY_APPROVED" : "ACTIVITY_REJECTED",
+                "ACTIVITY",
+                activity.getId()
+        );
+    }
+
+    private void notifyActivityOfflineReviewResult(Activity activity, ReviewActionDTO dto) {
+        if (activity == null || activity.getCreatorId() == null || dto == null) {
+            return;
+        }
+        boolean approved = Boolean.TRUE.equals(dto.getApproved());
+        String title = approved ? "活动下架申请通过" : "活动下架申请未通过";
+        StringBuilder content = new StringBuilder();
+        content.append("你提交的“").append(activity.getTitle()).append("”下架申请")
+                .append(approved ? "已通过，活动已下架。" : "未通过，活动继续发布。");
+        if (!approved && StrUtil.isNotBlank(dto.getReviewRemark())) {
+            content.append("原因：").append(dto.getReviewRemark());
+        }
+        notificationService.notifyUsers(
+                Collections.singletonList(activity.getCreatorId()),
+                title,
+                content.toString(),
+                approved ? "ACTIVITY_OFFLINE_APPLY_APPROVED" : "ACTIVITY_OFFLINE_APPLY_REJECTED",
+                "ACTIVITY",
+                activity.getId()
+        );
+    }
+
+    private void notifyActivityLocationChanged(Activity activity, String oldLocation) {
+        if (activity == null || activity.getId() == null) {
+            return;
+        }
+        List<ActivityRegistration> registrations = activityRegistrationMapper.selectList(new QueryWrapper<ActivityRegistration>()
+                .eq("activity_id", activity.getId())
+                .eq("status", REGISTRATION_SUCCESS));
+        if (registrations == null || registrations.isEmpty()) {
+            return;
+        }
+        List<Long> userIds = registrations.stream()
+                .map(ActivityRegistration::getUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        notificationService.notifyUsers(
+                userIds,
+                "活动地点变更",
+                "你报名的“" + activity.getTitle() + "”地点已由“"
+                        + StrUtil.blankToDefault(oldLocation, "未填写") + "”变更为“" + activity.getLocation() + "”。",
+                "ACTIVITY_LOCATION_CHANGED",
+                "ACTIVITY",
+                activity.getId()
+        );
+    }
+
+    private void notifyRegistrationRequested(Activity activity, Long userId) {
+        if (activity == null || activity.getCreatorId() == null || userId == null) {
+            return;
+        }
+        String userName = queryUserNameMap(Collections.singletonList(userId)).getOrDefault(userId, "有用户");
+        notificationService.notifyUsers(
+                Collections.singletonList(activity.getCreatorId()),
+                "有新的报名申请",
+                userName + " 申请报名“" + activity.getTitle() + "”，请及时审核。",
+                "REGISTRATION_REVIEW_PENDING",
+                "REGISTRATION",
+                activity.getId()
+        );
+    }
+
+    private void notifyRegistrationSuccess(Activity activity, Long userId) {
+        if (activity == null || userId == null) {
+            return;
+        }
+        notificationService.notifyUsers(
+                Collections.singletonList(userId),
+                "报名审核通过",
+                "你报名的“" + activity.getTitle() + "”已通过主办方审核。",
+                "REGISTRATION_SUCCESS",
+                "REGISTRATION",
+                activity.getId()
+        );
+    }
+
+    private void notifyRegistrationFailed(Long activityId, Long userId, String reason) {
+        if (activityId == null || userId == null) {
+            return;
+        }
+        Activity activity = getById(activityId);
+        String activityTitle = activity == null ? "该活动" : "“" + activity.getTitle() + "”";
+        notificationService.notifyUsers(
+                Collections.singletonList(userId),
+                "报名审核未通过",
+                "你报名的" + activityTitle + "未通过审核。" + StrUtil.blankToDefault(reason, ""),
+                "REGISTRATION_FAILED",
+                "REGISTRATION",
+                activityId
+        );
+    }
+
+    private void notifyRegistrationCancelRequested(Activity activity, ActivityRegistration registration) {
+        if (activity == null || registration == null || activity.getCreatorId() == null) {
+            return;
+        }
+        String userName = queryUserNameMap(Collections.singletonList(registration.getUserId()))
+                .getOrDefault(registration.getUserId(), "有用户");
+        notificationService.notifyUsers(
+                Collections.singletonList(activity.getCreatorId()),
+                "有新的退出申请",
+                userName + " 申请退出“" + activity.getTitle() + "”，请及时审核。",
+                "REGISTRATION_CANCEL_REVIEW_PENDING",
+                "REGISTRATION",
+                activity.getId()
+        );
+    }
+
+    private void notifyRegistrationCancelApproved(Activity activity, Long userId) {
+        if (activity == null || userId == null) {
+            return;
+        }
+        notificationService.notifyUsers(
+                Collections.singletonList(userId),
+                "退出申请已通过",
+                "你退出“" + activity.getTitle() + "”的申请已通过。",
+                "REGISTRATION_CANCEL_APPROVED",
+                "REGISTRATION",
+                activity.getId()
+        );
+    }
+
+    private void notifyRegistrationCancelRejected(Activity activity, Long userId, String reason) {
+        if (activity == null || userId == null) {
+            return;
+        }
+        notificationService.notifyUsers(
+                Collections.singletonList(userId),
+                "退出申请未通过",
+                "你退出“" + activity.getTitle() + "”的申请未通过。" + StrUtil.blankToDefault(reason, ""),
+                "REGISTRATION_CANCEL_REJECTED",
+                "REGISTRATION",
+                activity.getId()
+        );
+    }
+
     private void ensureActivityRegistrationCache(Activity activity) {
         Boolean exists = stringRedisTemplate.hasKey(activityMetaKey(activity.getId()));
         if (Boolean.TRUE.equals(exists)) {
@@ -1352,14 +1866,15 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
 
         List<ActivityRegistration> registrations = activityRegistrationMapper.selectList(new QueryWrapper<ActivityRegistration>()
                 .eq("activity_id", activity.getId()));
-        int successCount = (int) registrations.stream()
-                .filter(item -> Objects.equals(item.getStatus(), REGISTRATION_SUCCESS))
+        int occupiedCount = (int) registrations.stream()
+                .filter(item -> Objects.equals(item.getStatus(), REGISTRATION_SUCCESS)
+                        || Objects.equals(item.getStatus(), REGISTRATION_CANCEL_PENDING))
                 .count();
         int pendingCount = (int) registrations.stream()
                 .filter(item -> Objects.equals(item.getStatus(), REGISTRATION_PENDING))
                 .count();
         int maxParticipants = activity.getMaxParticipants() == null ? 0 : activity.getMaxParticipants();
-        int remainingSlots = Math.max(maxParticipants - successCount - pendingCount, 0);
+        int remainingSlots = Math.max(maxParticipants - occupiedCount - pendingCount, 0);
         stringRedisTemplate.opsForValue().set(activityStockKey(activity.getId()), String.valueOf(remainingSlots));
         stringRedisTemplate.opsForValue().set(activityFrozenKey(activity.getId()), String.valueOf(Math.max(pendingCount, 0)));
 
@@ -1368,7 +1883,8 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         if (!registrations.isEmpty()) {
             String[] userIds = registrations.stream()
                     .filter(item -> Objects.equals(item.getStatus(), REGISTRATION_SUCCESS)
-                            || Objects.equals(item.getStatus(), REGISTRATION_PENDING))
+                            || Objects.equals(item.getStatus(), REGISTRATION_PENDING)
+                            || Objects.equals(item.getStatus(), REGISTRATION_CANCEL_PENDING))
                     .map(ActivityRegistration::getUserId)
                     .filter(Objects::nonNull)
                     .map(String::valueOf)
@@ -1396,7 +1912,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         Long userId = event.getUserId();
         String requestId = event.getRequestId();
         Activity activity = getById(activityId);
-        if (activity == null || !Objects.equals(activity.getStatus(), STATUS_PUBLISHED)) {
+        if (activity == null || !isPublicActivityStatus(activity.getStatus())) {
             finalizeRegistrationFailure(activityId, userId, requestId, "活动不存在或已下线");
             return;
         }
@@ -1407,6 +1923,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                 return;
             }
             publishRegistrationResult(userId, status);
+            notifyRegistrationRequested(activity, userId);
         } catch (Exception e) {
             log.error("活动报名确认失败 activityId={}, userId={}, requestId={}", activityId, userId, requestId, e);
             finalizeRegistrationFailure(activityId, userId, requestId, "报名失败，请稍后重试");
@@ -1417,7 +1934,6 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         ActivityRegistration existing = activityRegistrationMapper.selectOne(new QueryWrapper<ActivityRegistration>()
                 .eq("activity_id", activity.getId())
                 .eq("user_id", userId));
-        boolean shouldIncreaseRegisteredCount = false;
         ActivityRegistration registration;
         if (existing != null && Objects.equals(existing.getStatus(), REGISTRATION_SUCCESS)) {
             ActivityVoucher voucher = ensureVoucherForRegistration(existing);
@@ -1426,11 +1942,17 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
             refreshActivityCacheState(activity.getId(), false);
             return status;
         }
+        if (existing != null && Objects.equals(existing.getStatus(), REGISTRATION_PENDING)) {
+            ActivityRegistrationStatusDTO status = buildRegistrationStatus(existing, null);
+            cacheFinalRegistrationStatus(activity.getId(), userId, status);
+            refreshActivityCacheState(activity.getId(), false);
+            return status;
+        }
         if (existing == null) {
             registration = new ActivityRegistration();
             registration.setActivityId(activity.getId());
             registration.setUserId(userId);
-            registration.setStatus(REGISTRATION_SUCCESS);
+            registration.setStatus(REGISTRATION_PENDING);
             registration.setRequestId(requestId);
             registration.setFailReason(null);
             registration.setCheckInStatus(CHECKED_OUT);
@@ -1445,44 +1967,25 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                     throw e;
                 }
                 registration = existing;
-                shouldIncreaseRegisteredCount = !Objects.equals(existing.getStatus(), REGISTRATION_SUCCESS);
-            }
-            if (existing == null) {
-                shouldIncreaseRegisteredCount = true;
             }
         } else {
             registration = existing;
-            shouldIncreaseRegisteredCount = !Objects.equals(existing.getStatus(), REGISTRATION_SUCCESS);
             ActivityRegistration update = new ActivityRegistration();
             update.setId(existing.getId());
-            update.setStatus(REGISTRATION_SUCCESS);
+            update.setStatus(REGISTRATION_PENDING);
             update.setRequestId(requestId);
             update.setFailReason(null);
             update.setCheckInStatus(CHECKED_OUT);
             update.setConfirmTime(LocalDateTime.now());
             activityRegistrationMapper.updateById(update);
-            registration.setStatus(REGISTRATION_SUCCESS);
+            registration.setStatus(REGISTRATION_PENDING);
             registration.setRequestId(requestId);
             registration.setFailReason(null);
             registration.setCheckInStatus(CHECKED_OUT);
             registration.setConfirmTime(update.getConfirmTime());
         }
 
-        if (shouldIncreaseRegisteredCount) {
-            UpdateWrapper<Activity> wrapper = new UpdateWrapper<>();
-            wrapper.setSql("registered_count = registered_count + 1")
-                    .eq("id", activity.getId())
-                    .lt("registered_count", activity.getMaxParticipants());
-            boolean updated = update(null, wrapper);
-            if (!updated) {
-                throw new IllegalStateException("活动报名落库时名额不足");
-            }
-        }
-        ActivityVoucher voucher = ensureVoucherForRegistration(registration);
-        registration.setVoucherId(voucher.getId());
-        activityRegistrationMapper.updateById(registration);
-        ActivityRegistrationStatusDTO status = buildRegistrationStatus(registration, voucher);
-        stringRedisTemplate.opsForValue().decrement(activityFrozenKey(activity.getId()));
+        ActivityRegistrationStatusDTO status = buildRegistrationStatus(registration, null);
         cacheFinalRegistrationStatus(activity.getId(), userId, status);
         refreshActivityCacheState(activity.getId(), false);
         return status;
@@ -1578,6 +2081,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         rollbackReservation(activityId, userId, requestId, reason);
         ActivityRegistrationStatusDTO status = resolveRegistrationStatus(activityId, userId);
         publishRegistrationResult(userId, status);
+        notifyRegistrationFailed(activityId, userId, reason);
     }
 
     private void publishRegistrationResult(Long userId, ActivityRegistrationStatusDTO status) {
@@ -1654,7 +2158,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         ActivityUserStateCache state = new ActivityUserStateCache();
         state.setStatus(REGISTRATION_STATUS_PENDING);
         state.setRequestId(requestId);
-        state.setMessage("报名确认中，请稍候");
+        state.setMessage("报名申请已提交，等待主办方审核");
         state.setRegistered(false);
         cacheUserRegistrationState(activityId, userId, state);
     }
@@ -1671,7 +2175,8 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         state.setConfirmTime(dto.getConfirmTime());
         state.setVoucherIssuedTime(dto.getVoucherIssuedTime());
         state.setVoucherCheckedInTime(dto.getVoucherCheckedInTime());
-        state.setRegistered(REGISTRATION_STATUS_SUCCESS.equals(dto.getStatus()));
+        state.setRegistered(REGISTRATION_STATUS_SUCCESS.equals(dto.getStatus())
+                || REGISTRATION_STATUS_CANCEL_PENDING.equals(dto.getStatus()));
         state.setCheckedIn(VOUCHER_STATUS_CHECKED_IN.equals(dto.getVoucherStatus()));
         cacheUserRegistrationState(activityId, userId, state);
     }
@@ -1682,6 +2187,15 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         state.setRequestId(requestId);
         state.setMessage(message);
         state.setRegistered(false);
+        cacheUserRegistrationState(activityId, userId, state);
+    }
+
+    private void cacheCancelPendingRegistrationStatus(Long activityId, Long userId, String requestId, String message) {
+        ActivityUserStateCache state = new ActivityUserStateCache();
+        state.setStatus(REGISTRATION_STATUS_CANCEL_PENDING);
+        state.setRequestId(requestId);
+        state.setMessage(message);
+        state.setRegistered(true);
         cacheUserRegistrationState(activityId, userId, state);
     }
 
@@ -1699,7 +2213,8 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         state.setMessage(buildRegistrationMessage(registration.getStatus(), registration.getFailReason()));
         state.setFailReason(registration.getFailReason());
         state.setConfirmTime(registration.getConfirmTime());
-        state.setRegistered(Objects.equals(registration.getStatus(), REGISTRATION_SUCCESS));
+        state.setRegistered(Objects.equals(registration.getStatus(), REGISTRATION_SUCCESS)
+                || Objects.equals(registration.getStatus(), REGISTRATION_CANCEL_PENDING));
         state.setCheckedIn(voucher != null && VOUCHER_STATUS_CHECKED_IN.equals(voucher.getStatus()));
         state.setVoucherId(voucher == null ? null : voucher.getId());
         state.setVoucherDisplayCode(voucher == null ? null : voucher.getDisplayCode());
@@ -1764,12 +2279,15 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         if (Objects.equals(status, REGISTRATION_CANCELED)) {
             return REGISTRATION_STATUS_CANCELED;
         }
+        if (Objects.equals(status, REGISTRATION_CANCEL_PENDING)) {
+            return REGISTRATION_STATUS_CANCEL_PENDING;
+        }
         return REGISTRATION_STATUS_NONE;
     }
 
     private String buildRegistrationMessage(Integer status, String failReason) {
         if (Objects.equals(status, REGISTRATION_PENDING)) {
-            return "报名确认中，请稍候";
+            return "报名待主办方审核";
         }
         if (Objects.equals(status, REGISTRATION_SUCCESS)) {
             return "报名成功";
@@ -1780,12 +2298,15 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         if (Objects.equals(status, REGISTRATION_CANCELED)) {
             return "已退出活动";
         }
+        if (Objects.equals(status, REGISTRATION_CANCEL_PENDING)) {
+            return "退出申请待审核";
+        }
         return "未报名";
     }
 
     private String readRegistrationStatusText(Integer status) {
         if (Objects.equals(status, REGISTRATION_PENDING)) {
-            return "报名确认中";
+            return "报名待审核";
         }
         if (Objects.equals(status, REGISTRATION_SUCCESS)) {
             return "报名成功";
@@ -1795,6 +2316,9 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         }
         if (Objects.equals(status, REGISTRATION_CANCELED)) {
             return "已取消";
+        }
+        if (Objects.equals(status, REGISTRATION_CANCEL_PENDING)) {
+            return "退出待审核";
         }
         return "未知状态";
     }
@@ -1876,7 +2400,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     }
 
     private boolean isRegistrationOpen(Activity activity, LocalDateTime now) {
-        if (!Objects.equals(activity.getStatus(), STATUS_PUBLISHED)) {
+        if (!isPublicActivityStatus(activity.getStatus())) {
             return false;
         }
         boolean afterStart = activity.getRegistrationStartTime() == null || !now.isBefore(activity.getRegistrationStartTime());
@@ -1885,6 +2409,11 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                 || activity.getRegisteredCount() == null
                 || activity.getRegisteredCount() < activity.getMaxParticipants();
         return afterStart && beforeEnd && hasCapacity;
+    }
+
+    private boolean isPublicActivityStatus(Integer status) {
+        return Objects.equals(status, STATUS_PUBLISHED)
+                || Objects.equals(status, STATUS_OFFLINE_PENDING_REVIEW);
     }
 
     private int normalizePageSize(Integer pageSize) {

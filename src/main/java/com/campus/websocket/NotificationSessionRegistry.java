@@ -1,7 +1,7 @@
 package com.campus.websocket;
 
 import cn.hutool.json.JSONUtil;
-import com.campus.dto.ActivityRegistrationPushDTO;
+import com.campus.dto.NotificationPushDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
@@ -14,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Component
-public class ActivityRegistrationSessionRegistry {
+public class NotificationSessionRegistry {
 
     private final ConcurrentHashMap<Long, Set<WebSocketSession>> sessions = new ConcurrentHashMap<>();
 
@@ -32,15 +32,15 @@ public class ActivityRegistrationSessionRegistry {
         Set<WebSocketSession> userSessions = sessions.getOrDefault(userId, Collections.emptySet());
         if (session == null) {
             userSessions.clear();
-            return;
+        } else {
+            userSessions.remove(session);
         }
-        userSessions.remove(session);
         if (userSessions.isEmpty()) {
             sessions.remove(userId);
         }
     }
 
-    public void push(Long userId, ActivityRegistrationPushDTO payload) {
+    public void push(Long userId, NotificationPushDTO payload) {
         if (userId == null || payload == null) {
             return;
         }
@@ -57,7 +57,7 @@ public class ActivityRegistrationSessionRegistry {
             try {
                 session.sendMessage(new TextMessage(message));
             } catch (IOException e) {
-                log.warn("报名结果推送失败 userId={}", userId, e);
+                log.warn("通知推送失败 userId={}", userId, e);
             }
         }
     }

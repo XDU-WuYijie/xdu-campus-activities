@@ -165,6 +165,19 @@
       border-color: rgba(23, 50, 77, 0.18);
     }
 
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .manage-btn.danger {
+      color: var(--danger);
+      border-color: rgba(181, 75, 93, 0.24);
+      background: rgba(181, 75, 93, 0.08);
+    }
+
     .shell {
       display: grid;
       grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
@@ -413,7 +426,10 @@
             <div class="hero-title">{{activity.title}}</div>
             <div class="hero-summary">{{activity.summary || '主办方暂未补充活动摘要。'}}</div>
           </div>
-          <button v-if="activity.canManage" class="manage-btn" @click="goManage">管理活动</button>
+          <div class="hero-actions">
+            <button v-if="activity.canManage" class="manage-btn" @click="goManage">编辑活动</button>
+            <button v-if="canOfflineActivity" class="manage-btn danger" @click="offlineActivity">强制下架</button>
+          </div>
         </div>
         <div class="tag-row">
           <span class="tag">{{activity.category || '未分类'}}</span>
@@ -529,7 +545,6 @@
             <div class="verify-line" v-if="activity.registrationFailReason"><strong>失败原因：</strong>{{activity.registrationFailReason}}</div>
             <div class="actions">
               <el-button type="primary" :disabled="registerButtonDisabled" :loading="registerSubmitting" @click="registerActivity">{{registerButtonText}}</el-button>
-              <el-button v-if="activity.registrationStatus && activity.registrationStatus !== 'NOT_REGISTERED'" plain @click="queryRegistrationStatus(false)">刷新状态</el-button>
             </div>
           </div>
         </div>
@@ -547,7 +562,7 @@
 <script src="js/element.js"></script>
 <script src="js/common.js"></script>
 <script>
-  new Vue({
+  const activityDetailApp = new Vue({
     el: '#app',
     data: {
       activity: {},
@@ -561,13 +576,15 @@
       verifyResult: null,
       registerSubmitting: false,
       registrationSocket: null,
-      statusPollingTimer: null,
+      registrationHeartbeatTimer: null,
+      registrationReconnectTimer: null,
       checkInStats: {
         registeredCount: 0,
         checkedInCount: 0,
         uncheckedCount: 0,
         checkInRate: 0
       },
+      registrations: [],
       checkInRecords: []
     },
     computed: {
@@ -582,33 +599,44 @@
         const permissions = (this.user && this.user.permissions) || [];
         return permissions.includes('activity:create');
       },
+      isPlatformAdmin() {
+        const roleCodes = (this.user && this.user.roleCodes) || [];
+        return roleCodes.includes('PLATFORM_ADMIN');
+      },
       canCancelRegistration() {
-        if (!this.activity || !this.activity.registered || this.activity.canManage) return false;
+        if (!this.activity || !this.activity.registered || this.activity.canManage || this.isPlatformAdmin) return false;
+        if (this.activity.registrationStatus === 'CANCEL_PENDING') return false;
         if (this.activity.voucherStatus === 'CHECKED_IN') return false;
         if (!this.activity.eventStartTime) return true;
         return new Date(this.activity.eventStartTime.replace(/-/g, '/')).getTime() > Date.now();
       },
+      canOfflineActivity() {
+        return this.isPlatformAdmin && this.activity && this.activity.status === 2;
+      },
       registrationStatusText() {
         if (this.activity.registrationStatus === 'PENDING_CONFIRM') return '报名确认中';
+        if (this.activity.registrationStatus === 'CANCEL_PENDING') return '退出申请待审核';
         if (this.activity.registrationStatus === 'SUCCESS') return '报名成功';
         if (this.activity.registrationStatus === 'FAILED') return '报名失败';
         if (this.activity.registrationStatus === 'CANCELED') return '已退出';
         return '';
       },
       registrationPanelTitle() {
-        if (this.activity.registrationStatus === 'PENDING_CONFIRM') return '报名确认中';
+        if (this.activity.registrationStatus === 'PENDING_CONFIRM') return '报名待审核';
+        if (this.activity.registrationStatus === 'CANCEL_PENDING') return '退出申请待审核';
         if (this.activity.registrationStatus === 'FAILED') return '报名失败';
         if (this.activity.registrationStatus === 'CANCELED') return '已退出活动';
         return '报名活动';
       },
       registrationPanelDesc() {
-        if (this.activity.registrationStatus === 'PENDING_CONFIRM') return this.activity.registrationMessage || '系统正在确认报名结果，请稍候。';
+        if (this.activity.registrationStatus === 'PENDING_CONFIRM') return this.activity.registrationMessage || '报名申请已提交，等待主办方审核。';
+        if (this.activity.registrationStatus === 'CANCEL_PENDING') return this.activity.registrationMessage || '退出申请已提交，等待主办方审核。';
         if (this.activity.registrationStatus === 'FAILED') return this.activity.registrationMessage || '本次报名未成功，可刷新状态后重新尝试。';
         if (this.activity.registrationStatus === 'CANCELED') return '你已退出该活动，如仍有名额可再次报名。';
         return '报名成功后，系统会自动生成唯一签到凭证号，签到时出示给工作人员即可。';
       },
       registerButtonText() {
-        if (this.activity.registrationStatus === 'PENDING_CONFIRM') return '报名确认中';
+        if (this.activity.registrationStatus === 'PENDING_CONFIRM') return '报名待审核';
         if (this.activity.registrationStatus === 'FAILED') return '重新报名';
         if (this.activity.registrationStatus === 'CANCELED') return '再次报名';
         return '立即报名';
@@ -622,7 +650,6 @@
     },
     beforeDestroy() {
       this.closeRegistrationSocket();
-      this.stopStatusPolling();
     },
     methods: {
       queryUser() {
@@ -636,6 +663,7 @@
             this.user = data || {};
             window.auth.setUser(this.user);
             this.connectRegistrationSocket();
+            this.connectNotificationSocket();
           })
           .catch(() => {
             this.user = {};
@@ -648,10 +676,9 @@
           .then(({data}) => {
             this.activity = data || {};
             this.currentImage = this.activityImages[0] || '';
-            this.handleStatusSideEffects();
             if (this.activity.canManage) {
               this.refreshManagePanel();
-            } else if (this.user && this.user.id) {
+            } else if (this.user && this.user.id && !this.isPlatformAdmin) {
               this.queryRegistrationStatus(true);
             }
           })
@@ -678,34 +705,21 @@
         this.activity.voucherIssuedTime = status.voucherIssuedTime || null;
         this.activity.voucherCheckedInTime = status.voucherCheckedInTime || null;
         this.activity.checkedIn = status.voucherStatus === 'CHECKED_IN';
-        this.handleStatusSideEffects();
-      },
-      handleStatusSideEffects() {
-        if (this.activity && this.activity.registrationStatus === 'PENDING_CONFIRM') {
-          this.startStatusPolling();
-          return;
-        }
-        this.stopStatusPolling();
-      },
-      startStatusPolling() {
-        this.stopStatusPolling();
-        this.statusPollingTimer = setInterval(() => {
-          this.queryRegistrationStatus(true);
-        }, 3000);
-      },
-      stopStatusPolling() {
-        if (this.statusPollingTimer) {
-          clearInterval(this.statusPollingTimer);
-          this.statusPollingTimer = null;
-        }
       },
       connectRegistrationSocket() {
         const token = window.auth.getToken();
-        if (!token || this.registrationSocket) return;
+        if (!token) return;
+        if (this.registrationSocket
+            && (this.registrationSocket.readyState === WebSocket.OPEN
+            || this.registrationSocket.readyState === WebSocket.CONNECTING)) return;
         const url = util.buildWsUrl('/api/ws/activity-registration', { token });
         try {
           this.registrationSocket = new WebSocket(url);
+          this.registrationSocket.onopen = () => {
+            this.startRegistrationHeartbeat();
+          };
           this.registrationSocket.onmessage = (event) => {
+            if (event.data === 'pong') return;
             let message = null;
             try {
               message = JSON.parse(event.data);
@@ -720,20 +734,90 @@
               this.queryDetail();
             } else if (payload.status === 'FAILED') {
               this.$message.error(payload.message || '报名失败');
+            } else if (payload.status === 'CANCELED') {
+              this.$message.success(payload.message || '已退出活动');
+              this.queryDetail();
             }
           };
+          this.registrationSocket.onerror = () => {
+            this.closeRegistrationSocketOnly();
+            this.scheduleRegistrationReconnect();
+          };
           this.registrationSocket.onclose = () => {
-            this.registrationSocket = null;
+            this.closeRegistrationSocketOnly();
+            this.scheduleRegistrationReconnect();
           };
         } catch (e) {
           this.registrationSocket = null;
+          this.scheduleRegistrationReconnect();
+        }
+      },
+      startRegistrationHeartbeat() {
+        this.stopRegistrationHeartbeat();
+        this.registrationHeartbeatTimer = setInterval(() => {
+          if (!this.registrationSocket || this.registrationSocket.readyState !== WebSocket.OPEN) {
+            this.closeRegistrationSocketOnly();
+            this.scheduleRegistrationReconnect();
+            return;
+          }
+          try {
+            this.registrationSocket.send('ping');
+          } catch (e) {
+            this.closeRegistrationSocketOnly();
+            this.scheduleRegistrationReconnect();
+          }
+        }, 25000);
+      },
+      stopRegistrationHeartbeat() {
+        if (this.registrationHeartbeatTimer) {
+          clearInterval(this.registrationHeartbeatTimer);
+          this.registrationHeartbeatTimer = null;
+        }
+      },
+      scheduleRegistrationReconnect() {
+        if (this.registrationReconnectTimer || !window.auth.getToken()) return;
+        this.registrationReconnectTimer = setTimeout(() => {
+          this.registrationReconnectTimer = null;
+          this.connectRegistrationSocket();
+        }, 3000);
+      },
+      closeRegistrationSocketOnly() {
+        this.stopRegistrationHeartbeat();
+        if (this.registrationSocket) {
+          const socket = this.registrationSocket;
+          this.registrationSocket = null;
+          socket.onclose = null;
+          socket.onerror = null;
+          try {
+            if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+              socket.close();
+            }
+          } catch (e) {}
         }
       },
       closeRegistrationSocket() {
-        if (this.registrationSocket) {
-          this.registrationSocket.close();
-          this.registrationSocket = null;
+        if (this.registrationReconnectTimer) {
+          clearTimeout(this.registrationReconnectTimer);
+          this.registrationReconnectTimer = null;
         }
+        this.closeRegistrationSocketOnly();
+      },
+      connectNotificationSocket() {
+        if (!window.auth.getToken()) return;
+        window.notificationClient.fetchUnread();
+        window.notificationClient.connect({
+          onMessage: message => {
+            if (!message || !message.payload) return;
+            this.$message.info(message.payload.title);
+            if (this.activity && this.activity.canManage && Number(message.payload.bizId) === Number(this.activity.id)) {
+              this.refreshManagePanel();
+              if (message.payload.type === 'REGISTRATION_REVIEW_PENDING'
+                  || message.payload.type === 'REGISTRATION_CANCEL_REVIEW_PENDING') {
+                this.$message.info('请到个人主页处理待审核请求');
+              }
+            }
+          }
+        });
       },
       refreshManagePanel() {
         if (!this.activity.id || !this.activity.canManage) return;
@@ -747,6 +831,11 @@
               checkInRate: 0
             };
           });
+        axios.get('/activity/manage/' + this.activity.id + '/registrations')
+          .then(({data}) => {
+            this.registrations = data || [];
+          })
+          .catch(() => this.registrations = []);
         axios.get('/activity/manage/' + this.activity.id + '/check-in/records')
           .then(({data}) => this.checkInRecords = data || [])
           .catch(() => this.checkInRecords = []);
@@ -762,19 +851,42 @@
           .finally(() => this.registerSubmitting = false);
       },
       cancelRegistration() {
-        this.$confirm('退出活动后会释放名额并删除签到凭证，确认继续吗？', '退出活动', {
-          confirmButtonText: '确认退出',
+        this.$confirm('退出活动需要主办方审核，通过后才会释放名额并删除签到凭证。', '申请退出活动', {
+          confirmButtonText: '提交申请',
           cancelButtonText: '再想想',
           type: 'warning'
         }).then(() => {
           axios.delete('/activity/' + this.activity.id + '/register')
             .then(() => {
-              this.$message.success('已退出活动');
+              this.$message.success('退出申请已提交');
               this.queryDetail();
               this.queryRegistrationStatus(true);
             })
             .catch(err => this.$message.error(err));
         }).catch(() => {});
+      },
+      offlineActivity() {
+        this.$prompt('请输入强制下架原因', '强制下架活动', {
+          confirmButtonText: '确认下架',
+          cancelButtonText: '取消',
+          inputType: 'textarea'
+        }).then(({ value }) => {
+          axios.post('/activity/admin/' + this.activity.id + '/offline', {
+            approved: false,
+            reviewRemark: value
+          }).then(() => {
+            this.$message.success('活动已下架');
+            this.activity.status = 4;
+          }).catch(err => this.$message.error(err));
+        }).catch(() => {});
+      },
+      registrationStatusTextForManage(status) {
+        if (status === 0) return '报名待审核';
+        if (status === 1) return '报名通过';
+        if (status === 2) return '报名驳回';
+        if (status === 3) return '已退出';
+        if (status === 4) return '退出待审核';
+        return '未知状态';
       },
       verifyVoucher() {
         if (!this.verifyForm.displayCode) {
@@ -840,6 +952,11 @@
       }
     }
   })
+  window.addEventListener('online', () => activityDetailApp.connectRegistrationSocket());
+  window.addEventListener('focus', () => activityDetailApp.connectRegistrationSocket());
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) activityDetailApp.connectRegistrationSocket();
+  });
 </script>
 </body>
 </html>

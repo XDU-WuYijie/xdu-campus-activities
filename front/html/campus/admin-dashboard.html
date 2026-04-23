@@ -10,8 +10,10 @@
     body { background: linear-gradient(180deg, #eef3f9 0%, #f8fbff 100%); }
     .page { max-width: 1100px; margin: 0 auto; padding: 20px 16px 80px; }
     .hero { background: linear-gradient(135deg, #10233d, #2a5f97); color: #fff; border-radius: 24px; padding: 22px; box-shadow: 0 18px 40px rgba(16,35,61,.16); margin-bottom: 18px; }
+    .hero-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
     .hero-title { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
     .hero-meta { opacity: .88; }
+    .notice-btn { width:42px; height:42px; border:none; border-radius:50%; background:rgba(255,255,255,.96); color:#17324d; box-shadow:0 10px 24px rgba(16,35,61,.16); cursor:pointer; }
     .card { background:#fff; border-radius:18px; padding:16px; box-shadow:0 12px 30px rgba(16,35,61,.08); margin-bottom:12px; }
     .item-title { font-size:18px; font-weight:700; color:#10233d; margin-bottom:8px; }
     .item-line { color:#556273; font-size:14px; line-height:1.9; }
@@ -22,26 +24,53 @@
 <body>
 <div id="app" class="page">
   <section class="hero">
-    <div class="hero-title">平台管理员后台</div>
-    <div class="hero-meta">审核活动发布，审核普通用户成为活动主办方。</div>
+    <div class="hero-head">
+      <div>
+        <div class="hero-title">平台管理员后台</div>
+        <div class="hero-meta">审核活动发布，审核普通用户成为活动主办方。</div>
+      </div>
+      <el-badge :value="unreadCount" :hidden="!unreadCount">
+        <button class="notice-btn" @click="goNotifications"><i class="el-icon-bell"></i></button>
+      </el-badge>
+    </div>
   </section>
 
   <el-tabs v-model="tab">
     <el-tab-pane label="活动审核" name="activities">
       <div class="card" v-for="item in activities" :key="item.id">
         <div class="item-title">{{ item.title }}</div>
+        <div class="item-line">审核类型：{{ pendingActivityTypeText(item.status) }}</div>
         <div class="item-line">主办方：{{ item.organizerName || '未填写' }}</div>
         <div class="item-line">分类：{{ item.category }}</div>
         <div class="item-line">地点：{{ item.location }}</div>
         <div class="item-line">活动时间：{{ formatTime(item.eventStartTime) }} - {{ formatTime(item.eventEndTime) }}</div>
         <div class="item-line">报名时间：{{ formatTime(item.registrationStartTime) }} - {{ formatTime(item.registrationEndTime) }}</div>
         <div class="item-actions">
-          <el-button size="mini" type="success" @click="reviewActivity(item.id, true)">通过</el-button>
-          <el-button size="mini" type="danger" plain @click="reviewActivity(item.id, false)">驳回</el-button>
+          <el-button size="mini" type="success" @click="reviewActivity(item, true)">{{ item.status === 5 ? '同意下架' : '通过' }}</el-button>
+          <el-button size="mini" type="danger" plain @click="reviewActivity(item, false)">{{ item.status === 5 ? '拒绝下架' : '驳回' }}</el-button>
           <el-button size="mini" plain @click="viewDetail(item.id)">查看详情</el-button>
         </div>
       </div>
       <div class="card empty" v-if="!activities.length">暂无待审核活动</div>
+    </el-tab-pane>
+
+    <el-tab-pane label="已发布活动" name="published">
+      <div class="item-actions" style="margin-bottom:12px;">
+        <el-button size="mini" type="primary" plain @click="queryPublishedActivities">刷新</el-button>
+      </div>
+      <div class="card" v-for="item in publishedActivities" :key="item.id">
+        <div class="item-title">{{ item.title }}</div>
+        <div class="item-line">主办方：{{ item.organizerName || '未填写' }}</div>
+        <div class="item-line">分类：{{ item.category }}</div>
+        <div class="item-line">地点：{{ item.location }}</div>
+        <div class="item-line">报名人数：{{ item.registeredCount || 0 }} / {{ item.maxParticipants }}</div>
+        <div class="item-line">活动时间：{{ formatTime(item.eventStartTime) }} - {{ formatTime(item.eventEndTime) }}</div>
+        <div class="item-actions">
+          <el-button size="mini" plain @click="viewDetail(item.id)">查看详情</el-button>
+          <el-button size="mini" type="danger" plain @click="offlineActivity(item)">强制下架</el-button>
+        </div>
+      </div>
+      <div class="card empty" v-if="!publishedActivities.length">暂无已发布活动</div>
     </el-tab-pane>
 
     <el-tab-pane label="主办方申请审核" name="organizers">
@@ -57,6 +86,25 @@
         </div>
       </div>
       <div class="card empty" v-if="!organizerApplications.length">暂无待审核主办方申请</div>
+    </el-tab-pane>
+
+    <el-tab-pane label="审核历史" name="reviewHistory">
+      <div class="item-actions" style="margin-bottom:12px;">
+        <el-button size="mini" type="primary" plain @click="queryReviewHistory">刷新</el-button>
+        <el-button size="mini" type="danger" plain @click="clearReviewHistory">一键删除</el-button>
+      </div>
+      <div class="card" v-for="item in reviewHistory" :key="item.id">
+        <div class="item-title">{{ item.bizTitle }}</div>
+        <div class="item-line">审核对象：{{ item.targetName || ('用户' + item.targetUserId) }}</div>
+        <div class="item-line">审核类型：{{ reviewBizTypeText(item.bizType) }}</div>
+        <div class="item-line">审核结果：{{ reviewActionText(item.action) }}</div>
+        <div class="item-line" v-if="item.remark">备注：{{ item.remark }}</div>
+        <div class="item-line">审核时间：{{ formatTime(item.createdAt) }}</div>
+        <div class="item-actions">
+          <el-button size="mini" type="danger" plain @click="deleteReviewRecord(item.id)">删除</el-button>
+        </div>
+      </div>
+      <div class="card empty" v-if="!reviewHistory.length">暂无审核历史</div>
     </el-tab-pane>
   </el-tabs>
 
@@ -75,10 +123,14 @@
     data: {
       tab: 'activities',
       activities: [],
-      organizerApplications: []
+      publishedActivities: [],
+      organizerApplications: [],
+      reviewHistory: [],
+      unreadCount: 0
     },
     created() {
       this.queryCurrentUser();
+      this.initNotifications();
     },
     methods: {
       queryCurrentUser() {
@@ -92,7 +144,9 @@
               return;
             }
             this.queryActivities();
+            this.queryPublishedActivities();
             this.queryOrganizerApplications();
+            this.queryReviewHistory();
           })
           .catch(() => location.replace('/login.html'));
       },
@@ -101,16 +155,33 @@
           .then(({data}) => this.activities = data || [])
           .catch(err => this.$message.error(err));
       },
+      queryPublishedActivities() {
+        axios.get('/activity/admin/published-list', { params: { current: 1, pageSize: 100 } })
+          .then(({data}) => this.publishedActivities = data || [])
+          .catch(err => this.$message.error(err));
+      },
       queryOrganizerApplications() {
         axios.get('/user/admin/organizer-applications', { params: { status: 'PENDING' } })
           .then(({data}) => this.organizerApplications = data || [])
           .catch(err => this.$message.error(err));
       },
-      reviewActivity(id, approved) {
+      queryReviewHistory() {
+        axios.get('/review-records/mine', { params: { reviewType: 'PLATFORM_ADMIN' } })
+          .then(({data}) => this.reviewHistory = data || [])
+          .catch(err => this.$message.error(err));
+      },
+      reviewActivity(item, approved) {
+        const id = item.id;
         axios.post('/activity/admin/' + id + '/review', { approved: approved })
           .then(() => {
-            this.$message.success(approved ? '活动已通过' : '活动已驳回');
+            if (item.status === 5) {
+              this.$message.success(approved ? '活动已下架' : '下架申请已驳回');
+            } else {
+              this.$message.success(approved ? '活动已通过' : '活动已驳回');
+            }
             this.queryActivities();
+            this.queryPublishedActivities();
+            this.queryReviewHistory();
           })
           .catch(err => this.$message.error(err));
       },
@@ -119,11 +190,89 @@
           .then(() => {
             this.$message.success(approved ? '申请已通过' : '申请已驳回');
             this.queryOrganizerApplications();
+            this.queryReviewHistory();
           })
           .catch(err => this.$message.error(err));
       },
+      offlineActivity(item) {
+        this.$prompt('请输入强制下架原因', '强制下架活动', {
+          confirmButtonText: '确认下架',
+          cancelButtonText: '取消',
+          inputType: 'textarea'
+        }).then(({ value }) => {
+          axios.post('/activity/admin/' + item.id + '/offline', {
+            approved: false,
+            reviewRemark: value
+          }).then(() => {
+            this.$message.success('活动已下架');
+            this.queryPublishedActivities();
+            this.queryReviewHistory();
+          }).catch(err => this.$message.error(err));
+        }).catch(() => {});
+      },
       viewDetail(id) {
         location.href = '/activity-detail.html?id=' + id;
+      },
+      goNotifications() {
+        location.href = '/notification.html';
+      },
+      initNotifications() {
+        window.notificationClient.fetchUnread().then(count => this.unreadCount = count || 0);
+        window.notificationClient.connect({
+          onUnread: count => this.unreadCount = count,
+          onMessage: message => {
+            if (!message || !message.payload) return;
+            this.$message.info(message.payload.title);
+            if (message.payload.type === 'ACTIVITY_REVIEW_PENDING') {
+              this.queryActivities();
+            }
+            if (message.payload.type === 'ACTIVITY_OFFLINE_REVIEW_PENDING') {
+              this.queryActivities();
+            }
+            if (message.payload.type === 'ORGANIZER_APPLY_PENDING') {
+              this.queryOrganizerApplications();
+            }
+          }
+        });
+      },
+      reviewBizTypeText(type) {
+        if (type === 'ACTIVITY') return '活动审核';
+        if (type === 'ACTIVITY_OFFLINE') return '活动强制下架';
+        if (type === 'ACTIVITY_OFFLINE_APPLY') return '活动下架申请';
+        if (type === 'ORGANIZER_APPLICATION') return '主办方申请审核';
+        return type || '审核';
+      },
+      pendingActivityTypeText(status) {
+        if (status === 5) return '下架申请审核';
+        return '发布审核';
+      },
+      reviewActionText(action) {
+        if (action === 'APPROVED') return '通过';
+        if (action === 'REJECTED') return '驳回';
+        if (action === 'OFFLINE') return '下架';
+        return action || '未知';
+      },
+      deleteReviewRecord(id) {
+        axios.delete('/review-records/' + id)
+          .then(() => {
+            this.$message.success('记录已删除');
+            this.queryReviewHistory();
+          })
+          .catch(err => this.$message.error(err));
+      },
+      clearReviewHistory() {
+        this.$confirm('确认删除全部审核历史记录吗？不会影响已审核的业务结果。', '删除审核历史', {
+          confirmButtonText: '确认删除',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }).then(() => {
+          axios.delete('/review-records/clear', { params: { reviewType: 'PLATFORM_ADMIN' } })
+            .then(() => {
+              this.reviewHistory = [];
+              this.$message.success('审核历史已清空');
+            })
+            .catch(err => this.$message.error(err));
+        }).catch(() => {});
       },
       logout() {
         axios.post('/user/logout')

@@ -408,7 +408,7 @@
       <div class="topbar-title">活动编辑</div>
     </div>
     <div class="topbar-actions">
-      <el-button @click="goHome">返回首页</el-button>
+      <el-button v-if="canApplyOffline" type="danger" plain @click="applyOffline">申请下架</el-button>
       <el-button class="submit-btn" type="primary" :loading="submitting" @click="submitForm">{{form.id ? '保存活动' : '发布活动'}}</el-button>
     </div>
   </div>
@@ -545,11 +545,6 @@
         </div>
       </el-form>
 
-      <div class="action-bar">
-        <el-button class="submit-btn" type="primary" :loading="submitting" @click="submitForm">{{form.id ? '保存活动' : '发布活动'}}</el-button>
-        <el-button v-if="form.id" @click="resetForm">写新活动</el-button>
-        <el-button plain @click="goHome">稍后再写</el-button>
-      </div>
     </div>
   </div>
 </div>
@@ -574,7 +569,8 @@
         registrationEndTime: '',
         eventStartTime: '',
         eventEndTime: '',
-        images: ''
+        images: '',
+        status: null
       },
       imageList: [],
       user: window.auth.getUser() || {},
@@ -594,6 +590,9 @@
       },
       displayOrganizerName() {
         return this.form.organizerName || this.user.nickName || '主办方';
+      },
+      canApplyOffline() {
+        return !!this.form.id && Number(this.form.status) === 2;
       }
     },
     methods: {
@@ -678,6 +677,7 @@
           if (!payload.id && data) {
             this.form.id = data;
           }
+          this.form.status = 1;
         }).catch(err => this.$message.error(err))
           .finally(() => this.submitting = false);
       },
@@ -698,7 +698,8 @@
               registrationEndTime: this.toInputDate(data.registrationEndTime),
               eventStartTime: this.toInputDate(data.eventStartTime),
               eventEndTime: this.toInputDate(data.eventEndTime),
-              images: images.join(',')
+              images: images.join(','),
+              status: data.status
             };
             this.imageList = images;
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -718,9 +719,24 @@
           registrationEndTime: '',
           eventStartTime: '',
           eventEndTime: '',
-          images: ''
+          images: '',
+          status: null
         };
         this.imageList = [];
+      },
+      applyOffline() {
+        this.$prompt('请输入申请下架原因', '申请下架活动', {
+          confirmButtonText: '提交申请',
+          cancelButtonText: '取消',
+          inputType: 'textarea'
+        }).then(({ value }) => {
+          axios.post('/activity/manage/' + this.form.id + '/offline-apply', {
+            reviewRemark: value
+          }).then(() => {
+            this.form.status = 5;
+            this.$message.success('下架申请已提交，等待平台管理员审核');
+          }).catch(err => this.$message.error(err));
+        }).catch(() => {});
       },
       goBack() {
         history.back();
