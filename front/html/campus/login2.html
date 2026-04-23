@@ -75,10 +75,12 @@
         axios.post("/user/login", this.form)
           .then(({data}) => {
             if(data){
-              // 保存用户信息到session
-              sessionStorage.setItem("token", data);
+              window.auth.setToken(data);
             }
-            // 跳转到首页
+            return axios.get("/user/me");
+          })
+          .then(({data}) => {
+            window.auth.setUser(data || {});
             location.href = "/info.html"
           })
           .catch(err => this.$message.error(err))

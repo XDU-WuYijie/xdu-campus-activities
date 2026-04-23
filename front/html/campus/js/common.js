@@ -3,11 +3,66 @@ let commonURL = "/api";
 // 设置后台服务地址
 axios.defaults.baseURL = commonURL;
 axios.defaults.timeout = 2000;
+const publicPagePaths = new Set([
+  "/login.html",
+  "/login2.html"
+]);
+const currentPagePath = window.location.pathname;
+const tokenStorageKey = "token";
+const userStorageKey = "currentUser";
+const persistedToken = localStorage.getItem(tokenStorageKey);
+const sessionToken = sessionStorage.getItem(tokenStorageKey);
+if (persistedToken && !sessionToken) {
+  sessionStorage.setItem(tokenStorageKey, persistedToken);
+}
+if (!persistedToken && sessionToken) {
+  localStorage.setItem(tokenStorageKey, sessionToken);
+}
+window.auth = {
+  getToken() {
+    return localStorage.getItem(tokenStorageKey) || sessionStorage.getItem(tokenStorageKey);
+  },
+  setToken(value) {
+    if (value) {
+      localStorage.setItem(tokenStorageKey, value);
+      sessionStorage.setItem(tokenStorageKey, value);
+    }
+  },
+  clearToken() {
+    localStorage.removeItem(tokenStorageKey);
+    sessionStorage.removeItem(tokenStorageKey);
+  },
+  getUser() {
+    const raw = localStorage.getItem(userStorageKey) || sessionStorage.getItem(userStorageKey);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch (e) {
+      localStorage.removeItem(userStorageKey);
+      sessionStorage.removeItem(userStorageKey);
+      return null;
+    }
+  },
+  setUser(user) {
+    if (!user) return;
+    const raw = JSON.stringify(user);
+    localStorage.setItem(userStorageKey, raw);
+    sessionStorage.setItem(userStorageKey, raw);
+  },
+  clearUser() {
+    localStorage.removeItem(userStorageKey);
+    sessionStorage.removeItem(userStorageKey);
+  }
+};
 // request拦截器，将用户token放入头中
-let token = sessionStorage.getItem("token");
+let token = window.auth.getToken();
+if (!token && !publicPagePaths.has(currentPagePath)) {
+  location.replace("/login.html");
+}
 axios.interceptors.request.use(
   config => {
-    if(token) config.headers['authorization'] = token
+    token = window.auth.getToken();
+    if(token) config.headers['authentication'] = token
     return config
   },
   error => {
@@ -24,7 +79,8 @@ axios.interceptors.response.use(function (response) {
 }, function (error) {
   // 一般是服务端异常或者网络异常
   console.log(error)
-  if(error.response.status == 401){
+  if(error.response && error.response.status == 401){
+    window.auth.clearUser();
     // 未登录，跳转
     setTimeout(() => {
       location.href = "/login.html"

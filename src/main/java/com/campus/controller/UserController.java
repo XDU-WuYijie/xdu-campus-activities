@@ -73,7 +73,7 @@ public class UserController {
      * @return 无
      */
     @PostMapping("/logout")
-    public Result logout(@RequestHeader(value = "authorization", required = false) String token){
+    public Result logout(@RequestHeader(value = "authentication", required = false) String token){
         if (StrUtil.isNotBlank(token)) {
             stringRedisTemplate.delete(LOGIN_USER_KEY + token);
         }
@@ -88,7 +88,7 @@ public class UserController {
     }
 
     @PostMapping("/avatar")
-    public Result uploadAvatar(@RequestHeader(value = "authorization", required = false) String token,
+    public Result uploadAvatar(@RequestHeader(value = "authentication", required = false) String token,
                                @RequestParam("file") MultipartFile file) {
         Long userId = UserHolder.getUser().getId();
         String url = ossService.uploadAvatar(userId, file);
@@ -103,7 +103,7 @@ public class UserController {
     }
 
     @PutMapping("/profile")
-    public Result updateProfile(@RequestHeader(value = "authorization", required = false) String token,
+    public Result updateProfile(@RequestHeader(value = "authentication", required = false) String token,
                                 @RequestBody UserProfileUpdateDTO dto) {
         Long userId = UserHolder.getUser().getId();
 

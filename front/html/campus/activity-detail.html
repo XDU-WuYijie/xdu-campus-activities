@@ -551,7 +551,7 @@
     el: '#app',
     data: {
       activity: {},
-      user: {},
+      user: window.auth.getUser() || {},
       defaultCover: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=1200&q=80',
       currentImage: '',
       verifyForm: {
@@ -625,9 +625,15 @@
     },
     methods: {
       queryUser() {
+        if (!window.auth.getToken()) {
+          this.user = {};
+          this.queryDetail();
+          return;
+        }
         axios.get('/user/me')
           .then(({data}) => {
             this.user = data || {};
+            window.auth.setUser(this.user);
             this.connectRegistrationSocket();
           })
           .catch(() => {
@@ -693,7 +699,7 @@
         }
       },
       connectRegistrationSocket() {
-        const token = sessionStorage.getItem('token');
+        const token = window.auth.getToken();
         if (!token || this.registrationSocket) return;
         const url = util.buildWsUrl('/api/ws/activity-registration', { token });
         try {

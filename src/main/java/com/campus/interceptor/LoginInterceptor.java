@@ -1,4 +1,6 @@
-package com.campus.utils;
+package com.campus.interceptor;
+
+import com.campus.utils.UserHolder;
 
 import org.springframework.web.servlet.HandlerInterceptor;
 

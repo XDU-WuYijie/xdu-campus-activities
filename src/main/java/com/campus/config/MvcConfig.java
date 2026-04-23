@@ -1,7 +1,7 @@
 package com.campus.config;
 
-import com.campus.utils.LoginInterceptor;
-import com.campus.utils.RefreshTokenInterceptor;
+import com.campus.interceptor.LoginInterceptor;
+import com.campus.interceptor.RefreshTokenInterceptor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
@@ -20,13 +20,8 @@ public class MvcConfig implements WebMvcConfigurer {
         // 登录拦截器
         registry.addInterceptor(new LoginInterceptor())
                 .excludePathPatterns(
-                        "/shop/**",
-                        "/voucher/**",
-                        "/shop-type/**",
-                        "/activity/public/**",
                         "/upload/**",
                         "/ws/**",
-                        "/blog/hot",
                         "/user/code",
                         "/user/login"
                 ).order(1);

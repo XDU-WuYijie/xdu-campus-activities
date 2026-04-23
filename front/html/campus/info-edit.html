@@ -293,6 +293,7 @@
         axios.get("/user/me")
           .then(({data}) => {
             this.user = data || {};
+            window.auth.setUser(this.user);
             return axios.get("/user/info/" + this.user.id);
           })
           .then(({data}) => {

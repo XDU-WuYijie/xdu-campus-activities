@@ -1,8 +1,5 @@
 package com.campus;
 
-import com.campus.entity.Shop;
-import com.campus.service.impl.ShopServiceImpl;
-import com.campus.utils.CacheClient;
 import com.campus.utils.RedisIdWorker;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -12,18 +9,9 @@ import javax.annotation.Resource;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-
-import static com.campus.utils.RedisConstants.CACHE_SHOP_KEY;
 
 @SpringBootTest
 class XduCampusApplicationTests {
-
-    @Resource
-    private CacheClient cacheClient;
-
-    @Resource
-    private ShopServiceImpl shopService;
 
     @Resource
     private RedisIdWorker redisIdWorker;
@@ -51,12 +39,6 @@ class XduCampusApplicationTests {
         latch.await();
         long end = System.currentTimeMillis();
         System.out.println("time = " + (end - begin));
-    }
-
-    @Test
-    void testSaveShop() throws InterruptedException {
-        Shop shop = shopService.getById(1L);
-        cacheClient.setWithLogicalExpire(CACHE_SHOP_KEY + 1L, shop, 10L, TimeUnit.SECONDS);
     }
 
     @Test

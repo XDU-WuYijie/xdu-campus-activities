@@ -85,82 +85,6 @@ CREATE TABLE IF NOT EXISTS `tb_activity_check_in_record` (
   KEY `idx_check_in_record_voucher` (`voucher_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS `tb_blog` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `shop_id` bigint NOT NULL,
-  `user_id` bigint unsigned NOT NULL,
-  `title` varchar(255) NOT NULL,
-  `images` varchar(2048) NOT NULL,
-  `content` varchar(2048) NOT NULL,
-  `liked` int unsigned DEFAULT 0,
-  `comments` int unsigned DEFAULT NULL,
-  `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS `tb_blog_comments` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `user_id` bigint unsigned NOT NULL,
-  `blog_id` bigint unsigned NOT NULL,
-  `parent_id` bigint unsigned NOT NULL DEFAULT 0,
-  `answer_id` bigint unsigned NOT NULL DEFAULT 0,
-  `content` varchar(255) NOT NULL,
-  `liked` int unsigned DEFAULT 0,
-  `status` tinyint unsigned DEFAULT 0,
-  `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS `tb_follow` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `user_id` bigint unsigned NOT NULL,
-  `follow_user_id` bigint unsigned NOT NULL,
-  `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS `tb_seckill_voucher` (
-  `voucher_id` bigint unsigned NOT NULL,
-  `stock` int NOT NULL,
-  `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `begin_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `end_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`voucher_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS `tb_shop` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `name` varchar(128) NOT NULL,
-  `type_id` bigint unsigned NOT NULL,
-  `images` varchar(1024) NOT NULL,
-  `area` varchar(128) DEFAULT NULL,
-  `address` varchar(255) NOT NULL,
-  `x` double unsigned NOT NULL,
-  `y` double unsigned NOT NULL,
-  `avg_price` bigint unsigned DEFAULT NULL,
-  `sold` int unsigned NOT NULL DEFAULT 0,
-  `comments` int unsigned NOT NULL DEFAULT 0,
-  `score` int unsigned NOT NULL DEFAULT 0,
-  `open_hours` varchar(32) DEFAULT NULL,
-  `create_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `update_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_shop_type` (`type_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS `tb_shop_type` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `name` varchar(32) DEFAULT NULL,
-  `icon` varchar(255) DEFAULT NULL,
-  `sort` int unsigned DEFAULT NULL,
-  `create_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `update_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
 CREATE TABLE IF NOT EXISTS `tb_sign` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint unsigned NOT NULL,
@@ -200,35 +124,6 @@ CREATE TABLE IF NOT EXISTS `tb_user_info` (
   `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS `tb_voucher` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `shop_id` bigint unsigned DEFAULT NULL,
-  `title` varchar(255) NOT NULL,
-  `sub_title` varchar(255) DEFAULT NULL,
-  `rules` varchar(1024) DEFAULT NULL,
-  `pay_value` bigint unsigned NOT NULL,
-  `actual_value` bigint NOT NULL,
-  `type` tinyint unsigned NOT NULL DEFAULT 0,
-  `status` tinyint unsigned NOT NULL DEFAULT 1,
-  `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS `tb_voucher_order` (
-  `id` bigint NOT NULL,
-  `user_id` bigint unsigned NOT NULL,
-  `voucher_id` bigint unsigned NOT NULL,
-  `pay_type` tinyint unsigned NOT NULL DEFAULT 1,
-  `status` tinyint unsigned NOT NULL DEFAULT 1,
-  `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `pay_time` timestamp NULL DEFAULT NULL,
-  `use_time` timestamp NULL DEFAULT NULL,
-  `refund_time` timestamp NULL DEFAULT NULL,
-  `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 SET FOREIGN_KEY_CHECKS = 1;

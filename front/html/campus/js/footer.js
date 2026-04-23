@@ -22,12 +22,13 @@ Vue.component("footBar", {
     }
   },
   created() {
-    const token = sessionStorage.getItem("token");
+    const token = window.auth.getToken();
     if (!token) {
       return;
     }
     axios.get('/user/me')
       .then(({data}) => {
+        window.auth.setUser(data || {});
         this.showCreateEntry = !data || data.roleType !== 2;
       })
       .catch(() => {

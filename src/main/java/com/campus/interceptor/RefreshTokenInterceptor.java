@@ -1,8 +1,9 @@
-package com.campus.utils;
+package com.campus.interceptor;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 import com.campus.dto.UserDTO;
+import com.campus.utils.UserHolder;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -25,7 +26,7 @@ public class RefreshTokenInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         // 1.获取请求头中的token
-        String token = request.getHeader("authorization");
+        String token = request.getHeader("authentication");
         if (StrUtil.isBlank(token)) {
             return true;
         }

@@ -93,7 +93,7 @@
     el: '#app',
     data: {
       tab: 'registrations',
-      user: {},
+      user: window.auth.getUser() || {},
       profile: {},
       registrations: [],
       createdActivities: []
@@ -117,6 +117,7 @@
         axios.get('/user/me')
           .then(({data}) => {
             this.user = data || {};
+            window.auth.setUser(this.user);
             this.queryProfile();
             this.queryRegistrations();
             if (this.canManageActivities) {
@@ -160,7 +161,8 @@
       logout() {
         axios.post('/user/logout')
           .then(() => {
-            sessionStorage.removeItem('token');
+            window.auth.clearUser();
+            window.auth.clearToken();
             location.href = '/login.html';
           })
           .catch(err => this.$message.error(err));
