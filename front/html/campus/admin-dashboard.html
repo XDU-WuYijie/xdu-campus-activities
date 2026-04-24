@@ -7,59 +7,507 @@
   <link rel="stylesheet" href="./css/element.css">
   <link href="./css/main.css" rel="stylesheet">
   <style>
-    body { background: linear-gradient(180deg, #eef3f9 0%, #f8fbff 100%); }
-    .page { max-width: 1100px; margin: 0 auto; padding: 20px 16px 80px; }
-    .hero { background: linear-gradient(135deg, #10233d, #2a5f97); color: #fff; border-radius: 24px; padding: 22px; box-shadow: 0 18px 40px rgba(16,35,61,.16); margin-bottom: 18px; }
-    .hero-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
-    .hero-title { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
-    .hero-meta { opacity: .88; }
-    .notice-btn { width:42px; height:42px; border:none; border-radius:50%; background:rgba(255,255,255,.96); color:#17324d; box-shadow:0 10px 24px rgba(16,35,61,.16); cursor:pointer; }
-    .card { background:#fff; border-radius:18px; padding:16px; box-shadow:0 12px 30px rgba(16,35,61,.08); margin-bottom:12px; }
-    .item-title { font-size:18px; font-weight:700; color:#10233d; margin-bottom:8px; }
-    .item-line { color:#556273; font-size:14px; line-height:1.9; }
-    .item-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
-    .empty { color:#708198; text-align:center; padding:28px 0; }
-    .count-text { color:#607086; font-size:14px; font-weight:600; margin:0 0 12px; }
-    .inline-search { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px; }
-    .inline-search .el-input { width:260px; }
-    .load-more { text-align:center; margin:14px 0; }
+    :root {
+      --ink: #102a43;
+      --muted: #6b7d93;
+      --primary: #2388ff;
+      --primary-deep: #1769e0;
+      --mint: #20c98f;
+      --line: rgba(35, 136, 255, .12);
+      --card: rgba(255, 255, 255, .92);
+      --shadow: 0 18px 46px rgba(39, 101, 170, .13);
+    }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(72, 185, 255, .18), transparent 26%),
+        radial-gradient(circle at 90% 10%, rgba(32, 201, 143, .12), transparent 26%),
+        linear-gradient(180deg, #f8fcff 0%, #eef8ff 52%, #f7fbff 100%);
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    .page {
+      width: min(390px, 100%);
+      margin: 0 auto;
+      min-height: 100vh;
+      padding: 8px 14px 24px;
+      box-sizing: border-box;
+      background: #fff;
+    }
+    .topbar {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr) 44px;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .back-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      color: #102a43;
+      cursor: pointer;
+      font-size: 18px;
+    }
+    .top-title {
+      font-size: 18px;
+      font-weight: 900;
+      color: #102a43;
+      text-align: center;
+    }
+    .hero {
+      padding: 0;
+      margin-bottom: 12px;
+    }
+    .admin-profile {
+      padding: 14px;
+      border-radius: 16px;
+      color: #fff;
+      background: linear-gradient(135deg, #1e90ff 0%, #20c98f 100%);
+      box-shadow: 0 14px 32px rgba(35, 136, 255, .22);
+      margin-bottom: 12px;
+    }
+    .admin-profile-main {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .admin-avatar {
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: rgba(255,255,255,.15);
+      border: 2px solid rgba(255,255,255,.45);
+      flex: none;
+    }
+    .admin-profile-text {
+      flex: 1;
+      min-width: 0;
+      padding-top: 2px;
+    }
+    .admin-profile-topline {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .admin-name {
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1.15;
+    }
+    .admin-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      height: 20px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.18);
+      border: 1px solid rgba(255,255,255,.24);
+      font-size: 10px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .admin-meta {
+      margin-top: 4px;
+      color: rgba(255,255,255,.88);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .admin-arrow {
+      font-size: 18px;
+      opacity: .95;
+      margin-top: 4px;
+      flex: none;
+    }
+    .admin-tabs .el-tabs__header {
+      margin: 0 0 12px;
+    }
+    .admin-tabs .el-tabs__nav-wrap:after {
+      display: none;
+    }
+    .admin-tabs .el-tabs__nav {
+      width: 100%;
+      display: flex;
+      gap: 8px;
+    }
+    .admin-tabs .el-tabs__item {
+      flex: 1;
+      text-align: center;
+      height: 40px;
+      line-height: 40px;
+      padding: 0;
+      border-radius: 16px;
+      font-size: 12px;
+      color: #607086;
+      background: #f5f9fd;
+      margin-right: 0 !important;
+    }
+    .admin-tabs .el-tabs__item.is-active {
+      color: #2388ff;
+      background: #eaf4ff;
+      font-weight: 900;
+    }
+    .admin-tabs .el-tabs__active-bar {
+      display: none;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 10px;
+      box-shadow: 0 8px 22px rgba(32, 94, 156, .08);
+      margin-bottom: 12px;
+      border: 1px solid #eef3fa;
+    }
+    .list-card-main {
+      display: grid;
+      grid-template-columns: 76px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+    }
+    .list-thumb {
+      width: 76px;
+      height: 68px;
+      border-radius: 10px;
+      object-fit: cover;
+      background: #eaf3fb;
+      flex: none;
+    }
+    .list-card-content {
+      min-width: 0;
+    }
+    .item-title {
+      font-size: 13px;
+      line-height: 1.4;
+      font-weight: 900;
+      color: var(--ink);
+      margin-bottom: 4px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .item-line {
+      color: #617188;
+      font-size: 11px;
+      line-height: 1.6;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .item-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 9px;
+    }
+    .activity-actions {
+      padding-left: 0;
+    }
+    .two-actions {
+      padding-left: 0;
+    }
+    .item-actions .el-button {
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 16px;
+      border-width: 1px;
+      font-size: 11px;
+      font-weight: 900;
+      flex: 1 1 calc(50% - 4px);
+      min-width: 0;
+    }
+    .item-actions .el-button--success.is-plain {
+      background: #e8fbf1;
+      border-color: rgba(10, 163, 109, .16);
+      color: #0aa36d;
+    }
+    .item-actions .el-button--danger.is-plain {
+      background: #fff0f3;
+      border-color: rgba(240, 68, 95, .18);
+      color: #f0445f;
+    }
+    .item-actions .el-button--primary.is-plain {
+      background: #eaf4ff;
+      border-color: rgba(35, 136, 255, .18);
+      color: #2388ff;
+    }
+    .item-actions .el-button.is-plain {
+      border-style: solid;
+    }
+    .item-actions .el-button + .el-button {
+      margin-left: 0;
+    }
+    .count-text {
+      margin: 0 0 10px;
+      color: #7a8da6;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .inline-search {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 72px;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .inline-search .el-input {
+      width: 100%;
+    }
+    .inline-search .el-input__inner {
+      height: 34px;
+      border-radius: 18px;
+      border: 1px solid #edf2f8;
+      background: #fbfdff;
+      padding-left: 14px;
+      font-size: 12px;
+      color: #53657c;
+    }
+    .inline-search .el-button {
+      height: 34px;
+      padding: 0 10px;
+      border-radius: 18px;
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .load-more {
+      text-align: center;
+      margin: 14px 0;
+    }
+    .empty {
+      color: #708198;
+      text-align: center;
+      padding: 24px 14px;
+    }
+    .ai-review-dialog .el-dialog {
+      width: min(390px, calc(100vw - 24px));
+      margin-top: 8vh !important;
+      border-radius: 20px;
+      overflow: hidden;
+    }
+    .ai-review-dialog .el-dialog__header {
+      padding: 14px 16px;
+      background: linear-gradient(135deg, rgba(35, 136, 255, .14), rgba(32, 201, 143, .14));
+      border-bottom: 1px solid #eef3fa;
+    }
+    .ai-review-dialog .el-dialog__title {
+      font-size: 16px;
+      font-weight: 900;
+      color: var(--ink);
+    }
+    .ai-review-dialog .el-dialog__body {
+      padding: 0;
+    }
+    .ai-review-summary {
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid #eef3fa;
+      background: #fff;
+    }
+    .ai-review-summary-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .ai-review-title {
+      font-size: 14px;
+      font-weight: 900;
+      line-height: 1.4;
+      color: var(--ink);
+    }
+    .ai-review-badge {
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 900;
+      white-space: nowrap;
+      background: #eef6ff;
+      color: #2388ff;
+    }
+    .ai-review-badge.success { background: #e8fbf1; color: #0aa36d; }
+    .ai-review-badge.warning { background: #fff3e8; color: #ff7a28; }
+    .ai-review-badge.danger { background: #fff0f3; color: #f0445f; }
+    .ai-review-scroll {
+      max-height: min(66vh, 540px);
+      overflow-y: auto;
+      padding: 12px 16px 16px;
+      background: #fbfdff;
+    }
+    .ai-review-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    .ai-review-scroll::-webkit-scrollbar-thumb {
+      background: rgba(35, 136, 255, .24);
+      border-radius: 999px;
+    }
+    .ai-review-collapse {
+      border: none;
+      background: transparent;
+    }
+    .ai-review-collapse .el-collapse-item__header {
+      height: 44px;
+      line-height: 44px;
+      border-radius: 14px;
+      padding: 0 12px;
+      background: #fff;
+      border: 1px solid #eef3fa;
+      font-weight: 800;
+      color: var(--ink);
+      margin-bottom: 8px;
+    }
+    .ai-review-collapse .el-collapse-item__wrap {
+      border-bottom: 0;
+    }
+    .ai-review-block {
+      background: #fff;
+      border: 1px solid #eef3fa;
+      border-radius: 14px;
+      padding: 12px;
+      color: #44566c;
+      font-size: 12px;
+      line-height: 1.8;
+      white-space: normal;
+    }
+    .ai-review-list {
+      margin: 0;
+      padding-left: 14px;
+    }
+    .ai-review-list li {
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+    .compact-card-body {
+      min-width: 0;
+    }
+    .review-activity-card {
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid #eef3fa;
+      box-shadow: 0 8px 22px rgba(32, 94, 156, .07);
+      margin-bottom: 10px;
+    }
+    .compact-card-body .item-title {
+      margin-bottom: 4px;
+    }
+    .compact-card-body .item-actions {
+      padding-left: 0;
+      margin-top: 8px;
+    }
+    .section-head .item-actions {
+      margin-top: 0;
+      flex: 0 0 auto;
+      justify-content: flex-end;
+    }
+    .section-head .item-actions .el-button {
+      flex: 0 0 auto;
+      min-width: 72px;
+    }
+    .ai-review-error {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #fff0f3;
+      color: #f0445f;
+      border: 1px solid rgba(240, 68, 95, .14);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+    .empty:before,
+    .el-tabs .card.empty:before {
+      display: none;
+    }
+    @media (max-width: 640px) {
+      .card {
+        border-radius: 12px;
+        padding: 10px;
+      }
+      .list-card-main {
+        grid-template-columns: 76px minmax(0, 1fr);
+        gap: 10px;
+      }
+      .item-title {
+        font-size: 13px;
+      }
+      .item-line {
+        font-size: 11px;
+      }
+      .activity-actions {
+        padding-left: 0;
+      }
+      .item-actions .el-button {
+        height: 28px;
+        font-size: 11px;
+      }
+      .ai-review-dialog .el-dialog {
+        width: min(390px, calc(100vw - 20px));
+        margin-top: 6vh !important;
+      }
+    }
+    .admin-status {
+      display: none;
+    }
   </style>
 </head>
 <body>
 <div id="app" class="page">
+  <div class="admin-status">9:41</div>
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="back-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
+    </div>
+    <div class="top-title">平台管理后台</div>
+    <div></div>
+  </div>
   <section class="hero">
-    <div class="hero-head">
-      <div>
-        <div class="hero-title">平台管理员后台</div>
-        <div class="hero-meta">审核活动发布，审核普通用户成为活动主办方。</div>
+    <div class="admin-profile">
+      <div class="admin-profile-main">
+        <img class="admin-avatar" :src="user.icon || '/imgs/icons/default-icon.png'" alt="">
+        <div class="admin-profile-text">
+          <div class="admin-profile-topline">
+            <div class="admin-name">{{user.nickName || user.username || '平台管理员'}}</div>
+            <span class="admin-chip">管理员认证</span>
+          </div>
+          <div class="admin-meta">审核活动发布，审核普通用户成为活动主办方。</div>
+        </div>
+        <i class="el-icon-arrow-right admin-arrow"></i>
       </div>
-      <el-badge :value="unreadCount" :hidden="!unreadCount">
-        <button class="notice-btn" @click="goNotifications"><i class="el-icon-bell"></i></button>
-      </el-badge>
     </div>
   </section>
 
-  <el-tabs v-model="tab">
+  <el-tabs v-model="tab" class="admin-tabs">
     <el-tab-pane label="活动审核" name="activities">
       <div class="inline-search">
         <el-input size="mini" v-model="activityKeyword" clearable placeholder="搜索待审核活动" @keyup.enter.native="queryActivities"></el-input>
         <el-button size="mini" type="primary" plain @click="queryActivities">搜索</el-button>
-        <el-button size="mini" plain @click="resetActivitySearch">刷新</el-button>
       </div>
       <div class="count-text">共 {{activities.length}} 条待审核活动</div>
       <div class="card" v-for="item in activities" :key="item.id">
-        <div class="item-title">{{ item.title }}</div>
-        <div class="item-line">审核类型：{{ pendingActivityTypeText(item.status) }}</div>
-        <div class="item-line">主办方：{{ item.organizerName || '未填写' }}</div>
-        <div class="item-line">分类：{{ item.category }}</div>
-        <div class="item-line">地点：{{ item.location }}</div>
-        <div class="item-line">活动时间：{{ formatTime(item.eventStartTime) }} - {{ formatTime(item.eventEndTime) }}</div>
-        <div class="item-line">报名时间：{{ formatTime(item.registrationStartTime) }} - {{ formatTime(item.registrationEndTime) }}</div>
-        <div class="item-actions">
-          <el-button size="mini" type="success" @click="reviewActivity(item, true)">{{ item.status === 5 ? '同意下架' : '通过' }}</el-button>
-          <el-button size="mini" type="danger" plain @click="reviewActivity(item, false)">{{ item.status === 5 ? '拒绝下架' : '驳回' }}</el-button>
-          <el-button size="mini" plain @click="viewAiReview(item)">AI审核建议</el-button>
-          <el-button size="mini" plain @click="viewDetail(item.id)">查看详情</el-button>
+        <div class="list-card-main">
+          <img class="list-thumb" :src="item.coverImage || '/imgs/blogs/blog1.jpg'" alt="">
+          <div class="list-card-content">
+            <div class="item-title">{{ item.title }}</div>
+            <div class="item-line">审核类型：{{ pendingActivityTypeText(item.status) }}</div>
+            <div class="item-line">主办方：{{ item.organizerName || '未填写' }}</div>
+            <div class="item-line">分类：{{ item.category }}</div>
+            <div class="item-line">地点：{{ item.location }}</div>
+            <div class="item-line">活动时间：{{ formatTime(item.eventStartTime) }} - {{ formatTime(item.eventEndTime) }}</div>
+            <div class="item-line">报名时间：{{ formatTime(item.registrationStartTime) }} - {{ formatTime(item.registrationEndTime) }}</div>
+            <div class="item-actions activity-actions">
+              <el-button size="mini" type="success" plain @click="reviewActivity(item, true)">{{ item.status === 5 ? '同意下架' : '通过' }}</el-button>
+              <el-button size="mini" type="danger" plain @click="reviewActivity(item, false)">{{ item.status === 5 ? '拒绝下架' : '驳回' }}</el-button>
+              <el-button size="mini" type="primary" plain @click="viewAiReview(item)">AI审核建议</el-button>
+              <el-button size="mini" plain @click="viewDetail(item.id)">查看详情</el-button>
+            </div>
+          </div>
         </div>
       </div>
       <div class="card empty" v-if="!activities.length">暂无待审核活动</div>
@@ -69,19 +517,23 @@
       <div class="inline-search">
         <el-input size="mini" v-model="publishedKeyword" clearable placeholder="搜索已发布活动" @keyup.enter.native="refreshPublishedActivities"></el-input>
         <el-button size="mini" type="primary" plain @click="refreshPublishedActivities">搜索</el-button>
-        <el-button size="mini" plain @click="refreshPublishedActivities">刷新</el-button>
       </div>
       <div class="count-text">共 {{publishedTotal}} 条已发布活动，当前显示 {{publishedActivities.length}} 条</div>
       <div class="card" v-for="item in publishedActivities" :key="item.id">
-        <div class="item-title">{{ item.title }}</div>
-        <div class="item-line">主办方：{{ item.organizerName || '未填写' }}</div>
-        <div class="item-line">分类：{{ item.category }}</div>
-        <div class="item-line">地点：{{ item.location }}</div>
-        <div class="item-line">报名人数：{{ item.registeredCount || 0 }} / {{ item.maxParticipants }}</div>
-        <div class="item-line">活动时间：{{ formatTime(item.eventStartTime) }} - {{ formatTime(item.eventEndTime) }}</div>
-        <div class="item-actions">
-          <el-button size="mini" plain @click="viewDetail(item.id)">查看详情</el-button>
-          <el-button size="mini" type="danger" plain @click="offlineActivity(item)">强制下架</el-button>
+        <div class="list-card-main">
+          <img class="list-thumb" :src="item.coverImage || '/imgs/blogs/blog1.jpg'" alt="">
+          <div class="list-card-content">
+            <div class="item-title">{{ item.title }}</div>
+            <div class="item-line">主办方：{{ item.organizerName || '未填写' }}</div>
+            <div class="item-line">分类：{{ item.category }}</div>
+            <div class="item-line">地点：{{ item.location }}</div>
+            <div class="item-line">报名人数：{{ item.registeredCount || 0 }} / {{ item.maxParticipants }}</div>
+            <div class="item-line">活动时间：{{ formatTime(item.eventStartTime) }} - {{ formatTime(item.eventEndTime) }}</div>
+            <div class="item-actions two-actions">
+              <el-button size="mini" type="primary" plain @click="viewDetail(item.id)">查看详情</el-button>
+              <el-button size="mini" type="danger" plain @click="offlineActivity(item)">强制下架</el-button>
+            </div>
+          </div>
         </div>
       </div>
       <div class="card empty" v-if="!publishedActivities.length">暂无已发布活动</div>
@@ -92,15 +544,17 @@
 
     <el-tab-pane label="主办方申请审核" name="organizers">
       <div class="count-text">共 {{organizerApplications.length}} 条主办方申请</div>
-      <div class="card" v-for="item in organizerApplications" :key="item.id">
-        <div class="item-title">{{ item.applicantName || item.applicantUsername || ('用户' + item.userId) }}</div>
-        <div class="item-line">登录账号：{{ item.applicantUsername || '未设置' }}</div>
-        <div class="item-line">申请组织：{{ item.orgName }}</div>
-        <div class="item-line">申请理由：{{ item.reason || '未填写' }}</div>
-        <div class="item-line">申请时间：{{ formatTime(item.createTime) }}</div>
-        <div class="item-actions">
-          <el-button size="mini" type="success" @click="reviewOrganizer(item.id, true)">通过</el-button>
-          <el-button size="mini" type="danger" plain @click="reviewOrganizer(item.id, false)">驳回</el-button>
+      <div class="card review-activity-card" v-for="item in organizerApplications" :key="item.id">
+        <div class="compact-card-body">
+          <div class="item-title">{{ item.applicantName || item.applicantUsername || ('用户' + item.userId) }}</div>
+          <div class="item-line">登录账号：{{ item.applicantUsername || '未设置' }}</div>
+          <div class="item-line">申请组织：{{ item.orgName }}</div>
+          <div class="item-line">申请理由：{{ item.reason || '未填写' }}</div>
+          <div class="item-line">申请时间：{{ formatTime(item.createTime) }}</div>
+          <div class="item-actions two-actions">
+            <el-button size="mini" type="success" plain @click="reviewOrganizer(item.id, true)">通过</el-button>
+            <el-button size="mini" type="danger" plain @click="reviewOrganizer(item.id, false)">驳回</el-button>
+          </div>
         </div>
       </div>
       <div class="card empty" v-if="!organizerApplications.length">暂无待审核主办方申请</div>
@@ -108,24 +562,84 @@
 
     <el-tab-pane label="审核历史" name="reviewHistory">
       <div class="item-actions" style="margin-bottom:12px;">
-        <el-button size="mini" type="primary" plain @click="queryReviewHistory">刷新</el-button>
         <el-button size="mini" type="danger" plain @click="clearReviewHistory">一键删除</el-button>
       </div>
       <div class="count-text">共 {{reviewHistory.length}} 条审核历史</div>
-      <div class="card" v-for="item in reviewHistory" :key="item.id">
-        <div class="item-title">{{ item.bizTitle }}</div>
-        <div class="item-line">审核对象：{{ item.targetName || ('用户' + item.targetUserId) }}</div>
-        <div class="item-line">审核类型：{{ reviewBizTypeText(item.bizType) }}</div>
-        <div class="item-line">审核结果：{{ reviewActionText(item.action) }}</div>
-        <div class="item-line" v-if="item.remark">备注：{{ item.remark }}</div>
-        <div class="item-line">审核时间：{{ formatTime(item.createdAt) }}</div>
-        <div class="item-actions">
-          <el-button size="mini" type="danger" plain @click="deleteReviewRecord(item.id)">删除</el-button>
+      <div class="card review-activity-card" v-for="item in reviewHistory" :key="item.id">
+        <div class="compact-card-body">
+          <div class="item-title">{{ item.bizTitle }}</div>
+          <div class="item-line">审核对象：{{ item.targetName || ('用户' + item.targetUserId) }}</div>
+          <div class="item-line">审核类型：{{ reviewBizTypeText(item.bizType) }}</div>
+          <div class="item-line">审核结果：{{ reviewActionText(item.action) }}</div>
+          <div class="item-line" v-if="item.remark">备注：{{ item.remark }}</div>
+          <div class="item-line">审核时间：{{ formatTime(item.createdAt) }}</div>
+          <div class="item-actions two-actions">
+            <el-button size="mini" type="danger" plain @click="deleteReviewRecord(item.id)">删除</el-button>
+          </div>
         </div>
       </div>
       <div class="card empty" v-if="!reviewHistory.length">暂无审核历史</div>
     </el-tab-pane>
   </el-tabs>
+
+  <el-dialog
+    :visible.sync="aiReviewDialogVisible"
+    custom-class="ai-review-dialog"
+    :show-close="true"
+    :append-to-body="true"
+    :close-on-click-modal="true">
+    <div slot="title">{{aiReviewDialogTitle}}</div>
+    <div class="ai-review-summary">
+      <div class="ai-review-summary-top">
+        <div class="ai-review-title">{{aiReviewReport.activityTitle || 'AI 审核建议'}}</div>
+        <span :class="['ai-review-badge', aiReviewBadgeClass(aiReviewReport.taskStatus)]">{{aiTaskStatusText(aiReviewReport.taskStatus)}}</span>
+      </div>
+      <div class="item-line">AI建议：{{aiSuggestionText(aiReviewReport.suggestion)}}</div>
+      <div class="item-line">风险等级：{{aiRiskText(aiReviewReport.riskLevel)}}</div>
+      <div class="item-line">评分：{{aiReviewReport.score === undefined || aiReviewReport.score === null ? '暂无' : aiReviewReport.score}}</div>
+    </div>
+    <div class="ai-review-scroll">
+      <el-collapse class="ai-review-collapse" v-model="aiReviewCollapseActive">
+        <el-collapse-item title="问题列表" name="problems">
+          <div class="ai-review-block">
+            <ul class="ai-review-list">
+              <li v-for="(item, index) in aiReviewProblems" :key="'problem-' + index">{{item}}</li>
+              <li v-if="!aiReviewProblems.length">暂无</li>
+            </ul>
+          </div>
+        </el-collapse-item>
+        <el-collapse-item title="缺失字段" name="missing">
+          <div class="ai-review-block">
+            <ul class="ai-review-list">
+              <li v-for="(item, index) in aiReviewMissingFields" :key="'missing-' + index">{{item}}</li>
+              <li v-if="!aiReviewMissingFields.length">暂无</li>
+            </ul>
+          </div>
+        </el-collapse-item>
+        <el-collapse-item title="相似活动" name="similar">
+          <div class="ai-review-block">
+            <ul class="ai-review-list">
+              <li v-for="(item, index) in aiReviewSimilarActivities" :key="'similar-' + index">{{item}}</li>
+              <li v-if="!aiReviewSimilarActivities.length">暂无</li>
+            </ul>
+          </div>
+        </el-collapse-item>
+        <el-collapse-item title="相似分析" name="analysis">
+          <div class="ai-review-block">{{aiReviewReport.similarityAnalysis || '暂无'}}</div>
+        </el-collapse-item>
+        <el-collapse-item title="审核意见" name="comment">
+          <div class="ai-review-block">{{aiReviewReport.reviewComment || '暂无'}}</div>
+        </el-collapse-item>
+        <el-collapse-item title="系统信息" name="meta">
+          <div class="ai-review-block">
+            <div>模型：{{aiReviewReport.modelName || '未返回'}}</div>
+            <div>Prompt版本：{{aiReviewReport.promptVersion || '未返回'}}</div>
+            <div v-if="aiReviewReport.errorMessage" class="ai-review-error">异常信息：{{aiReviewReport.errorMessage}}</div>
+          </div>
+        </el-collapse-item>
+      </el-collapse>
+    </div>
+  </el-dialog>
 
   <div class="card">
     <el-button style="width:100%;" type="danger" plain @click="logout">退出登录</el-button>
@@ -140,7 +654,8 @@
   new Vue({
     el: '#app',
     data: {
-      tab: 'activities',
+      user: {},
+      tab: util.getUrlParam('tab') || (location.hash ? location.hash.replace('#', '') : 'activities'),
       activities: [],
       activityKeyword: '',
       publishedActivities: [],
@@ -150,17 +665,34 @@
       publishedPageSize: 20,
       organizerApplications: [],
       reviewHistory: [],
+      aiReviewDialogVisible: false,
+      aiReviewDialogTitle: 'AI 审核建议',
+      aiReviewReport: {},
+      aiReviewCollapseActive: ['problems', 'missing', 'similar'],
       unreadCount: 0
+    },
+    computed: {
+      aiReviewProblems() {
+        return this.parseAiList(this.aiReviewReport && this.aiReviewReport.problems);
+      },
+      aiReviewMissingFields() {
+        return this.parseAiList(this.aiReviewReport && this.aiReviewReport.missingFields);
+      },
+      aiReviewSimilarActivities() {
+        return this.parseSimilarActivities(this.aiReviewReport && this.aiReviewReport.similarActivities);
+      }
     },
     created() {
       this.queryCurrentUser();
       this.initNotifications();
+      this.normalizeTab();
     },
     methods: {
       queryCurrentUser() {
         axios.get('/user/me')
           .then(({data}) => {
             const user = data || {};
+            this.user = user;
             window.auth.setUser(user);
             const roleCodes = user.roleCodes || [];
             if (!roleCodes.includes('PLATFORM_ADMIN')) {
@@ -173,6 +705,19 @@
             this.queryReviewHistory();
           })
           .catch(() => location.replace('/login.html'));
+      },
+      normalizeTab() {
+        const allowedTabs = ['activities', 'published', 'organizers', 'reviewHistory'];
+        if (!allowedTabs.includes(this.tab)) {
+          this.tab = 'activities';
+        }
+      },
+      goBack() {
+        if (window.history.length > 1) {
+          window.history.back();
+          return;
+        }
+        location.href = '/login2.html';
       },
       queryActivities() {
         axios.get('/activity/admin/review-list', {
@@ -267,33 +812,10 @@
         axios.get('/activity/admin/' + item.id + '/ai-review')
           .then(({data}) => {
             const report = data || {};
-            const statusText = this.aiTaskStatusText(report.taskStatus);
-            const suggestionText = this.aiSuggestionText(report.suggestion);
-            const riskText = this.aiRiskText(report.riskLevel);
-            const problems = this.renderAiList(report.problems);
-            const missingFields = this.renderAiList(report.missingFields);
-            const similarActivities = this.renderSimilarActivities(report.similarActivities);
-            const html = [
-              '<div style="line-height:1.9;color:#44566c;">',
-              '<div><strong>活动：</strong>' + this.escapeHtml(item.title || ('活动' + item.id)) + '</div>',
-              '<div><strong>报告状态：</strong>' + this.escapeHtml(statusText) + '</div>',
-              '<div><strong>AI建议：</strong>' + this.escapeHtml(suggestionText) + '</div>',
-              '<div><strong>风险等级：</strong>' + this.escapeHtml(riskText) + '</div>',
-              '<div><strong>评分：</strong>' + this.escapeHtml(report.score === undefined || report.score === null ? '暂无' : String(report.score)) + '</div>',
-              '<div><strong>问题列表：</strong><br>' + problems + '</div>',
-              '<div><strong>缺失字段：</strong><br>' + missingFields + '</div>',
-              '<div><strong>相似活动：</strong><br>' + similarActivities + '</div>',
-              '<div><strong>相似分析：</strong>' + this.escapeHtml(report.similarityAnalysis || '暂无') + '</div>',
-              '<div><strong>审核意见：</strong>' + this.escapeHtml(report.reviewComment || '暂无') + '</div>',
-              (report.errorMessage ? '<div style="color:#c45656;"><strong>异常信息：</strong>' + this.escapeHtml(report.errorMessage) + '</div>' : ''),
-              '<div><strong>模型：</strong>' + this.escapeHtml(report.modelName || '未返回') + '</div>',
-              '<div><strong>Prompt版本：</strong>' + this.escapeHtml(report.promptVersion || '未返回') + '</div>',
-              '</div>'
-            ].join('');
-            this.$alert(html, 'AI 审核建议', {
-              dangerouslyUseHTMLString: true,
-              confirmButtonText: '关闭'
-            });
+            this.aiReviewDialogTitle = 'AI 审核建议 · ' + (item.title || ('活动' + item.id));
+            this.aiReviewReport = Object.assign({ activityTitle: item.title || ('活动' + item.id) }, report || {});
+            this.aiReviewCollapseActive = ['problems', 'missing', 'similar'];
+            this.aiReviewDialogVisible = true;
           })
           .catch(err => this.$message.error(err));
       },
@@ -323,7 +845,7 @@
         }).catch(() => {});
       },
       viewDetail(id) {
-        location.href = '/activity-detail.html?id=' + id + '&returnUrl=' + encodeURIComponent(location.pathname + location.search + '#activities');
+        location.href = '/activity-detail.html?id=' + id + '&mode=admin-preview&returnUrl=' + encodeURIComponent(location.pathname + location.search + '#activities');
       },
       goNotifications() {
         location.href = '/notification.html';
@@ -334,7 +856,7 @@
           onUnread: count => this.unreadCount = count,
           onMessage: message => {
             if (!message || !message.payload) return;
-            this.$message.info(message.payload.title);
+            window.notifyToast(message.payload.title, 'info');
             if (message.payload.type === 'ACTIVITY_REVIEW_PENDING') {
               this.queryActivities();
             }
@@ -392,12 +914,46 @@
         if (!items || !items.length) return '暂无';
         return items.map(item => {
           const title = this.escapeHtml(item.title || '未命名活动');
-          const category = this.escapeHtml(item.category || '未分类');
-          const organizer = this.escapeHtml(item.organizerName || '未填写');
-          const location = this.escapeHtml(item.location || '未填写');
-          const time = this.escapeHtml(item.eventStartTime || '未填写');
+          const category = this.escapeHtml(item.displayCategory || item.customCategory || item.category || '其他');
+          const organizer = this.escapeHtml(item.organizerName || '待补充');
+          const location = this.escapeHtml(item.location || '待补充');
+          const time = this.escapeHtml(item.eventStartTime || '待补充');
           return '• ' + title + ' ｜ ' + category + ' ｜ ' + organizer + ' ｜ ' + location + ' ｜ ' + time;
         }).join('<br>');
+      },
+      parseAiList(items) {
+        if (!items) return [];
+        if (Array.isArray(items)) {
+          return items.filter(Boolean).map(item => String(item));
+        }
+        if (typeof items === 'string') {
+          return items
+            .replace(/<br\s*\/?>/gi, '\n')
+            .split(/[\n\r]+/)
+            .map(item => item.replace(/^[•\s]+/, '').trim())
+            .filter(Boolean);
+        }
+        return [];
+      },
+      parseSimilarActivities(items) {
+        if (!items) return [];
+        if (!Array.isArray(items)) return this.parseAiList(items);
+        return items.map(item => {
+          if (!item) return '';
+          if (typeof item === 'string') return item;
+          const title = item.title || '未命名活动';
+          const category = item.displayCategory || item.customCategory || item.category || '其他';
+          const organizer = item.organizerName || '待补充';
+          const location = item.location || '待补充';
+          const time = item.eventStartTime || '待补充';
+          return title + ' ｜ ' + category + ' ｜ ' + organizer + ' ｜ ' + location + ' ｜ ' + time;
+        }).filter(Boolean);
+      },
+      aiReviewBadgeClass(status) {
+        if (status === 'SUCCESS') return 'success';
+        if (status === 'PENDING' || status === 'RUNNING') return 'warning';
+        if (status === 'FAILED' || status === 'TIMEOUT') return 'danger';
+        return '';
       },
       escapeHtml(value) {
         return String(value === undefined || value === null ? '' : value)

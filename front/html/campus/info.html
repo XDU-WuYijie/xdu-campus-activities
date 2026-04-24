@@ -7,88 +7,643 @@
   <link rel="stylesheet" href="./css/element.css">
   <link href="./css/main.css" rel="stylesheet">
   <style>
-    body { background: #f6f8fb; }
-    .page { max-width: 960px; margin: 0 auto; padding: 18px 16px 90px; }
-    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+    body { margin:0; background: #eef6ff; color:#102a43; font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; }
+    .page { width:min(390px, 100%); min-height:100vh; margin:0 auto; padding: 8px 14px 18px; box-sizing:border-box; background:#fff; }
+    .topbar { display:grid; grid-template-columns:44px minmax(0,1fr) 44px; align-items:center; gap:6px; margin-bottom:12px; }
     .topbar-left { display:flex; align-items:center; gap:12px; }
-    .back-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: #ffffff; color:#17324d; box-shadow:0 10px 24px rgba(16,35,61,.08); cursor:pointer; }
-    .notice-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: #ffffff; color:#17324d; box-shadow:0 10px 24px rgba(16,35,61,.08); cursor:pointer; }
-    .top-title { font-size: 18px; font-weight: 700; color:#17324d; }
-    .profile { background: #17324d; color: #fff; border-radius: 20px; padding: 18px 16px; margin-bottom: 16px; cursor: pointer; }
-    .profile-main { display:flex; align-items:center; gap:14px; }
-    .avatar { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: rgba(255,255,255,.15); border: 2px solid rgba(255,255,255,.25); }
-    .profile-text { flex: 1; min-width: 0; }
-    .name { font-size: 22px; font-weight: 800; line-height: 1.15; }
-    .meta { opacity:.85; font-size: 13px; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .profile-arrow { font-size: 18px; opacity: .9; }
-    .card { background:#fff; border-radius:18px; padding:16px; box-shadow:0 12px 30px rgba(16,35,61,.08); margin-bottom:12px; }
+    .back-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: transparent; color:#102a43; cursor:pointer; font-size:18px; }
+    .top-title { font-size: 18px; font-weight: 900; color:#102a43; text-align:center; }
+    .page-heading { margin:4px 0 12px; }
+    .page-heading-title { font-size:24px; font-weight:900; color:#102a43; }
+    .page-heading-sub { margin-top:5px; color:#7a8da6; font-size:12px; }
+    .profile {
+      background: linear-gradient(135deg, #1e90ff 0%, #20c98f 100%);
+      color: #fff;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 0;
+      cursor: pointer;
+      box-shadow: 0 14px 32px rgba(35, 136, 255, .26);
+    }
+    .profile.organizer {
+      background: linear-gradient(135deg, #1e90ff 0%, #20c98f 100%);
+    }
+    .profile-main { display:flex; align-items:flex-start; gap:12px; }
+    .avatar { width: 58px; height: 58px; border-radius: 50%; object-fit: cover; background: rgba(255,255,255,.15); border: 2px solid rgba(255,255,255,.45); }
+    .profile-text { flex: 1; min-width: 0; padding-top: 2px; }
+    .name { font-size: 18px; font-weight: 900; line-height: 1.15; }
+    .meta { opacity:.92; font-size: 12px; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .profile-arrow { font-size: 18px; opacity: .95; align-self: center; margin-top: 4px; }
+    .profile-chip {
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      height:20px;
+      margin-left:8px;
+      padding:0 8px;
+      border-radius:999px;
+      background: rgba(255,255,255,.18);
+      border: 1px solid rgba(255,255,255,.24);
+      font-size:10px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+    .profile-topline {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      flex-wrap:wrap;
+    }
+    .stats-row { display:grid; grid-template-columns:repeat(4,1fr); background:#fff; border-radius:12px; padding:12px 0; margin:-1px 0 14px; box-shadow:0 10px 24px rgba(32,94,156,.08); border:1px solid #eef3fa; }
+    .profile + .stats-row {
+      margin-top: -12px;
+      border-radius: 0 0 16px 16px;
+      overflow: hidden;
+      position: relative;
+      z-index: 2;
+    }
+    .stat { text-align:center; border-right:1px solid #eef3fa; }
+    .stat:last-child { border-right:0; }
+    .stat-num { font-size:16px; font-weight:900; color:#102a43; }
+    .stat-label { margin-top:4px; font-size:10px; color:#72849c; }
+    .home-section-head {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin:8px 0 12px;
+    }
+    .home-section-title {
+      font-size:16px;
+      font-weight:900;
+      color:#102a43;
+    }
+    .home-section-link {
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      border:0;
+      background:transparent;
+      color:#617188;
+      font-size:12px;
+      font-weight:800;
+      padding:0;
+      cursor:pointer;
+    }
+    .home-section-link i {
+      font-size:14px;
+    }
+    .registration-preview-list {
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .registration-preview-card {
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px;
+      border-radius:14px;
+      background:#fff;
+      box-shadow:0 8px 22px rgba(32,94,156,.07);
+      border:1px solid #eef3fa;
+      cursor:pointer;
+    }
+    .registration-thumb-btn {
+      width:58px;
+      height:58px;
+      padding:0;
+      border:0;
+      border-radius:12px;
+      flex:none;
+      overflow:hidden;
+      background:#eaf3fb;
+      cursor:pointer;
+    }
+    .registration-thumb {
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
+    }
+    .registration-copy {
+      flex:1;
+      min-width:0;
+    }
+    .registration-title {
+      font-size:14px;
+      font-weight:900;
+      line-height:1.35;
+      color:#102a43;
+      margin-bottom:4px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .registration-meta {
+      font-size:11px;
+      color:#7a8da6;
+      line-height:1.5;
+    }
+    .registration-status {
+      margin-left:auto;
+      padding:5px 8px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+    .registration-status.success { color:#0aa36d; background:#e4f9ee; }
+    .registration-status.pending { color:#ff7a28; background:#fff3e8; }
+    .registration-status.done { color:#7a8da6; background:#eef3fa; }
+    .registration-status.cancel { color:#f0445f; background:#fff0f3; }
+    .registration-proto .section-head {
+      margin-bottom: 10px;
+    }
+    .registration-proto .registration-filter-row {
+      display:grid;
+      grid-template-columns:minmax(0,1fr) 72px;
+      align-items:center;
+      gap:10px;
+      margin-bottom:12px;
+    }
+    .registration-proto .registration-search-row {
+      display:grid;
+      grid-template-columns:minmax(0,1fr) 72px;
+      align-items:center;
+      gap:10px;
+      margin-bottom:12px;
+    }
+    .registration-proto .registration-search {
+      position:relative;
+      min-width:0;
+    }
+    .registration-proto .registration-search .el-input__inner {
+      height:34px;
+      border-radius:18px;
+      border:1px solid #edf2f8;
+      background:#fbfdff;
+      padding-left:34px;
+      font-size:12px;
+      color:#53657c;
+    }
+    .registration-proto .registration-search:before {
+      content:"\e778";
+      position:absolute;
+      left:13px;
+      top:50%;
+      z-index:2;
+      transform:translateY(-50%);
+      font-family:element-icons;
+      color:#9aacbf;
+      font-size:14px;
+    }
+    .registration-proto .registration-status-pill {
+      width:100%;
+    }
+    .registration-proto .registration-status-pill .el-input__inner {
+      height:34px;
+      border-radius:18px;
+      border:1px solid #edf2f8;
+      background:#fbfdff;
+      color:#53657c;
+      font-size:12px;
+      font-weight:800;
+      box-shadow:0 6px 16px rgba(32,94,156,.05);
+    }
+    .registration-proto .registration-status-pill .el-input__suffix {
+      right:8px;
+    }
+    .registration-proto .registration-count {
+      margin-bottom:12px;
+      color:#7a8da6;
+      font-size:12px;
+      font-weight:600;
+    }
+    .registration-activity-card {
+      padding:10px;
+      border-radius:12px;
+      border:1px solid #eef3fa;
+      box-shadow:0 8px 22px rgba(32,94,156,.07);
+      margin-bottom:10px;
+    }
+    .registration-card-main {
+      display:grid;
+      grid-template-columns:76px minmax(0,1fr);
+      gap:10px;
+      align-items:start;
+    }
+    .registration-thumb {
+      width:76px;
+      height:68px;
+      border-radius:9px;
+      object-fit:cover;
+      background:#eaf3fb;
+    }
+    .registration-card-content { min-width:0; }
+    .registration-title-row {
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      align-items:start;
+      gap:8px;
+      margin-bottom:4px;
+    }
+    .registration-title {
+      font-size:13px;
+      line-height:1.35;
+      font-weight:900;
+      color:#102a43;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .registration-status-pill {
+      border-radius:999px;
+      padding:3px 8px;
+      font-size:10px;
+      line-height:1.3;
+      font-weight:900;
+      white-space:nowrap;
+      background:#edf6ff;
+      color:#2388ff;
+    }
+    .registration-status-pill.success { background:#e8fbf1; color:#0aa36d; }
+    .registration-status-pill.pending { background:#eef6ff; color:#2388ff; }
+    .registration-status-pill.done { background:#eef3fa; color:#617188; }
+    .registration-status-pill.cancel { background:#fff0f3; color:#f0445f; }
+    .registration-meta {
+      color:#617188;
+      font-size:11px;
+      line-height:1.6;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .registration-meta strong {
+      color:#7d8da3;
+      font-weight:800;
+    }
+    .registration-actions {
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:8px;
+      margin-top:9px;
+      padding-left:86px;
+    }
+    .registration-actions .el-button {
+      height:28px;
+      padding:0;
+      border-radius:16px;
+      border-color:#eef3fa;
+      background:#fff;
+      color:#425466;
+      font-size:11px;
+      font-weight:900;
+    }
+    .registration-actions .el-button + .el-button { margin-left:0; }
+    .registration-empty {
+      padding:28px 16px;
+      text-align:center;
+      color:#7d8da3;
+    }
+    .card { background:#fff; border-radius:12px; padding:12px; box-shadow:0 8px 22px rgba(32,94,156,.07); margin-bottom:10px; border:1px solid #eef3fa; }
     .section-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
-    .section-title { font-size:16px; font-weight:700; color:#10233d; }
-    .create-btn { border:none; border-radius:14px; background:linear-gradient(135deg, #17324d, #2a5f97); color:#fff; box-shadow:0 10px 22px rgba(23,50,77,.14); }
-    .filter-select { width: 170px; margin-bottom: 12px; }
-    .item-title { font-size:18px; font-weight:700; color:#10233d; margin-bottom:6px; }
-    .item-line { color:#556273; font-size:14px; line-height:1.8; }
+    .section-title { font-size:16px; font-weight:900; color:#102a43; }
+    .create-btn { border:none; border-radius:999px; background:linear-gradient(135deg, #2388ff, #1769e0); color:#fff; box-shadow:0 10px 22px rgba(35,136,255,.18); }
+    .filter-select { width: 130px; margin-bottom: 12px; }
+    .item-title { font-size:14px; font-weight:900; color:#102a43; margin-bottom:6px; }
+    .item-line { color:#617188; font-size:11px; line-height:1.65; }
     .item-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
     .logout-fixed { margin-top: 18px; }
-    .count-text { color:#607086; font-size:14px; font-weight:600; margin-bottom:12px; }
+    .count-text { color:#7a8da6; font-size:12px; font-weight:600; margin-bottom:12px; }
     .inline-search { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-    .inline-search .el-input { width: 240px; }
+    .inline-search .el-input { width: 176px; }
     .load-more { text-align:center; margin:14px 0; }
+    .el-tabs__header { margin: 0 0 12px; }
+    .el-tabs__nav { width:100%; display:flex; }
+    .el-tabs__item { flex:1; text-align:center; padding:0; font-size:13px; color:#607086; }
+    .el-tabs__item.is-active { color:#2388ff; font-weight:900; }
+    .el-tabs__active-bar { height:3px; background:#2388ff; }
+    .compact-row { display:flex; align-items:center; gap:10px; }
+    .thumb { width:58px; height:58px; border-radius:8px; object-fit:cover; background:#eaf3fb; flex:none; }
+    .status-badge { margin-left:auto; border-radius:999px; padding:4px 8px; font-size:11px; font-weight:800; background:#e4f9ee; color:#0aa36d; white-space:nowrap; }
+    .entry-grid { display:grid; grid-template-columns:1fr; gap:10px; margin:14px 0; }
+    .entry-card { border:0; width:100%; text-align:left; background:#fff; border-radius:12px; padding:14px; box-shadow:0 8px 22px rgba(32,94,156,.07); border:1px solid #eef3fa; cursor:pointer; display:flex; align-items:center; gap:12px; color:#102a43; }
+    .entry-icon { width:38px; height:38px; border-radius:14px; display:grid; place-items:center; color:#2388ff; background:#eaf4ff; font-size:19px; flex:none; }
+    .entry-card:nth-child(2) .entry-icon { color:#0aa36d; background:#e4f9ee; }
+    .entry-card:nth-child(3) .entry-icon { color:#ff7a28; background:#fff3e8; }
+    .entry-title { font-size:15px; font-weight:900; margin-bottom:4px; }
+    .entry-desc { font-size:12px; color:#72849c; }
+    .info-bottom-spacer { height:76px; }
+    .organizer-tabs .el-tabs__header { margin: 0 0 12px; }
+    .organizer-tabs .el-tabs__nav-wrap:after { display:none; }
+    .organizer-tabs .el-tabs__item {
+      height:38px;
+      line-height:38px;
+      font-size:13px;
+      font-weight:800;
+      color:#7d8da3;
+    }
+    .organizer-tabs .el-tabs__item.is-active { color:#2388ff; }
+    .organizer-tabs .el-tabs__active-bar { height:3px; border-radius:999px; background:#2388ff; }
+    .created-proto .created-search-row {
+      display:grid;
+      grid-template-columns:minmax(0,1fr) 72px;
+      align-items:center;
+      gap:10px;
+      margin-bottom:12px;
+    }
+    .created-proto .created-search {
+      position:relative;
+      min-width:0;
+    }
+    .created-proto .created-search .el-input__inner {
+      height:34px;
+      border-radius:18px;
+      border:1px solid #edf2f8;
+      background:#fbfdff;
+      padding-left:34px;
+      font-size:12px;
+      color:#53657c;
+    }
+    .created-proto .created-search:before {
+      content:"\e778";
+      position:absolute;
+      left:13px;
+      top:50%;
+      z-index:2;
+      transform:translateY(-50%);
+      font-family:element-icons;
+      color:#9aacbf;
+      font-size:14px;
+    }
+    .created-proto .create-btn {
+      height:34px;
+      padding:0 13px;
+      border:0;
+      border-radius:18px;
+      background:linear-gradient(135deg,#2388ff,#1769e0);
+      color:#fff;
+      font-size:12px;
+      font-weight:900;
+      box-shadow:0 10px 22px rgba(35,136,255,.24);
+    }
+    .created-filter-row {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin:0 0 12px;
+    }
+    .created-status-pill,
+    .created-filter-btn {
+      height:32px;
+      border:1px solid #eef3fa;
+      background:#fff;
+      color:#617188;
+      border-radius:18px;
+      font-size:11px;
+      font-weight:800;
+      box-shadow:0 6px 16px rgba(32,94,156,.05);
+    }
+    .created-status-pill {
+      width:112px;
+    }
+    .created-status-pill .el-input__inner {
+      height:32px;
+      border:1px solid #eef3fa;
+      border-radius:18px;
+      background:#fff;
+      color:#617188;
+      font-size:11px;
+      font-weight:800;
+      box-shadow:0 6px 16px rgba(32,94,156,.05);
+    }
+    .created-status-pill .el-input__suffix {
+      right:8px;
+    }
+    .created-filter-btn {
+      display:inline-flex;
+      align-items:center;
+      gap:5px;
+      padding:0 10px;
+      border:0;
+      box-shadow:none;
+    }
+    .created-proto .count-text { display:none; }
+    .created-activity-card {
+      padding:10px;
+      border-radius:12px;
+      border:1px solid #eef3fa;
+      box-shadow:0 8px 22px rgba(32,94,156,.07);
+      margin-bottom:10px;
+    }
+    .created-card-main {
+      display:grid;
+      grid-template-columns:76px minmax(0,1fr);
+      gap:10px;
+      align-items:start;
+    }
+    .created-thumb {
+      width:76px;
+      height:68px;
+      border-radius:9px;
+      object-fit:cover;
+      background:#eaf3fb;
+    }
+    .created-card-content { min-width:0; }
+    .created-title-row {
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      align-items:start;
+      gap:8px;
+      margin-bottom:4px;
+    }
+    .created-title {
+      font-size:13px;
+      line-height:1.35;
+      font-weight:900;
+      color:#102a43;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .created-status {
+      border-radius:999px;
+      padding:3px 8px;
+      font-size:10px;
+      line-height:1.3;
+      font-weight:900;
+      white-space:nowrap;
+      background:#edf6ff;
+      color:#2388ff;
+    }
+    .created-status.approved { background:#e8fbf1; color:#0aa36d; }
+    .created-status.rejected { background:#fff0f3; color:#f0445f; }
+    .created-status.offline { background:#eef3fa; color:#617188; }
+    .created-status.pending { background:#eef6ff; color:#2388ff; }
+    .created-meta {
+      color:#617188;
+      font-size:11px;
+      line-height:1.6;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .created-meta strong {
+      color:#7d8da3;
+      font-weight:800;
+    }
+    .created-actions {
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+      margin-top:9px;
+      padding-left:86px;
+    }
+    .created-actions .el-button {
+      height:28px;
+      padding:0;
+      border-radius:16px;
+      border-color:#eef3fa;
+      background:#fff;
+      color:#425466;
+      font-size:11px;
+      font-weight:900;
+    }
+    .created-actions .el-button + .el-button { margin-left:0; }
+    .created-empty {
+      padding:28px 16px;
+      text-align:center;
+      color:#7d8da3;
+    }
   </style>
 </head>
 <body>
-<div id="app" class="page">
+<div id="app" class="page campus-mobile">
+  <div class="campus-status">9:41</div>
   <div class="topbar">
     <div class="topbar-left">
       <button class="back-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
-      <div class="top-title">个人主页</div>
     </div>
-    <el-badge :value="unreadCount" :hidden="!unreadCount">
-      <button class="notice-btn" @click="goNotifications"><i class="el-icon-bell"></i></button>
-    </el-badge>
+    <div class="top-title">{{currentViewTitle}}</div>
+    <div></div>
   </div>
-  <section class="profile" @click="goEditProfile">
+  <template v-if="currentView === 'home'">
+  <section :class="['profile', {organizer: canManageActivities}]" @click="goEditProfile">
     <div class="profile-main">
       <img class="avatar" :src="user.icon || '/imgs/icons/default-icon.png'" alt="">
       <div class="profile-text">
-        <div class="name">{{user.nickName || '未登录用户'}}</div>
+        <div class="profile-topline">
+          <div class="name">{{user.nickName || '未登录用户'}}</div>
+          <span class="profile-chip">{{canManageActivities ? '主办方认证' : '学生认证'}}</span>
+        </div>
         <div class="meta">{{profileMeta}}</div>
       </div>
       <i class="el-icon-arrow-right profile-arrow"></i>
     </div>
   </section>
-
-  <el-tabs v-model="tab">
-    <el-tab-pane v-if="!canManageActivities" label="我的报名" name="registrations">
-      <el-select v-model="registrationFilter" class="filter-select" @change="queryRegistrations">
-        <el-option label="全部活动" value="ALL"></el-option>
-        <el-option label="待签到" value="PENDING_CHECK_IN"></el-option>
-        <el-option label="已签到" value="CHECKED_IN"></el-option>
-        <el-option label="已结束" value="FINISHED"></el-option>
-        <el-option label="已取消" value="CANCELED"></el-option>
-      </el-select>
-      <div class="count-text">共 {{registrationTotal}} 条报名记录，当前显示 {{registrations.length}} 条</div>
-      <div class="card" v-for="item in registrations" :key="item.id">
-        <div class="item-title">{{item.activityTitle}}</div>
-        <div class="item-line">活动分类：{{item.category}}</div>
-        <div class="item-line">活动地点：{{item.location}}</div>
-        <div class="item-line">活动时间：{{formatTime(item.eventStartTime)}} - {{formatTime(item.eventEndTime)}}</div>
-        <div class="item-line">报名状态：{{item.statusText || '未知状态'}}</div>
-        <div class="item-line">状态说明：{{item.failReason || (item.status === 0 ? '系统确认中，请稍候刷新。' : '已受理')}}</div>
-        <div v-if="item.status !== 3" class="item-line">签到凭证：{{item.voucherDisplayCode || (item.status === 0 ? '生成中' : '待生成')}}</div>
-        <div v-if="item.status !== 3" class="item-line">签到状态：{{item.status === 1 ? (item.checkInStatus ? '已签到' : '未签到') : '待报名确认'}}</div>
-        <div class="item-actions">
-          <el-button size="mini" type="primary" plain @click="viewDetail(item.activityId)">查看详情</el-button>
-          <el-button v-if="canCancelRegistration(item)" size="mini" type="danger" plain @click="cancelRegistration(item.activityId)">退出活动</el-button>
-        </div>
+  <div class="stats-row">
+    <div class="stat"><div class="stat-num">{{canManageActivities ? createdActivityTotal : registrationTotal}}</div><div class="stat-label">{{canManageActivities ? '发起活动' : '我报名的'}}</div></div>
+    <div class="stat"><div class="stat-num">{{canManageActivities ? pendingReviewTotal : registrations.length}}</div><div class="stat-label">{{canManageActivities ? '待审核' : '我参与的'}}</div></div>
+    <div class="stat"><div class="stat-num">{{canManageActivities ? reviewHistoryTotal : 0}}</div><div class="stat-label">{{canManageActivities ? '历史活动' : '收藏活动'}}</div></div>
+    <div class="stat"><div class="stat-num">0</div><div class="stat-label">获奖记录</div></div>
+  </div>
+  <div class="home-section-head" v-if="!canManageActivities">
+    <div class="home-section-title">我的报名</div>
+    <button class="home-section-link" type="button" @click="openView('registrations')">
+      <span>全部活动</span>
+      <i class="el-icon-arrow-right"></i>
+    </button>
+  </div>
+  <div class="registration-preview-list" v-if="!canManageActivities">
+    <div class="registration-preview-card" v-for="item in registrations.slice(0, 3)" :key="item.id" @click="viewDetail(item.activityId)">
+      <button class="registration-thumb-btn" type="button" @click.stop="viewDetail(item.activityId)">
+        <img class="registration-thumb" :src="item.coverImage || '/imgs/blogs/blog1.jpg'" alt="">
+      </button>
+      <div class="registration-copy">
+        <div class="registration-title">{{item.activityTitle}}</div>
+        <div class="registration-meta">{{formatTime(item.eventStartTime)}}</div>
+        <div class="registration-meta">{{item.category}} · {{item.location}}</div>
       </div>
-      <div class="card" v-if="!registrations.length">还没有报名任何活动。</div>
+      <span :class="['registration-status', registrationStatusClass(item)]">{{item.statusText || '未知状态'}}</span>
+    </div>
+    <div class="card" v-if="!registrations.length">还没有报名任何活动。</div>
+  </div>
+  <div class="entry-grid" v-else>
+    <button class="entry-card" @click="openView('reviews')">
+      <span class="entry-icon"><i class="el-icon-warning-outline"></i></span>
+      <div class="entry-copy"><div class="entry-title">待审核请求</div><div class="entry-desc">处理报名申请和退出申请</div></div>
+      <i class="el-icon-arrow-right" style="margin-left:auto;color:#a8b5c5;"></i>
+    </button>
+    <button class="entry-card" @click="openView('created')">
+      <span class="entry-icon"><i class="el-icon-notebook-2"></i></span>
+      <div class="entry-copy"><div class="entry-title">我发起的活动</div><div class="entry-desc">管理已创建活动、编辑和查看数据</div></div>
+      <i class="el-icon-arrow-right" style="margin-left:auto;color:#a8b5c5;"></i>
+    </button>
+    <button class="entry-card" @click="openView('reviewHistory')">
+      <span class="entry-icon"><i class="el-icon-time"></i></span>
+      <div class="entry-copy"><div class="entry-title">审核历史</div><div class="entry-desc">查看和清理历史审核记录</div></div>
+      <i class="el-icon-arrow-right" style="margin-left:auto;color:#a8b5c5;"></i>
+    </button>
+  </div>
+  </template>
+
+  <el-tabs v-if="currentView !== 'home'" v-model="tab" :class="{'organizer-tabs': canManageActivities}">
+    <el-tab-pane v-if="!canManageActivities" label="我的报名" name="registrations">
+      <div class="registration-proto">
+        <div class="section-head">
+          <div class="section-title">我的报名</div>
+        </div>
+        <div class="registration-search-row">
+          <div class="registration-search">
+            <el-input size="mini" v-model="registrationKeyword" clearable placeholder="搜索已报名活动" @keyup.enter.native="queryRegistrations"></el-input>
+          </div>
+          <el-button class="create-btn" size="mini" @click="queryRegistrations">搜索</el-button>
+        </div>
+        <div class="registration-filter-row">
+          <el-select v-model="registrationFilter" class="registration-status-pill" @change="queryRegistrations">
+            <el-option label="全部活动" value="ALL"></el-option>
+            <el-option label="待签到" value="PENDING_CHECK_IN"></el-option>
+            <el-option label="已签到" value="CHECKED_IN"></el-option>
+            <el-option label="已结束" value="FINISHED"></el-option>
+            <el-option label="已取消" value="CANCELED"></el-option>
+          </el-select>
+          <button class="created-filter-btn" type="button" @click="queryRegistrations">
+            <i class="el-icon-s-operation"></i>
+            <span>筛选</span>
+          </button>
+        </div>
+        <div class="registration-count">共 {{registrationTotal}} 条报名记录，当前显示 {{registrations.length}} 条</div>
+        <div class="card registration-activity-card" v-for="item in registrations" :key="item.id">
+          <div class="registration-card-main">
+            <img class="registration-thumb" :src="item.coverImage || '/imgs/blogs/blog1.jpg'" alt="">
+            <div class="registration-card-content">
+              <div class="registration-title-row">
+                <div class="registration-title">{{item.activityTitle}}</div>
+                <span :class="['registration-status-pill', registrationStatusClass(item)]">{{item.statusText || '未知状态'}}</span>
+              </div>
+              <div class="registration-meta"><strong>时间：</strong>{{formatTime(item.eventStartTime)}}</div>
+              <div class="registration-meta"><strong>分类：</strong>{{item.category || '未分类'}}　<strong>地点：</strong>{{item.location || '待定'}}</div>
+              <div class="registration-meta"><strong>状态：</strong>{{item.statusText || '未知状态'}}</div>
+              <div class="registration-meta"><strong>说明：</strong>{{item.failReason || (item.status === 0 ? '系统确认中，请稍候刷新。' : '已受理')}}</div>
+              <div v-if="item.status !== 3" class="registration-meta"><strong>签到凭证：</strong>{{item.voucherDisplayCode || (item.status === 0 ? '生成中' : '待生成')}}</div>
+              <div v-if="item.status !== 3" class="registration-meta"><strong>签到状态：</strong>{{item.status === 1 ? (item.checkInStatus ? '已签到' : '未签到') : '待报名确认'}}</div>
+            </div>
+          </div>
+          <div class="registration-actions">
+            <el-button size="mini" plain @click="viewDetail(item.activityId)">详情</el-button>
+            <el-button v-if="canCancelRegistration(item)" size="mini" type="danger" plain @click="cancelRegistration(item.activityId)">退出</el-button>
+            <el-button size="mini" plain @click="viewDetail(item.activityId)">查看</el-button>
+          </div>
+        </div>
+        <div class="card registration-empty" v-if="!registrations.length">还没有报名任何活动。</div>
+      </div>
     </el-tab-pane>
 
     <el-tab-pane v-if="canManageActivities" label="待审核请求" name="reviews">
       <div class="section-head">
         <div class="section-title">待审核请求</div>
-        <el-button class="create-btn" size="mini" @click="queryPendingReviews">刷新</el-button>
       </div>
       <div class="count-text">共 {{pendingReviewTotal}} 条待审核请求，当前显示 {{pendingReviews.length}} 条</div>
       <div class="card" v-for="item in pendingReviews" :key="item.id">
@@ -112,31 +667,54 @@
     </el-tab-pane>
 
     <el-tab-pane v-if="canManageActivities" label="我发起的活动" name="created">
-      <div class="section-head">
-        <div class="section-title">我发起的活动</div>
-        <div class="inline-search">
-          <el-input size="mini" v-model="createdKeyword" clearable placeholder="搜索我发起的活动" @keyup.enter.native="refreshCreatedActivities"></el-input>
-          <el-button size="mini" type="primary" plain @click="refreshCreatedActivities">搜索</el-button>
-          <el-button class="create-btn" size="mini" @click="createActivity">发起活动</el-button>
+      <div class="created-proto">
+        <div class="created-search-row">
+          <div class="created-search">
+            <el-input size="mini" v-model="createdKeyword" clearable placeholder="搜索我发起的活动" @keyup.enter.native="refreshCreatedActivities"></el-input>
+          </div>
+          <el-button class="create-btn" size="mini" @click="refreshCreatedActivities">搜索</el-button>
         </div>
-      </div>
-      <div class="count-text">共 {{createdActivityTotal}} 条活动，当前显示 {{createdActivities.length}} 条</div>
-      <div class="card" v-for="item in createdActivities" :key="item.id">
-        <div class="item-title">{{item.title}}</div>
-        <div class="item-line">分类：{{item.category}}</div>
-        <div class="item-line">地点：{{item.location}}</div>
-        <div class="item-line">审核状态：{{activityAuditStatusText(item.status)}}</div>
-        <div class="item-line" v-if="item.status === 3">驳回原因：{{item.reviewRemark || '平台暂未填写驳回原因'}}</div>
-        <div class="item-line" v-else>报名人数：{{item.registeredCount || 0}} / {{item.maxParticipants}}</div>
-        <div class="item-line" v-if="item.status !== 3">签到：{{item.checkInEnabled ? '已开启' : '未开启'}}</div>
-        <div class="item-actions">
-          <el-button size="mini" type="primary" @click="editActivity(item.id)">编辑/管理</el-button>
-          <el-button size="mini" plain @click="viewDetail(item.id)">查看详情</el-button>
+        <div class="created-filter-row">
+          <el-select v-model="createdStatusFilter" class="created-status-pill" size="mini" @change="applyCreatedFilter">
+            <el-option label="全部状态" value="ALL"></el-option>
+            <el-option label="审核通过" value="2"></el-option>
+            <el-option label="审核中" value="1"></el-option>
+            <el-option label="已驳回" value="3"></el-option>
+            <el-option label="已下架" value="4"></el-option>
+            <el-option label="下架审核" value="5"></el-option>
+          </el-select>
+          <button class="created-filter-btn" type="button" @click="refreshCreatedActivities">
+            <i class="el-icon-s-operation"></i>
+            <span>筛选</span>
+          </button>
         </div>
-      </div>
-      <div class="card" v-if="!createdActivities.length">你还没有发起任何活动。</div>
-      <div class="load-more" v-if="createdActivities.length < createdActivityTotal">
-        <el-button size="mini" plain @click="loadMoreCreatedActivities">加载更多</el-button>
+        <div class="count-text">共 {{createdActivityTotal}} 条活动，当前显示 {{filteredCreatedActivities.length}} 条</div>
+        <div class="card created-activity-card" v-for="item in filteredCreatedActivities" :key="item.id">
+          <div class="created-card-main">
+            <img class="created-thumb" :src="item.coverImage || '/imgs/blogs/blog1.jpg'" alt="">
+            <div class="created-card-content">
+              <div class="created-title-row">
+                <div class="created-title">{{item.title}}</div>
+                <span :class="['created-status', activityStatusClass(item.status)]">{{activityAuditStatusText(item.status)}}</span>
+              </div>
+              <div class="created-meta"><strong>分类：</strong>{{item.category || '未分类'}}　<strong>地点：</strong>{{item.location || '待定'}}</div>
+              <div class="created-meta"><strong>活动时间：</strong>{{formatTime(item.eventStartTime)}} - {{formatTime(item.eventEndTime)}}</div>
+              <div class="created-meta"><strong>报名人数：</strong>{{item.registeredCount || 0}} / {{item.maxParticipants || 0}}</div>
+              <div class="created-meta" v-if="item.status === 3"><strong>驳回原因：</strong>{{item.reviewRemark || '平台暂未填写驳回原因'}}</div>
+              <div class="created-meta" v-else><strong>报名时间：</strong>{{formatTime(item.registrationStartTime)}} - {{formatTime(item.registrationEndTime)}}</div>
+            </div>
+          </div>
+          <div class="created-actions">
+            <el-button size="mini" plain @click="editActivity(item.id)">数据</el-button>
+            <el-button size="mini" plain @click="editActivity(item.id)">编辑</el-button>
+            <el-button size="mini" plain @click="viewDetail(item.id)">详情</el-button>
+            <el-button size="mini" plain @click="viewDetail(item.id)">...</el-button>
+          </div>
+        </div>
+        <div class="card created-empty" v-if="!filteredCreatedActivities.length">{{createdActivities.length ? '当前状态下暂无活动。' : '你还没有发起任何活动。'}}</div>
+        <div class="load-more" v-if="createdActivities.length < createdActivityTotal">
+          <el-button size="mini" plain @click="loadMoreCreatedActivities">加载更多</el-button>
+        </div>
       </div>
     </el-tab-pane>
 
@@ -144,7 +722,6 @@
       <div class="section-head">
         <div class="section-title">审核历史</div>
         <div class="item-actions">
-          <el-button class="create-btn" size="mini" @click="queryReviewHistory">刷新</el-button>
           <el-button size="mini" type="danger" plain @click="clearReviewHistory">一键删除</el-button>
         </div>
       </div>
@@ -167,6 +744,20 @@
   <div class="logout-fixed">
     <el-button style="width:100%;" type="danger" plain @click="logout">退出登录</el-button>
   </div>
+  <div class="info-bottom-spacer"></div>
+  <nav class="campus-tabbar">
+    <a class="campus-tab-item" href="/index.html"><i class="el-icon-s-home"></i>首页</a>
+    <a class="campus-tab-item" href="/index.html"><i class="el-icon-discover"></i>发现</a>
+    <a class="campus-tab-item" href="/activity-manage.html"><span class="campus-tab-plus">+</span>发布</a>
+    <a class="campus-tab-item" href="/notification.html">
+      <span class="campus-tab-icon">
+        <i class="el-icon-chat-dot-round"></i>
+        <span v-if="unreadCount" class="campus-tab-unread">{{unreadCount > 99 ? '99+' : unreadCount}}</span>
+      </span>
+      消息
+    </a>
+    <a class="campus-tab-item active" href="/info.html"><i class="el-icon-user"></i>我的</a>
+  </nav>
 
 </div>
 
@@ -179,9 +770,11 @@
     el: '#app',
     data: {
       tab: 'registrations',
+      currentView: util.getUrlParam('view') || util.getUrlParam('tab') || 'home',
       user: window.auth.getUser() || {},
       profile: {},
       registrationFilter: 'ALL',
+      registrationKeyword: '',
       registrations: [],
       registrationTotal: 0,
       pendingReviews: [],
@@ -189,6 +782,7 @@
       createdActivities: [],
       createdActivityTotal: 0,
       createdKeyword: '',
+      createdStatusFilter: 'ALL',
       createdCurrent: 1,
       createdPageSize: 20,
       reviewHistory: [],
@@ -213,6 +807,19 @@
         const college = this.profile.college || '';
         const merged = [grade, college].filter(Boolean).join(' · ');
         return merged || '点击完善年级与学院信息';
+      },
+      currentViewTitle() {
+        if (this.currentView === 'home') return '个人主页';
+        if (this.currentView === 'registrations') return '报名信息';
+        if (this.currentView === 'reviews') return '待审核请求';
+        if (this.currentView === 'created') return '我的活动';
+        if (this.currentView === 'reviewHistory') return '审核历史';
+        return '个人主页';
+      },
+      filteredCreatedActivities() {
+        if (this.createdStatusFilter === 'ALL') return this.createdActivities;
+        const status = Number(this.createdStatusFilter);
+        return this.createdActivities.filter(item => Number(item.status) === status);
       }
     },
     methods: {
@@ -227,11 +834,12 @@
             }
             this.queryProfile();
             if (this.canManageActivities) {
-              this.tab = util.getUrlParam('tab') || 'reviews';
+              this.tab = this.currentView === 'home' ? 'reviews' : this.currentView;
               this.queryPendingReviews();
               this.refreshCreatedActivities();
               this.queryReviewHistory();
             } else {
+              this.currentView = this.currentView === 'home' ? 'home' : 'registrations';
               this.tab = 'registrations';
               this.queryRegistrations();
               this.pendingReviews = [];
@@ -250,7 +858,8 @@
       queryRegistrations() {
         axios.get('/activity/registration/mine', {
           params: {
-            filter: this.registrationFilter
+            filter: this.registrationFilter,
+            keyword: this.registrationKeyword
           }
         })
           .then(({data, total}) => {
@@ -279,6 +888,10 @@
         this.createdCurrent = 1;
         this.queryCreatedActivities(false);
       },
+      applyCreatedFilter() {
+        if (this.filteredCreatedActivities.length || this.createdActivities.length >= this.createdActivityTotal) return;
+        this.loadMoreCreatedActivities();
+      },
       loadMoreCreatedActivities() {
         this.createdCurrent += 1;
         this.queryCreatedActivities(true);
@@ -302,7 +915,14 @@
           .catch(err => this.$message.error(err));
       },
       goBack() {
+        if (this.currentView !== 'home') {
+          location.href = '/info.html';
+          return;
+        }
         location.href = '/index.html';
+      },
+      openView(view) {
+        location.href = '/info.html?view=' + view;
       },
       goEditProfile() {
         location.href = '/info-edit.html?returnUrl=' + encodeURIComponent(location.pathname + location.search);
@@ -316,7 +936,7 @@
           onUnread: count => this.unreadCount = count,
           onMessage: message => {
             if (message && message.payload) {
-              this.$message.info(message.payload.title);
+              window.notifyToast(message.payload.title, 'info');
               if (this.canManageActivities) {
                 this.queryPendingReviews();
                 this.refreshCreatedActivities();
@@ -432,6 +1052,17 @@
         if (action === 'REJECTED') return '驳回';
         return action || '未知';
       },
+      registrationStatusClass(item) {
+        const text = item && item.statusText ? String(item.statusText) : '';
+        if (text.includes('成功') || text.includes('已签到') || text.includes('已通过')) return 'success';
+        if (text.includes('待')) return 'pending';
+        if (text.includes('结束') || text.includes('已结束')) return 'done';
+        if (text.includes('取消') || text.includes('驳回')) return 'cancel';
+        return 'pending';
+      },
+      refreshRegistrations() {
+        this.queryRegistrations();
+      },
       deleteReviewRecord(id) {
         axios.delete('/review-records/' + id)
           .then(() => {
@@ -464,6 +1095,12 @@
         if (status === 4) return '已下架';
         if (status === 5) return '下架待审核';
         return '未知';
+      },
+      activityStatusClass(status) {
+        if (status === 2) return 'approved';
+        if (status === 3) return 'rejected';
+        if (status === 4) return 'offline';
+        return 'pending';
       }
     }
   })

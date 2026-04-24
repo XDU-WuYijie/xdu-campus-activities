@@ -10,15 +10,15 @@
     :root {
       --ink: #1d2b3a;
       --muted: #7a8897;
-      --brand: #1f2f46;
-      --brand-soft: #eef3f8;
+      --brand: #102a43;
+      --brand-soft: #edf6ff;
       --line: rgba(31, 47, 70, 0.08);
       --line-strong: rgba(31, 47, 70, 0.14);
       --card: rgba(255, 255, 255, 0.98);
       --shadow: 0 18px 48px rgba(19, 36, 56, 0.08);
       --soft: #f8fafc;
-      --accent: #4a6a8d;
-      --success: #2a7a56;
+      --accent: #2388ff;
+      --success: #0aa36d;
     }
 
     body {
@@ -398,18 +398,215 @@
         font-size: 24px;
       }
     }
+
+    body {
+      background:
+        radial-gradient(circle at 10% 0%, rgba(72, 185, 255, .2), transparent 26%),
+        radial-gradient(circle at 90% 10%, rgba(32, 201, 143, .14), transparent 26%),
+        linear-gradient(180deg, #f8fcff 0%, #eef8ff 52%, #f7fbff 100%);
+    }
+    .page.campus-mobile {
+      width:min(390px,100%);
+      min-height:100vh;
+      padding:8px 14px 0;
+      box-sizing:border-box;
+      background:#fff;
+    }
+    .page.campus-mobile .topbar {
+      display:grid;
+      grid-template-columns:44px minmax(0,1fr) auto;
+      align-items:center;
+      margin-bottom:8px;
+    }
+    .page.campus-mobile .topbar-left { gap:0; }
+    .page.campus-mobile .icon-btn {
+      width:40px;
+      height:40px;
+      border:0;
+      box-shadow:none;
+      background:transparent;
+      color:#102a43;
+    }
+    .page.campus-mobile .topbar-title {
+      font-size:16px;
+      font-weight:900;
+      text-align:center;
+      min-width:0;
+    }
+    .page.campus-mobile .topbar-actions {
+      min-width:0;
+      justify-content:flex-end;
+      gap:6px;
+    }
+    .page.campus-mobile .topbar-actions .submit-btn,
+    .page.campus-mobile .topbar-actions .el-button--primary {
+      display:none;
+    }
+    .page.campus-mobile .topbar-actions .el-button--danger {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      height:30px;
+      min-width:auto;
+      padding:0 8px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:800;
+      white-space:nowrap;
+      box-shadow:0 10px 22px rgba(35, 136, 255, .18);
+    }
+    .top-save {
+      border:0;
+      background:transparent;
+      color:#2388ff;
+      font-size:13px;
+      font-weight:900;
+      cursor:pointer;
+      white-space:nowrap;
+    }
+    .page.campus-mobile .card {
+      border:1px solid #eef3fa;
+      box-shadow:0 8px 22px rgba(32,94,156,.07);
+      border-radius:12px;
+      background:#fff;
+    }
+    .page.campus-mobile .panel { padding:12px; }
+    .page.campus-mobile .compose-head { display:none; }
+    .page.campus-mobile .title-input,
+    .page.campus-mobile .composer-area,
+    .page.campus-mobile .image-section {
+      margin-bottom:14px;
+    }
+    .page.campus-mobile .title-input .el-input__inner,
+    .page.campus-mobile .composer-area .el-textarea__inner,
+    .page.campus-mobile .fact-content .el-input__inner,
+    .page.campus-mobile .fact-content .el-textarea__inner,
+    .page.campus-mobile .mini-card .el-input__inner {
+      border:1px solid #eef3fa;
+      border-radius:10px;
+      background:#fff;
+      box-shadow:none;
+      padding:0 10px;
+      font-size:13px;
+      font-weight:500;
+      color:#102a43;
+    }
+    .page.campus-mobile .composer-area .el-textarea__inner {
+      min-height:92px;
+      padding:10px;
+      line-height:1.7;
+    }
+    .page.campus-mobile .image-strip { gap:8px; }
+    .page.campus-mobile .image-item,
+    .page.campus-mobile .image-upload-btn {
+      width:78px;
+      height:78px;
+      border-radius:8px;
+    }
+    .page.campus-mobile .fact-list {
+      border:0;
+      margin-bottom:14px;
+    }
+    .page.campus-mobile .fact-row {
+      min-height:54px;
+      border:0;
+      margin-bottom:12px;
+      padding:0;
+    }
+    .page.campus-mobile .fact-icon { display:none; }
+    .page.campus-mobile .fact-label {
+      font-size:12px;
+      font-weight:900;
+      color:#394b63;
+      margin-bottom:7px;
+    }
+    .page.campus-mobile .time-grid,
+    .page.campus-mobile .meta-grid {
+      grid-template-columns:1fr;
+      gap:12px;
+    }
+    .page.campus-mobile .mini-card {
+      padding:0;
+      border:0;
+      background:transparent;
+    }
+    .page.campus-mobile .action-bar {
+      position:sticky;
+      bottom:0;
+      z-index:5;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin:18px -14px 0;
+      padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+      background:rgba(255,255,255,.98);
+      border-top:1px solid #eef3fa;
+      box-shadow:0 -8px 20px rgba(32,94,156,.05);
+    }
+    .page.campus-mobile .action-bar .el-button {
+      width:100%;
+      height:40px;
+      border-radius:999px;
+    }
+    .edit-hero {
+      margin: 2px 0 16px;
+      padding: 16px;
+      border-radius: 16px;
+      color: #fff;
+      background:
+        radial-gradient(circle at 88% 16%, rgba(255,255,255,.28), transparent 30%),
+        linear-gradient(135deg, #2388ff, #20c98f);
+      box-shadow: 0 14px 32px rgba(35,136,255,.18);
+    }
+    .edit-hero-title {
+      font-size: 18px;
+      font-weight: 900;
+      margin-bottom: 6px;
+    }
+    .edit-hero-desc {
+      font-size: 12px;
+      line-height: 1.7;
+      color: rgba(255,255,255,.88);
+    }
+    .form-section-title {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      margin: 16px 0 8px;
+      color:#102a43;
+      font-size:14px;
+      font-weight:900;
+    }
+    .form-section-title:before {
+      content:"";
+      width:4px;
+      height:16px;
+      border-radius:999px;
+      background:#2388ff;
+      margin-right:8px;
+    }
+    .form-section-title span { flex:1; }
+    .required-dot { color:#ff5d6c; margin-left:3px; }
+    .page.campus-mobile .image-section {
+      padding: 12px;
+      border: 1px dashed #dfe9f6;
+      border-radius: 14px;
+      background: #fbfdff;
+    }
   </style>
 </head>
 <body>
-<div id="app" class="page">
+<div id="app" class="page campus-mobile">
+  <div class="campus-status">9:41</div>
   <div class="topbar">
     <div class="topbar-left">
       <button class="icon-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
-      <div class="topbar-title">活动编辑</div>
     </div>
+    <div class="topbar-title">编辑活动</div>
     <div class="topbar-actions">
       <el-button v-if="canApplyOffline" type="danger" plain @click="applyOffline">申请下架</el-button>
       <el-button class="submit-btn" type="primary" :loading="submitting" @click="submitForm">{{form.id ? '保存活动' : '发布活动'}}</el-button>
+      <button class="top-save" type="button" @click="submitForm">保存</button>
     </div>
   </div>
 
@@ -420,6 +617,10 @@
   </div>
 
   <div v-if="canManageActivities" class="shell">
+    <section class="edit-hero">
+      <div class="edit-hero-title">{{form.id ? '完善活动内容' : '发起一场新活动'}}</div>
+      <div class="edit-hero-desc">上传封面、填写核心信息和时间地点，保存后将进入平台审核流程。</div>
+    </section>
     <div class="card panel compose-panel">
       <div class="compose-head">
         <div class="avatar-chip">
@@ -432,15 +633,45 @@
       </div>
 
       <el-form :model="form" label-position="top">
+        <div class="form-section-title"><span>活动封面<span class="required-dot">*</span></span></div>
+        <div class="image-section">
+          <div class="image-strip">
+            <div class="image-upload-trigger">
+              <el-upload
+                action="#"
+                list-type="text"
+                multiple
+                accept="image/*"
+                :show-file-list="false"
+                :http-request="uploadImage"
+                :before-upload="beforeImageUpload">
+                <div class="image-upload-btn">+</div>
+              </el-upload>
+            </div>
+            <div class="image-item" v-for="(item, index) in visibleImageList" :key="item">
+              <img :src="item" alt="">
+              <button type="button" class="image-remove" @click="removeImage(index)">×</button>
+            </div>
+            <div class="image-more" v-if="imageList.length > visibleImageList.length">
+              +{{imageList.length - visibleImageList.length}}
+            </div>
+          </div>
+          <div class="image-count">
+            建议尺寸 750*420px，支持 JPG / PNG，最多 5 张
+          </div>
+        </div>
+
+        <div class="form-section-title"><span>标题信息<span class="required-dot">*</span></span></div>
         <el-form-item class="title-input">
           <el-input v-model="form.title" placeholder="这一场活动，想让大家先看到什么标题？"></el-input>
         </el-form-item>
 
+        <div class="form-section-title"><span>活动主要内容<span class="required-dot">*</span></span></div>
         <el-form-item class="composer-area">
           <el-input type="textarea" :rows="6" v-model="form.content" placeholder="分享活动亮点、流程安排、参与提醒，像写一条动态正文一样自然展开。"></el-input>
         </el-form-item>
 
-        <div class="image-section">
+        <div class="image-section" style="display:none;">
           <div class="image-strip">
             <div class="image-upload-trigger">
               <el-upload
@@ -583,6 +814,10 @@
               <el-input v-model.number="form.maxParticipants" type="number" min="1" placeholder="请输入报名人数上限"></el-input>
             </el-form-item>
           </div>
+        </div>
+        <div class="action-bar">
+          <el-button @click="goBack">取消</el-button>
+          <el-button type="primary" :loading="submitting" @click="submitForm">{{form.id ? '保存并提交' : '保存并提交'}}</el-button>
         </div>
       </el-form>
 

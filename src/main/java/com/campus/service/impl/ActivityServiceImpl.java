@@ -63,11 +63,14 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -393,6 +396,25 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         if (authResult != null) {
             return authResult;
         }
+        int currentPage = current == null || current < 1 ? 1 : current;
+        try {
+            if (activitySearchService.isAvailable()) {
+                ActivitySearchPageDTO searchPage = activitySearchService.searchActivitiesByCreator(
+                        UserHolder.getUser().getId(),
+                        keyword,
+                        currentPage,
+                        pageSize
+                );
+                List<Activity> records = searchPage.getRecords();
+                if (records != null && (!records.isEmpty() || currentPage > 1)) {
+                    syncRemainingSlots(records);
+                    enrichActivities(records, UserHolder.getUser());
+                    return Result.ok(records, searchPage.getTotal());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("我发起的活动 ES 查询失败，降级 MySQL keyword={}", keyword, e);
+        }
         QueryWrapper<Activity> wrapper = new QueryWrapper<Activity>()
                 .eq("creator_id", UserHolder.getUser().getId())
                 .and(StrUtil.isNotBlank(keyword), query -> query
@@ -410,7 +432,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                 .orderByDesc("create_time");
         Page<Activity> page = page(
                 new Page<>(
-                        current == null || current < 1 ? 1 : current,
+                        currentPage,
                         normalizePageSize(pageSize)
                 ),
                 wrapper
@@ -598,24 +620,17 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     }
 
     @Override
-    public Result queryMyRegistrations(String filter, Integer current, Integer pageSize) {
+    public Result queryMyRegistrations(String filter, String keyword, Integer current, Integer pageSize) {
         Result authResult = requirePermission(RbacConstants.PERM_REGISTRATION_VIEW_SELF, "无权查看我的报名");
         if (authResult != null) {
             return authResult;
         }
-        QueryWrapper<ActivityRegistration> wrapper = new QueryWrapper<ActivityRegistration>()
-                .eq("user_id", UserHolder.getUser().getId())
-                .orderByDesc("create_time");
-        List<ActivityRegistration> records = activityRegistrationMapper.selectList(wrapper);
-        enrichRegistrationActivities(records);
-        enrichRegistrationVoucherInfo(records);
-        List<ActivityRegistration> filteredRecords = filterMyRegistrations(records, filter);
-        int normalizedPageSize = normalizePageSize(pageSize);
-        int currentPage = current == null || current < 1 ? 1 : current;
-        int fromIndex = Math.min((currentPage - 1) * normalizedPageSize, filteredRecords.size());
-        int toIndex = Math.min(fromIndex + normalizedPageSize, filteredRecords.size());
-        List<ActivityRegistration> pagedRecords = filteredRecords.subList(fromIndex, toIndex);
-        return Result.ok(pagedRecords, (long) filteredRecords.size());
+        try {
+            return queryMyRegistrationsWithSearch(filter, keyword, current, pageSize);
+        } catch (Exception e) {
+            log.warn("我的报名 ES 查询失败，降级 MySQL filter={}, keyword={}", filter, keyword, e);
+            return queryMyRegistrationsFromMysql(filter, keyword, current, pageSize);
+        }
     }
 
     @Override
@@ -1815,6 +1830,130 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         return records.stream()
                 .filter(record -> matchesMyRegistrationFilter(record, targetFilter, now))
                 .collect(Collectors.toList());
+    }
+
+    private List<ActivityRegistration> filterMyRegistrationsByKeyword(List<ActivityRegistration> records, String keyword) {
+        if (records == null || records.isEmpty() || StrUtil.isBlank(keyword)) {
+            return records;
+        }
+        String normalizedKeyword = StrUtil.trim(keyword).toLowerCase();
+        return records.stream()
+                .filter(record -> matchesMyRegistrationKeyword(record, normalizedKeyword))
+                .collect(Collectors.toList());
+    }
+
+    private boolean matchesMyRegistrationKeyword(ActivityRegistration record, String keyword) {
+        if (record == null || StrUtil.isBlank(keyword)) {
+            return false;
+        }
+        return containsIgnoreCase(record.getActivityTitle(), keyword)
+                || containsIgnoreCase(record.getCategory(), keyword)
+                || containsIgnoreCase(record.getLocation(), keyword)
+                || containsIgnoreCase(record.getOrganizerName(), keyword)
+                || containsIgnoreCase(record.getStatusText(), keyword)
+                || containsIgnoreCase(record.getFailReason(), keyword)
+                || containsIgnoreCase(record.getVoucherDisplayCode(), keyword)
+                || containsIgnoreCase(record.getRequestId(), keyword);
+    }
+
+    private boolean containsIgnoreCase(String source, String keyword) {
+        return StrUtil.isNotBlank(source) && source.toLowerCase().contains(keyword);
+    }
+
+    private Result queryMyRegistrationsWithSearch(String filter, String keyword, Integer current, Integer pageSize) {
+        QueryWrapper<ActivityRegistration> wrapper = new QueryWrapper<ActivityRegistration>()
+                .eq("user_id", UserHolder.getUser().getId())
+                .orderByDesc("create_time");
+        List<ActivityRegistration> records = activityRegistrationMapper.selectList(wrapper);
+        enrichRegistrationActivities(records);
+        enrichRegistrationVoucherInfo(records);
+        List<ActivityRegistration> filteredRecords = filterMyRegistrations(records, filter);
+        if (StrUtil.isNotBlank(keyword) && activitySearchService.isAvailable()) {
+            List<Long> matchedActivityIds = queryMatchedActivityIdsByKeyword(keyword);
+            filteredRecords = mergeRegistrationKeywordMatches(filteredRecords, keyword, matchedActivityIds);
+        } else {
+            filteredRecords = filterMyRegistrationsByKeyword(filteredRecords, keyword);
+        }
+        return paginateRegistrations(filteredRecords, current, pageSize);
+    }
+
+    private Result queryMyRegistrationsFromMysql(String filter, String keyword, Integer current, Integer pageSize) {
+        QueryWrapper<ActivityRegistration> wrapper = new QueryWrapper<ActivityRegistration>()
+                .eq("user_id", UserHolder.getUser().getId())
+                .orderByDesc("create_time");
+        List<ActivityRegistration> records = activityRegistrationMapper.selectList(wrapper);
+        enrichRegistrationActivities(records);
+        enrichRegistrationVoucherInfo(records);
+        List<ActivityRegistration> filteredRecords = filterMyRegistrations(records, filter);
+        filteredRecords = filterMyRegistrationsByKeyword(filteredRecords, keyword);
+        return paginateRegistrations(filteredRecords, current, pageSize);
+    }
+
+    private Result paginateRegistrations(List<ActivityRegistration> records, Integer current, Integer pageSize) {
+        int normalizedPageSize = normalizePageSize(pageSize);
+        int currentPage = current == null || current < 1 ? 1 : current;
+        int fromIndex = Math.min((currentPage - 1) * normalizedPageSize, records.size());
+        int toIndex = Math.min(fromIndex + normalizedPageSize, records.size());
+        List<ActivityRegistration> pagedRecords = records.subList(fromIndex, toIndex);
+        return Result.ok(pagedRecords, (long) records.size());
+    }
+
+    private List<ActivityRegistration> mergeRegistrationKeywordMatches(List<ActivityRegistration> records,
+                                                                       String keyword,
+                                                                       List<Long> matchedActivityIds) {
+        if (records == null || records.isEmpty() || StrUtil.isBlank(keyword)) {
+            return records;
+        }
+        List<ActivityRegistration> mysqlMatches = filterMyRegistrationsByKeyword(records, keyword);
+        if (matchedActivityIds == null || matchedActivityIds.isEmpty()) {
+            return mysqlMatches;
+        }
+        Map<Long, Integer> orderMap = new HashMap<>();
+        for (int i = 0; i < matchedActivityIds.size(); i++) {
+            orderMap.putIfAbsent(matchedActivityIds.get(i), i);
+        }
+        List<ActivityRegistration> esMatches = records.stream()
+                .filter(record -> record != null && record.getActivityId() != null && orderMap.containsKey(record.getActivityId()))
+                .sorted(Comparator
+                        .comparingInt((ActivityRegistration record) -> orderMap.getOrDefault(record.getActivityId(), Integer.MAX_VALUE))
+                        .thenComparing(ActivityRegistration::getCreateTime, Comparator.nullsLast(Comparator.reverseOrder())))
+                .collect(Collectors.toList());
+        Set<Long> seenIds = esMatches.stream()
+                .map(ActivityRegistration::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        List<ActivityRegistration> merged = new ArrayList<>(esMatches);
+        for (ActivityRegistration record : mysqlMatches) {
+            if (record == null || record.getId() == null || seenIds.contains(record.getId())) {
+                continue;
+            }
+            merged.add(record);
+        }
+        return merged;
+    }
+
+    private List<Long> queryMatchedActivityIdsByKeyword(String keyword) {
+        List<Long> activityIds = new ArrayList<>();
+        int current = 1;
+        int pageSize = 100;
+        while (true) {
+            ActivitySearchPageDTO searchPage = activitySearchService.searchActivitiesByKeyword(keyword, current, pageSize);
+            List<Activity> activities = searchPage.getRecords();
+            if (activities == null || activities.isEmpty()) {
+                break;
+            }
+            for (Activity activity : activities) {
+                if (activity != null && activity.getId() != null) {
+                    activityIds.add(activity.getId());
+                }
+            }
+            Long total = searchPage.getTotal();
+            if (activities.size() < pageSize || total == null || activityIds.size() >= total) {
+                break;
+            }
+            current++;
+        }
+        return activityIds;
     }
 
     private boolean matchesMyRegistrationFilter(ActivityRegistration record, String filter, LocalDateTime now) {

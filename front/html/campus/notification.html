@@ -7,26 +7,43 @@
   <link rel="stylesheet" href="./css/element.css">
   <link href="./css/main.css" rel="stylesheet">
   <style>
-    body { margin:0; background:#f5f8fc; color:#10233d; font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; }
-    .page { max-width: 900px; margin: 0 auto; padding: 18px 16px 70px; }
-    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+    body {
+      margin:0;
+      background:
+        radial-gradient(circle at 10% 0%, rgba(72, 185, 255, .2), transparent 26%),
+        radial-gradient(circle at 90% 10%, rgba(32, 201, 143, .14), transparent 26%),
+        linear-gradient(180deg, #f8fcff 0%, #eef8ff 52%, #f7fbff 100%);
+      color:#102a43;
+      font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    }
+    .page { width:min(390px,100%); min-height:100vh; margin:0 auto; padding:8px 14px 18px; box-sizing:border-box; background:#fff; }
+    .topbar { display:grid; grid-template-columns:44px minmax(0,1fr) 72px; align-items:center; gap:6px; margin-bottom:10px; }
     .topbar-left { display:flex; align-items:center; gap:12px; }
-    .icon-btn { width:40px; height:40px; border:none; border-radius:50%; background:#fff; color:#17324d; box-shadow:0 10px 24px rgba(16,35,61,.08); cursor:pointer; }
-    .top-title { font-size:20px; font-weight:800; }
-    .toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; background:#fff; border-radius:18px; padding:14px; box-shadow:0 12px 30px rgba(16,35,61,.08); margin-bottom:12px; }
-    .filters { display:flex; gap:10px; flex-wrap:wrap; }
-    .filters .el-select { width: 180px; }
-    .notice { background:#fff; border-radius:18px; padding:16px; box-shadow:0 12px 30px rgba(16,35,61,.08); margin-bottom:10px; border-left:4px solid transparent; cursor:pointer; }
-    .notice.unread { border-left-color:#2a5f97; }
+    .icon-btn { width:40px; height:40px; border:none; border-radius:50%; background:transparent; color:#102a43; cursor:pointer; font-size:18px; }
+    .top-title { font-size:17px; font-weight:900; text-align:center; }
+    .read-all { font-size:12px; color:#2388ff; border:0; background:transparent; cursor:pointer; }
+    .toolbar { margin-bottom:12px; }
+    .filters { display:flex; gap:8px; flex-wrap:nowrap; overflow:auto; padding-bottom:2px; }
+    .filters .el-select { display:none; }
+    .filter-chip { border:0; border-radius:999px; background:#f2f6fb; color:#53657c; padding:8px 13px; font-size:12px; font-weight:800; white-space:nowrap; }
+    .filter-chip.active { background:#e8f3ff; color:#2388ff; }
+    .notice { position:relative; display:grid; grid-template-columns:46px minmax(0,1fr); gap:10px; background:#fff; border-radius:12px; padding:12px; box-shadow:0 8px 22px rgba(32,94,156,.07); margin-bottom:10px; border:1px solid #eef3fa; cursor:pointer; }
+    .notice.unread { border-color:#dbeaff; }
+    .notice-icon { width:34px; height:34px; border-radius:50%; display:grid; place-items:center; color:#fff; background:#20c98f; font-size:18px; margin-top:3px; }
+    .notice:nth-child(2n) .notice-icon { background:#ff8a4c; }
+    .notice:nth-child(3n) .notice-icon { background:#2388ff; }
+    .notice:nth-child(4n) .notice-icon { background:#20c98f; }
     .notice-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
-    .notice-title { font-size:16px; font-weight:800; color:#10233d; }
-    .notice-time { font-size:12px; color:#7a8897; white-space:nowrap; }
-    .notice-content { color:#556273; font-size:14px; line-height:1.8; }
+    .notice-title { font-size:14px; font-weight:900; color:#102a43; }
+    .notice-time { font-size:11px; color:#9aa8b8; white-space:nowrap; }
+    .notice-content { color:#6b7d93; font-size:12px; line-height:1.6; }
     .notice-foot { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; }
     .notice-type { color:#2a5f97; font-size:12px; background:#eef4fb; padding:4px 8px; border-radius:999px; }
-    .count-text { color:#607086; font-size:14px; font-weight:600; margin:0 0 12px; }
-    .empty { background:#fff; border-radius:18px; padding:38px 18px; text-align:center; color:#7a8897; box-shadow:0 12px 30px rgba(16,35,61,.08); }
+    .count-text { display:none; }
+    .empty { background:#fff; border-radius:12px; padding:38px 18px; text-align:center; color:#7a8897; box-shadow:0 8px 22px rgba(32,94,156,.07); border:1px solid #eef3fa; }
     .load-more { text-align:center; margin-top:14px; }
+    .clear-wrap { margin-top:28px; }
+    .clear-wrap .el-button { width:100%; height:40px; border-radius:999px; background:#f4f7fb; border:0; color:#53657c; box-shadow:none; }
     @media (max-width: 640px) {
       .filters, .filters .el-select { width:100%; }
       .toolbar .el-button { width:100%; }
@@ -34,18 +51,23 @@
   </style>
 </head>
 <body>
-<div id="app" class="page">
+<div id="app" class="page campus-mobile">
+  <div class="campus-status">9:41</div>
   <div class="topbar">
     <div class="topbar-left">
       <button class="icon-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
-      <div class="top-title">通知中心</div>
     </div>
-    <el-badge :value="unreadCount" :hidden="!unreadCount">
-      <button class="icon-btn"><i class="el-icon-bell"></i></button>
-    </el-badge>
+    <div class="top-title">通知中心</div>
+    <button class="read-all" @click="markAllRead">全部已读</button>
   </div>
 
   <div class="toolbar">
+    <div class="filters">
+      <button class="filter-chip active" @click="readFilter='';typeFilter='';refresh()">全部</button>
+      <button class="filter-chip" @click="typeFilter='REGISTRATION_SUCCESS';refresh()">报名动态</button>
+      <button class="filter-chip" @click="typeFilter='ACTIVITY_REVIEW_PENDING';refresh()">审核通知</button>
+      <button class="filter-chip" @click="typeFilter='ACTIVITY_LOCATION_CHANGED';refresh()">系统消息</button>
+    </div>
     <div class="filters">
       <el-select v-model="readFilter" @change="refresh">
         <el-option label="全部状态" value=""></el-option>
@@ -56,24 +78,23 @@
         <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value"></el-option>
       </el-select>
     </div>
-    <div class="filters">
-      <el-button type="primary" plain @click="markAllRead">全部已读</el-button>
-      <el-button type="danger" plain @click="clearMailbox">清空信箱</el-button>
-    </div>
   </div>
 
   <div class="count-text">共 {{total}} 条通知，当前显示 {{notifications.length}} 条</div>
 
   <div v-if="notifications.length">
     <article class="notice" v-for="item in notifications" :key="item.id" :class="{unread: !item.isRead}" @click="openNotice(item)">
-      <div class="notice-head">
-        <div class="notice-title">{{item.title}}</div>
-        <div class="notice-time">{{formatTime(item.createdAt)}}</div>
-      </div>
-      <div class="notice-content">{{item.content}}</div>
-      <div class="notice-foot">
-        <span class="notice-type">{{typeText(item.type)}}</span>
-        <el-button v-if="!item.isRead" size="mini" type="primary" plain @click.stop="markRead(item)">标为已读</el-button>
+      <div class="notice-icon"><i class="el-icon-check"></i></div>
+      <div>
+        <div class="notice-head">
+          <div class="notice-title">{{item.title}}</div>
+          <div class="notice-time">{{formatTime(item.createdAt)}}</div>
+        </div>
+        <div class="notice-content">{{item.content}}</div>
+        <div class="notice-foot">
+          <span class="notice-type">{{typeText(item.type)}}</span>
+          <el-button v-if="!item.isRead" size="mini" type="primary" plain @click.stop="markRead(item)">标为已读</el-button>
+        </div>
       </div>
     </article>
   </div>
@@ -81,6 +102,9 @@
 
   <div class="load-more" v-if="notifications.length < total">
     <el-button @click="loadMore">加载更多</el-button>
+  </div>
+  <div class="clear-wrap">
+    <el-button @click="clearMailbox">清空所有通知</el-button>
   </div>
 </div>
 
@@ -92,6 +116,7 @@
   new Vue({
     el: '#app',
     data: {
+      user: window.auth.getUser() || {},
       notifications: [],
       unreadCount: 0,
       total: 0,
@@ -163,18 +188,54 @@
         if (!item.isRead) {
           this.markRead(item, false);
         }
-        if (item.bizType === 'REGISTRATION' && item.bizId) {
-          const reviewTypes = ['REGISTRATION_REVIEW_PENDING', 'REGISTRATION_CANCEL_REVIEW_PENDING'];
-          if (reviewTypes.includes(item.type)) {
-            location.href = '/info.html?tab=reviews';
-            return;
-          }
-          location.href = '/activity-detail.html?id=' + item.bizId;
-          return;
+        const targetUrl = this.resolveNoticeTarget(item);
+        if (targetUrl) {
+          window.location.assign(targetUrl);
         }
-        if (item.bizType === 'ACTIVITY' && item.bizId) {
-          location.href = '/activity-detail.html?id=' + item.bizId;
+      },
+      resolveNoticeTarget(item) {
+        if (!item) return '';
+        const activityId = item.bizId ? Number(item.bizId) : null;
+        const organizerApplicationId = item.bizId ? Number(item.bizId) : null;
+        switch (item.type) {
+          case 'REGISTRATION_REVIEW_PENDING':
+          case 'REGISTRATION_CANCEL_REVIEW_PENDING':
+            return '/info.html?tab=reviews';
+          case 'REGISTRATION_SUCCESS':
+          case 'REGISTRATION_FAILED':
+          case 'REGISTRATION_CANCEL_APPROVED':
+          case 'REGISTRATION_CANCEL_REJECTED':
+            return activityId ? '/activity-detail.html?id=' + activityId : '';
+          case 'ACTIVITY_SUBMITTED':
+          case 'ACTIVITY_APPROVED':
+          case 'ACTIVITY_REJECTED':
+          case 'ACTIVITY_OFFLINE':
+          case 'ACTIVITY_OFFLINE_APPLY_SUBMITTED':
+          case 'ACTIVITY_OFFLINE_APPLY_APPROVED':
+          case 'ACTIVITY_OFFLINE_APPLY_REJECTED':
+          case 'ACTIVITY_LOCATION_CHANGED':
+            return activityId ? '/activity-detail.html?id=' + activityId : '';
+          case 'ACTIVITY_REVIEW_PENDING':
+          case 'ACTIVITY_OFFLINE_REVIEW_PENDING':
+            return '/admin-dashboard.html?tab=activities#activities';
+          case 'ORGANIZER_APPLY_PENDING':
+            return '/admin-dashboard.html?tab=organizers#organizers';
+          case 'ORGANIZER_APPLY_APPROVED':
+          case 'ORGANIZER_APPLY_REJECTED':
+            return '/info-edit.html?tab=organizer';
+          default:
+            break;
         }
+        if (item.bizType === 'REGISTRATION' && activityId) {
+          return '/activity-detail.html?id=' + activityId;
+        }
+        if (item.bizType === 'ACTIVITY' && activityId) {
+          return '/activity-detail.html?id=' + activityId;
+        }
+        if (item.bizType === 'ORGANIZER_APPLICATION' && organizerApplicationId) {
+          return '/info-edit.html?tab=organizer';
+        }
+        return '';
       },
       markRead(item, showMessage) {
         axios.put('/notification/' + item.id + '/read')

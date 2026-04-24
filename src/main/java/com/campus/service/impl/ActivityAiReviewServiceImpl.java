@@ -596,9 +596,14 @@ public class ActivityAiReviewServiceImpl implements IActivityAiReviewService {
                 summary.put("id", item.getId());
                 summary.put("title", item.getTitle());
                 summary.put("category", item.getCategory());
+                summary.put("customCategory", item.getCustomCategory());
+                summary.put("displayCategory", "其他".equals(item.getCategory()) && StrUtil.isNotBlank(item.getCustomCategory())
+                        ? item.getCustomCategory()
+                        : item.getCategory());
                 summary.put("organizerName", item.getOrganizerName());
                 summary.put("location", item.getLocation());
                 summary.put("eventStartTime", formatTime(item.getEventStartTime()));
+                summary.put("coverImage", item.getCoverImage());
                 result.activities.add(summary);
             }
             result.note = "已召回 " + result.activities.size() + " 条相似活动供 AI 参考。";

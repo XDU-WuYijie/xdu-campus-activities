@@ -98,6 +98,23 @@ axios.defaults.paramsSerializer = function(params) {
   })
   return p;
 }
+window.notifyToast = function(message, type, offset) {
+  if (!message) return;
+  if (window.ELEMENT && window.ELEMENT.Message && typeof window.ELEMENT.Message.closeAll === 'function') {
+    window.ELEMENT.Message.closeAll();
+  }
+  if (window.ELEMENT && window.ELEMENT.Message) {
+    window.ELEMENT.Message({
+      message: message,
+      type: type || 'info',
+      duration: 1500,
+      showClose: false,
+      offset: typeof offset === 'number' ? offset : 96
+    });
+  } else if (window.console && console.log) {
+    console.log(message);
+  }
+};
 const util = {
   commonURL,
   buildWsUrl(path, params) {
