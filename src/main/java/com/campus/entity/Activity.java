@@ -29,6 +29,8 @@ public class Activity implements Serializable {
     private String images;
     private String summary;
     private String content;
+    private String activityFlow;
+    private String faq;
     private String category;
     private String customCategory;
     private String registrationMode;
@@ -108,4 +110,7 @@ public class Activity implements Serializable {
     @TableField(exist = false)
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime voucherCheckedInTime;
+
+    @TableField(exist = false)
+    private Boolean favorited;
 }

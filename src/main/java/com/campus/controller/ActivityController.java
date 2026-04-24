@@ -96,6 +96,24 @@ public class ActivityController {
         return activityService.cancelRegistration(activityId);
     }
 
+    @PostMapping("/{id}/favorite")
+    public Result favoriteActivity(@PathVariable("id") Long activityId) {
+        return activityService.favoriteActivity(activityId);
+    }
+
+    @DeleteMapping("/{id}/favorite")
+    public Result unfavoriteActivity(@PathVariable("id") Long activityId) {
+        return activityService.unfavoriteActivity(activityId);
+    }
+
+    @GetMapping("/favorite/mine")
+    public Result queryMyFavoriteActivities(
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "current", defaultValue = "1") Integer current,
+            @RequestParam(value = "pageSize", defaultValue = "" + SystemConstants.MAX_PAGE_SIZE) Integer pageSize) {
+        return activityService.queryMyFavoriteActivities(keyword, current, pageSize);
+    }
+
     @GetMapping("/registration/mine")
     public Result queryMyRegistrations(
             @RequestParam(value = "filter", required = false) String filter,
@@ -162,6 +180,11 @@ public class ActivityController {
             @RequestParam(value = "current", defaultValue = "1") Integer current,
             @RequestParam(value = "pageSize", defaultValue = "" + SystemConstants.MAX_PAGE_SIZE) Integer pageSize) {
         return activityService.queryCheckInRecords(activityId, current, pageSize);
+    }
+
+    @GetMapping("/manage/{id}/check-in/dashboard")
+    public Result queryCheckInDashboard(@PathVariable("id") Long activityId) {
+        return activityService.queryCheckInDashboard(activityId);
     }
 
     @GetMapping("/admin/review-list")

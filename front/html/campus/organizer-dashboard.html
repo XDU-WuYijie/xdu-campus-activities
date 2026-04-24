@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>数据看板</title>
+  <link rel="stylesheet" href="css/element.css">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    body {
+      background:#f4f7fb;
+      font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+      color:#102a43;
+    }
+    .page { min-height:100vh; padding:12px 12px 92px; box-sizing:border-box; }
+    .topbar { display:grid; grid-template-columns:44px minmax(0,1fr) 44px; align-items:center; gap:8px; margin-bottom:12px; }
+    .back-btn { width:36px; height:36px; border:none; border-radius:12px; background:#fff; color:#425466; box-shadow:0 8px 18px rgba(31,78,121,.08); }
+    .top-title { text-align:center; font-size:16px; font-weight:900; color:#102a43; }
+    .hero { background:linear-gradient(135deg,#102a43 0%,#1f5e9c 100%); color:#fff; border-radius:18px; padding:18px 16px; margin-bottom:12px; }
+    .hero-title { font-size:20px; font-weight:900; margin-bottom:8px; }
+    .metric-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-bottom:12px; }
+    .metric-card { background:#fff; border-radius:16px; padding:14px; box-shadow:0 10px 24px rgba(32,94,156,.08); border:1px solid #eaf0f7; }
+    .metric-label { color:#7d8da3; font-size:12px; font-weight:700; margin-bottom:8px; }
+    .metric-value { color:#102a43; font-size:24px; font-weight:900; line-height:1; }
+    .panel { background:#fff; border-radius:16px; padding:14px; box-shadow:0 10px 24px rgba(32,94,156,.08); border:1px solid #eaf0f7; margin-bottom:12px; }
+    .section-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; }
+    .section-title { font-size:15px; font-weight:900; color:#102a43; }
+    .quick-grid { display:grid; gap:10px; }
+    .quick-btn { display:flex; align-items:center; gap:10px; width:100%; border:none; border-radius:14px; padding:12px; background:#f7fbff; color:#102a43; text-align:left; border:1px solid #e6eff8; }
+    .quick-icon { width:36px; height:36px; border-radius:12px; display:flex; align-items:center; justify-content:center; background:#e7f1fb; color:#1f5e9c; font-size:18px; }
+    .quick-title { font-size:13px; font-weight:800; }
+    .activity-card { border:1px solid #edf2f8; border-radius:14px; padding:12px; margin-bottom:10px; background:#fbfdff; }
+    .activity-card:last-child { margin-bottom:0; }
+    .activity-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:8px; }
+    .activity-title { font-size:14px; font-weight:900; color:#102a43; line-height:1.5; }
+    .activity-status { border-radius:999px; padding:4px 8px; font-size:11px; font-weight:900; background:#e8fbf1; color:#0aa36d; white-space:nowrap; }
+    .activity-status.pending { background:#eef6ff; color:#2388ff; }
+    .activity-status.rejected { background:#fff0f3; color:#f0445f; }
+    .activity-status.offline { background:#eef3fa; color:#617188; }
+    .activity-meta { color:#617188; font-size:12px; line-height:1.7; }
+    .mini-metrics { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:10px; }
+    .mini-card { border-radius:12px; background:#fff; padding:10px; border:1px solid #edf2f8; }
+    .mini-card .label { color:#7d8da3; font-size:11px; margin-bottom:6px; }
+    .mini-card .value { color:#102a43; font-size:18px; font-weight:900; }
+    .card-actions { display:flex; gap:8px; margin-top:10px; }
+    .card-actions .el-button { flex:1; border-radius:12px; }
+    .empty { text-align:center; color:#8a9bb0; padding:26px 0 12px; font-size:12px; }
+    .spacer { height:76px; }
+  </style>
+</head>
+<body>
+<div id="app" class="page campus-mobile">
+  <div class="campus-status">9:41</div>
+  <div class="topbar">
+    <button class="back-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
+    <div class="top-title">数据看板</div>
+    <button class="back-btn" @click="refreshBoard"><i class="el-icon-refresh"></i></button>
+  </div>
+
+  <section class="hero">
+    <div class="hero-title">主办方数据看板</div>
+  </section>
+
+  <section class="metric-grid">
+    <div class="metric-card">
+      <div class="metric-label">发起活动</div>
+      <div class="metric-value">{{createdActivityTotal}}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">待审核请求</div>
+      <div class="metric-value">{{pendingReviewTotal}}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">最近活动报名</div>
+      <div class="metric-value">{{recentRegisteredCount}}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">最近活动签到</div>
+      <div class="metric-value">{{recentCheckedInCount}}</div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="section-head">
+      <div class="section-title">快捷入口</div>
+    </div>
+    <div class="quick-grid">
+      <button class="quick-btn" @click="goCreated">
+        <span class="quick-icon"><i class="el-icon-notebook-2"></i></span>
+        <span>
+          <div class="quick-title">我发起的活动</div>
+        </span>
+      </button>
+      <button class="quick-btn" @click="goReviews">
+        <span class="quick-icon"><i class="el-icon-warning-outline"></i></span>
+        <span>
+          <div class="quick-title">待审核请求</div>
+        </span>
+      </button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="section-head">
+      <div class="section-title">最近活动数据</div>
+    </div>
+    <div v-if="activities.length">
+      <div class="activity-card" v-for="item in activities" :key="item.id">
+        <div class="activity-head">
+          <div class="activity-title">{{item.title}}</div>
+          <span :class="['activity-status', activityStatusClass(item.status)]">{{activityAuditStatusText(item.status)}}</span>
+        </div>
+        <div class="activity-meta">活动时间：{{formatTime(item.eventStartTime)}} - {{formatTime(item.eventEndTime)}}</div>
+        <div class="activity-meta">活动地点：{{item.location || '待定'}}　类别：{{displayCategory(item)}}</div>
+        <div class="mini-metrics">
+          <div class="mini-card">
+            <div class="label">报名人数</div>
+            <div class="value">{{item.dashboardStats.registeredCount || 0}}</div>
+          </div>
+          <div class="mini-card">
+            <div class="label">已签到人数</div>
+            <div class="value">{{item.dashboardStats.checkedInCount || 0}}</div>
+          </div>
+        </div>
+        <div class="card-actions">
+          <el-button type="primary" @click="openCheckIn(item.id)">签到管理</el-button>
+          <el-button plain @click="openDetail(item.id)">活动详情</el-button>
+        </div>
+      </div>
+    </div>
+    <div v-else class="empty">暂无活动数据。</div>
+  </section>
+
+  <div class="spacer"></div>
+  <nav class="campus-tabbar">
+    <a class="campus-tab-item" href="/index.html"><i class="el-icon-s-home"></i>首页</a>
+    <a class="campus-tab-item active" href="/organizer-dashboard.html"><i class="el-icon-data-analysis"></i>数据看板</a>
+    <a class="campus-tab-item" href="/activity-manage.html"><span class="campus-tab-plus">+</span>发布</a>
+    <a class="campus-tab-item" href="/notification.html">
+      <span class="campus-tab-icon">
+        <i class="el-icon-chat-dot-round"></i>
+        <span v-if="unreadCount" class="campus-tab-unread">{{unreadCount > 99 ? '99+' : unreadCount}}</span>
+      </span>
+      消息
+    </a>
+    <a class="campus-tab-item" href="/info.html"><i class="el-icon-user"></i>我的</a>
+  </nav>
+</div>
+
+<script src="js/vue.js"></script>
+<script src="js/axios.min.js"></script>
+<script src="js/element.js"></script>
+<script src="js/common.js"></script>
+<script>
+  new Vue({
+    el: '#app',
+    data: {
+      user: window.auth.getUser() || {},
+      activities: [],
+      createdActivityTotal: 0,
+      pendingReviewTotal: 0,
+      unreadCount: 0
+    },
+    computed: {
+      recentRegisteredCount() {
+        return this.activities.reduce((sum, item) => sum + Number((item.dashboardStats && item.dashboardStats.registeredCount) || 0), 0);
+      },
+      recentCheckedInCount() {
+        return this.activities.reduce((sum, item) => sum + Number((item.dashboardStats && item.dashboardStats.checkedInCount) || 0), 0);
+      }
+    },
+    created() {
+      this.queryUser();
+      this.initNotifications();
+    },
+    methods: {
+      queryUser() {
+        axios.get('/user/me')
+          .then(({data}) => {
+            this.user = data || {};
+            window.auth.setUser(this.user);
+            const permissions = (this.user && this.user.permissions) || [];
+            const roleCodes = (this.user && this.user.roleCodes) || [];
+            if (!permissions.includes('activity:create') || roleCodes.includes('PLATFORM_ADMIN')) {
+              location.replace('/info.html');
+              return;
+            }
+            this.refreshBoard();
+          })
+          .catch(() => location.href = '/login.html');
+      },
+      refreshBoard() {
+        this.queryCreatedActivities();
+        this.queryPendingReviews();
+      },
+      queryCreatedActivities() {
+        axios.get('/activity/manage/mine', {
+          params: {
+            current: 1,
+            pageSize: 6
+          }
+        }).then(({data, total}) => {
+          const rows = data || [];
+          this.createdActivityTotal = total || rows.length;
+          this.activities = rows.map(item => Object.assign({}, item, {
+            dashboardStats: {
+              registeredCount: item.registeredCount || 0,
+              checkedInCount: 0
+            }
+          }));
+          this.loadDashboardStats(rows);
+        }).catch(err => this.$message.error(err));
+      },
+      loadDashboardStats(rows) {
+        if (!rows || !rows.length) {
+          this.activities = [];
+          return;
+        }
+        Promise.all(rows.map(item => axios.get('/activity/manage/' + item.id + '/check-in/dashboard')
+          .then(({data}) => ({ id: item.id, stats: (data && data.stats) || {} }))
+          .catch(() => ({ id: item.id, stats: { registeredCount: item.registeredCount || 0, checkedInCount: 0 } }))))
+          .then(results => {
+            const statsMap = {};
+            results.forEach(item => statsMap[item.id] = item.stats || {});
+            this.activities = rows.map(item => Object.assign({}, item, {
+              dashboardStats: Object.assign({
+                registeredCount: item.registeredCount || 0,
+                checkedInCount: 0
+              }, statsMap[item.id] || {})
+            }));
+          });
+      },
+      queryPendingReviews() {
+        axios.get('/activity/manage/registration-reviews', {
+          params: {
+            current: 1,
+            pageSize: 50
+          }
+        }).then(({data, total}) => {
+          this.pendingReviewTotal = total || (data || []).length;
+        }).catch(() => {
+          this.pendingReviewTotal = 0;
+        });
+      },
+      initNotifications() {
+        window.notificationClient.fetchUnread().then(count => this.unreadCount = count || 0);
+        window.notificationClient.connect({
+          onUnread: count => this.unreadCount = count,
+          onMessage: message => {
+            if (message && message.payload) {
+              window.notifyToast(message.payload.title, 'info');
+              this.refreshBoard();
+            }
+          }
+        });
+      },
+      goBack() {
+        location.href = '/index.html';
+      },
+      goCreated() {
+        location.href = '/info.html?view=created&returnUrl=' + encodeURIComponent(location.pathname + location.search);
+      },
+      goReviews() {
+        location.href = '/info.html?view=reviews&returnUrl=' + encodeURIComponent(location.pathname + location.search);
+      },
+      openCheckIn(id) {
+        location.href = '/activity-checkin.html?id=' + id + '&returnUrl=' + encodeURIComponent(location.pathname + location.search);
+      },
+      openDetail(id) {
+        location.href = '/activity-detail.html?id=' + id + '&returnUrl=' + encodeURIComponent(location.pathname + location.search);
+      },
+      formatTime(value) {
+        return value ? value.replace('T', ' ') : '待定';
+      },
+      activityAuditStatusText(status) {
+        if (status === 1) return '审核中';
+        if (status === 2) return '审核通过';
+        if (status === 3) return '已驳回';
+        if (status === 4) return '已下架';
+        if (status === 5) return '下架审核';
+        return '未知状态';
+      },
+      activityStatusClass(status) {
+        if (status === 2) return '';
+        if (status === 1 || status === 5) return 'pending';
+        if (status === 3) return 'rejected';
+        if (status === 4) return 'offline';
+        return '';
+      },
+      displayCategory(item) {
+        if (!item) return '未分类';
+        if (item.category === '其他' && item.customCategory) return item.customCategory;
+        return item.category || '未分类';
+      }
+    }
+  });
+</script>
+</body>
+</html>

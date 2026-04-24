@@ -11,8 +11,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.campus.config.ActivityRegisterProperties;
 import com.campus.config.ActivitySearchProperties;
+import com.campus.dto.ActivityCheckInDashboardDTO;
 import com.campus.dto.ActivityCheckInResultDTO;
 import com.campus.dto.ActivityCheckInStatsDTO;
+import com.campus.dto.ActivityCheckInSummaryDTO;
 import com.campus.dto.ActivityCheckInVerifyDTO;
 import com.campus.dto.ActivityRegisterResponseDTO;
 import com.campus.dto.ActivitySearchPageDTO;
@@ -20,15 +22,18 @@ import com.campus.dto.ActivitySearchSyncEventDTO;
 import com.campus.dto.ActivityRegistrationEventDTO;
 import com.campus.dto.ActivityRegistrationPushDTO;
 import com.campus.dto.ActivityRegistrationStatusDTO;
+import com.campus.dto.ActivityTrendPointDTO;
 import com.campus.dto.Result;
 import com.campus.dto.ReviewActionDTO;
 import com.campus.dto.UserDTO;
 import com.campus.entity.Activity;
 import com.campus.entity.ActivityCheckInRecord;
+import com.campus.entity.ActivityFavorite;
 import com.campus.entity.ActivityRegistration;
 import com.campus.entity.ActivityVoucher;
 import com.campus.entity.User;
 import com.campus.mapper.ActivityCheckInRecordMapper;
+import com.campus.mapper.ActivityFavoriteMapper;
 import com.campus.mapper.ActivityMapper;
 import com.campus.mapper.ActivityRegistrationMapper;
 import com.campus.mapper.ActivityVoucherMapper;
@@ -60,6 +65,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import jakarta.annotation.Resource;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -153,6 +159,8 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     private static final String IDEMPOTENCY_STATUS_FAILED = "FAILED";
     private static final int CHECK_IN_OPEN_BEFORE_MINUTES = 30;
     private static final int CHECK_IN_CLOSE_AFTER_MINUTES = 30;
+    private static final DateTimeFormatter REGISTRATION_TREND_LABEL_FORMATTER = DateTimeFormatter.ofPattern("MM-dd");
+    private static final DateTimeFormatter CHECK_IN_TREND_LABEL_FORMATTER = DateTimeFormatter.ofPattern("MM-dd HH:00");
     private static final DefaultRedisScript<Long> ACTIVITY_REGISTER_SCRIPT;
 
     static {
@@ -169,6 +177,9 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
 
     @Resource
     private ActivityCheckInRecordMapper activityCheckInRecordMapper;
+
+    @Resource
+    private ActivityFavoriteMapper activityFavoriteMapper;
 
     @Resource
     private UserMapper userMapper;
@@ -320,6 +331,8 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         }
         normalizeCustomCategory(activity);
         activity.setContactInfo(StrUtil.trim(activity.getContactInfo()));
+        activity.setActivityFlow(StrUtil.trim(activity.getActivityFlow()));
+        activity.setFaq(StrUtil.trim(activity.getFaq()));
         if (activity.getRegisteredCount() == null) {
             activity.setRegisteredCount(0);
         }
@@ -370,6 +383,8 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         existing.setImages(activity.getImages());
         existing.setSummary(activity.getSummary());
         existing.setContent(activity.getContent());
+        existing.setActivityFlow(StrUtil.trim(activity.getActivityFlow()));
+        existing.setFaq(StrUtil.trim(activity.getFaq()));
         existing.setCategory(activity.getCategory());
         existing.setCustomCategory(activity.getCustomCategory());
         existing.setRegistrationMode(resolveRegistrationMode(activity));
@@ -629,6 +644,69 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     }
 
     @Override
+    @Transactional
+    public Result favoriteActivity(Long activityId) {
+        Activity activity = getById(activityId);
+        if (activity == null) {
+            return Result.fail("活动不存在");
+        }
+        if (!isPublicActivityStatus(activity.getStatus())) {
+            return Result.fail("活动尚未公开");
+        }
+        ActivityFavorite favorite = new ActivityFavorite();
+        favorite.setActivityId(activityId);
+        favorite.setUserId(UserHolder.getUser().getId());
+        try {
+            activityFavoriteMapper.insert(favorite);
+        } catch (DuplicateKeyException e) {
+            return Result.ok();
+        }
+        return Result.ok();
+    }
+
+    @Override
+    @Transactional
+    public Result unfavoriteActivity(Long activityId) {
+        activityFavoriteMapper.delete(new QueryWrapper<ActivityFavorite>()
+                .eq("activity_id", activityId)
+                .eq("user_id", UserHolder.getUser().getId()));
+        return Result.ok();
+    }
+
+    @Override
+    public Result queryMyFavoriteActivities(String keyword, Integer current, Integer pageSize) {
+        Long userId = UserHolder.getUser().getId();
+        List<ActivityFavorite> favorites = activityFavoriteMapper.selectList(new QueryWrapper<ActivityFavorite>()
+                .eq("user_id", userId)
+                .orderByDesc("create_time"));
+        if (favorites == null || favorites.isEmpty()) {
+            return Result.ok(Collections.emptyList(), 0L);
+        }
+        List<Long> activityIds = favorites.stream()
+                .map(ActivityFavorite::getActivityId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        if (activityIds.isEmpty()) {
+            return Result.ok(Collections.emptyList(), 0L);
+        }
+        Map<Long, Integer> orderMap = new HashMap<>(activityIds.size());
+        for (int i = 0; i < activityIds.size(); i++) {
+            orderMap.putIfAbsent(activityIds.get(i), i);
+        }
+        List<Activity> activities = listByIds(activityIds).stream()
+                .filter(item -> item != null && isPublicActivityStatus(item.getStatus()))
+                .filter(item -> matchesFavoriteKeyword(item, keyword))
+                .sorted(Comparator.comparingInt(item -> orderMap.getOrDefault(item.getId(), Integer.MAX_VALUE)))
+                .collect(Collectors.toList());
+        enrichActivities(activities, UserHolder.getUser());
+        int currentPage = current == null || current < 1 ? 1 : current;
+        int normalizedPageSize = normalizePageSize(pageSize);
+        int fromIndex = Math.min((currentPage - 1) * normalizedPageSize, activities.size());
+        int toIndex = Math.min(fromIndex + normalizedPageSize, activities.size());
+        return Result.ok(activities.subList(fromIndex, toIndex), (long) activities.size());
+    }
+
+    @Override
     public Result queryMyRegistrations(String filter, String keyword, Integer current, Integer pageSize) {
         Result authResult = requirePermission(RbacConstants.PERM_REGISTRATION_VIEW_SELF, "无权查看我的报名");
         if (authResult != null) {
@@ -810,15 +888,9 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         if (authResult != null) {
             return authResult;
         }
-        Activity activity = getById(activityId);
-        if (activity == null) {
-            return Result.fail("活动不存在");
-        }
-        if (!isAuditRequiredMode(activity)) {
-            return Result.fail("先到先得活动不需要主办方审核报名");
-        }
-        if (!Objects.equals(activity.getCreatorId(), UserHolder.getUser().getId())) {
-            return Result.fail("无权查看签到统计");
+        Result managedAuthResult = validateManagedActivityPermission(activityId, "无权查看签到统计");
+        if (managedAuthResult != null) {
+            return managedAuthResult;
         }
         ActivityCheckInStatsDTO stats = cacheClient.queryWithPassThrough(
                 CACHE_ACTIVITY_CHECK_IN_STATS_KEY,
@@ -837,18 +909,34 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         if (authResult != null) {
             return authResult;
         }
-        Activity activity = getById(activityId);
-        if (activity == null) {
-            return Result.fail("活动不存在");
-        }
-        if (!isAuditRequiredMode(activity)) {
-            return Result.fail("先到先得活动退出不需要主办方审核");
-        }
-        if (!Objects.equals(activity.getCreatorId(), UserHolder.getUser().getId())) {
-            return Result.fail("无权查看签到记录");
+        Result managedAuthResult = validateManagedActivityPermission(activityId, "无权查看签到记录");
+        if (managedAuthResult != null) {
+            return managedAuthResult;
         }
         CachedCheckInRecordPage cachedPage = queryCachedCheckInRecordPage(activityId, current, pageSize);
         return Result.ok(cachedPage.getRecords(), cachedPage.getTotal());
+    }
+
+    @Override
+    public Result queryCheckInDashboard(Long activityId) {
+        Result authResult = requirePermission(RbacConstants.PERM_CHECKIN_VIEW_RECORDS, "无权查看签到看板");
+        if (authResult != null) {
+            return authResult;
+        }
+        Result managedAuthResult = validateManagedActivityPermission(activityId, "无权查看签到看板");
+        if (managedAuthResult != null) {
+            return managedAuthResult;
+        }
+        Activity activity = getById(activityId);
+        ActivityCheckInDashboardDTO dashboard = new ActivityCheckInDashboardDTO();
+        dashboard.setActivitySummary(buildCheckInSummary(activity));
+        ActivityCheckInStatsDTO stats = loadCheckInStats(activityId);
+        dashboard.setStats(stats);
+        dashboard.setStatusChart(buildCheckInStatusChart(stats));
+        dashboard.setRegistrationTrendChart(buildRegistrationTrendChart(activityId));
+        dashboard.setCheckInTrendChart(buildCheckInTrendChart(activityId));
+        dashboard.setRecentRecords(queryCachedCheckInRecordPage(activityId, 1, 10).getRecords());
+        return Result.ok(dashboard);
     }
 
     @Override
@@ -1274,9 +1362,11 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
             return;
         }
         Map<Long, ActivityUserStateCache> userStateMap = Collections.emptyMap();
+        Set<Long> favoriteIds = Collections.emptySet();
         if (user != null) {
             List<Long> activityIds = activities.stream().map(Activity::getId).collect(Collectors.toList());
             userStateMap = queryActivityUserStateCache(activityIds, user.getId());
+            favoriteIds = queryActivityFavoriteIds(activityIds, user.getId());
         }
         LocalDateTime now = LocalDateTime.now();
         for (Activity activity : activities) {
@@ -1306,9 +1396,23 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
             activity.setVoucherStatus(userState == null ? null : userState.getVoucherStatus());
             activity.setVoucherIssuedTime(userState == null ? null : userState.getVoucherIssuedTime());
             activity.setVoucherCheckedInTime(userState == null ? null : userState.getVoucherCheckedInTime());
+            activity.setFavorited(favoriteIds.contains(activity.getId()));
             activity.setCheckInCode(null);
             activity.setCheckInCodeExpireTime(null);
         }
+    }
+
+    private Set<Long> queryActivityFavoriteIds(List<Long> activityIds, Long userId) {
+        if (activityIds == null || activityIds.isEmpty() || userId == null) {
+            return Collections.emptySet();
+        }
+        return activityFavoriteMapper.selectList(new QueryWrapper<ActivityFavorite>()
+                        .select("activity_id")
+                        .eq("user_id", userId)
+                        .in("activity_id", activityIds))
+                .stream()
+                .map(ActivityFavorite::getActivityId)
+                .collect(Collectors.toSet());
     }
 
     private void enrichRegistrationActivities(List<ActivityRegistration> registrations) {
@@ -1474,6 +1578,72 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         long uncheckedCount = Math.max(registeredCount - checkedInCount, 0);
         double checkInRate = registeredCount == 0 ? 0D : (checkedInCount * 100D / registeredCount);
         return new ActivityCheckInStatsDTO(registeredCount, checkedInCount, uncheckedCount, checkInRate);
+    }
+
+    private ActivityCheckInSummaryDTO buildCheckInSummary(Activity activity) {
+        ActivityCheckInSummaryDTO summary = new ActivityCheckInSummaryDTO();
+        summary.setActivityId(activity.getId());
+        summary.setTitle(activity.getTitle());
+        summary.setOrganizerName(activity.getOrganizerName());
+        summary.setLocation(activity.getLocation());
+        summary.setStatus(activity.getStatus());
+        summary.setRegisteredCount(activity.getRegisteredCount());
+        summary.setMaxParticipants(activity.getMaxParticipants());
+        summary.setRegistrationStartTime(activity.getRegistrationStartTime());
+        summary.setRegistrationEndTime(activity.getRegistrationEndTime());
+        summary.setEventStartTime(activity.getEventStartTime());
+        summary.setEventEndTime(activity.getEventEndTime());
+        return summary;
+    }
+
+    private List<ActivityTrendPointDTO> buildCheckInStatusChart(ActivityCheckInStatsDTO stats) {
+        List<ActivityTrendPointDTO> chart = new ArrayList<>(2);
+        chart.add(new ActivityTrendPointDTO("已签到", stats == null ? 0L : defaultLong(stats.getCheckedInCount())));
+        chart.add(new ActivityTrendPointDTO("未签到", stats == null ? 0L : defaultLong(stats.getUncheckedCount())));
+        return chart;
+    }
+
+    private List<ActivityTrendPointDTO> buildRegistrationTrendChart(Long activityId) {
+        List<ActivityRegistration> registrations = activityRegistrationMapper.selectList(new QueryWrapper<ActivityRegistration>()
+                .select("create_time")
+                .eq("activity_id", activityId)
+                .eq("status", REGISTRATION_SUCCESS)
+                .orderByAsc("create_time"));
+        Map<String, Long> grouped = new LinkedHashMap<>();
+        for (ActivityRegistration registration : registrations) {
+            if (registration.getCreateTime() == null) {
+                continue;
+            }
+            String label = registration.getCreateTime().format(REGISTRATION_TREND_LABEL_FORMATTER);
+            grouped.merge(label, 1L, Long::sum);
+        }
+        return grouped.entrySet().stream()
+                .map(entry -> new ActivityTrendPointDTO(entry.getKey(), entry.getValue()))
+                .collect(Collectors.toList());
+    }
+
+    private List<ActivityTrendPointDTO> buildCheckInTrendChart(Long activityId) {
+        List<ActivityCheckInRecord> records = activityCheckInRecordMapper.selectList(new QueryWrapper<ActivityCheckInRecord>()
+                .select("create_time")
+                .eq("activity_id", activityId)
+                .eq("result_status", CHECK_IN_RESULT_SUCCESS)
+                .orderByAsc("create_time"));
+        Map<String, Long> grouped = new LinkedHashMap<>();
+        for (ActivityCheckInRecord record : records) {
+            if (record.getCreateTime() == null) {
+                continue;
+            }
+            String label = record.getCreateTime().withMinute(0).withSecond(0).withNano(0)
+                    .format(CHECK_IN_TREND_LABEL_FORMATTER);
+            grouped.merge(label, 1L, Long::sum);
+        }
+        return grouped.entrySet().stream()
+                .map(entry -> new ActivityTrendPointDTO(entry.getKey(), entry.getValue()))
+                .collect(Collectors.toList());
+    }
+
+    private long defaultLong(Long value) {
+        return value == null ? 0L : value;
     }
 
     private CachedCheckInRecordPage queryCachedCheckInRecordPage(Long activityId, Integer current, Integer pageSize) {
@@ -2874,12 +3044,38 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         return REGISTRATION_MODE_FIRST_COME_FIRST_SERVED.equals(resolveRegistrationMode(activity));
     }
 
+    private boolean matchesFavoriteKeyword(Activity activity, String keyword) {
+        if (activity == null || StrUtil.isBlank(keyword)) {
+            return true;
+        }
+        String normalizedKeyword = StrUtil.trim(keyword).toLowerCase();
+        return StrUtil.containsIgnoreCase(activity.getTitle(), normalizedKeyword)
+                || StrUtil.containsIgnoreCase(activity.getSummary(), normalizedKeyword)
+                || StrUtil.containsIgnoreCase(activity.getContent(), normalizedKeyword)
+                || StrUtil.containsIgnoreCase(activity.getActivityFlow(), normalizedKeyword)
+                || StrUtil.containsIgnoreCase(activity.getFaq(), normalizedKeyword)
+                || StrUtil.containsIgnoreCase(activity.getCategory(), normalizedKeyword)
+                || StrUtil.containsIgnoreCase(activity.getCustomCategory(), normalizedKeyword)
+                || StrUtil.containsIgnoreCase(activity.getOrganizerName(), normalizedKeyword)
+                || StrUtil.containsIgnoreCase(activity.getLocation(), normalizedKeyword);
+    }
+
     private Long parseLongValue(Object value) {
         if (value == null) {
             return null;
         }
         String text = value.toString();
         return StrUtil.isBlank(text) ? null : Long.valueOf(text);
+    }
+
+    private Result validateManagedActivityPermission(Long activityId, String forbiddenMessage) {
+        Activity activity = getById(activityId);
+        if (activity == null) {
+            return Result.fail("活动不存在");
+        }
+        return Objects.equals(activity.getCreatorId(), UserHolder.getUser().getId())
+                ? null
+                : Result.fail(forbiddenMessage);
     }
 
     private LocalDateTime parseDateTimeValue(Object value) {
@@ -3014,6 +3210,12 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         }
         if (StrUtil.length(StrUtil.trim(activity.getContactInfo())) > 255) {
             return "主办方联系方式长度不能超过255个字符";
+        }
+        if (StrUtil.length(StrUtil.trim(activity.getActivityFlow())) > 5000) {
+            return "活动流程长度不能超过5000个字符";
+        }
+        if (StrUtil.length(StrUtil.trim(activity.getFaq())) > 5000) {
+            return "常见问题长度不能超过5000个字符";
         }
         if (StrUtil.isBlank(activity.getImages()) && StrUtil.isBlank(activity.getCoverImage())) {
             return "请至少上传一张活动图片";

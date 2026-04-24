@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS `tb_activity` (
   `images` varchar(4096) DEFAULT NULL,
   `summary` varchar(512) DEFAULT NULL,
   `content` text,
+  `activity_flow` text COMMENT '活动流程',
+  `faq` text COMMENT '常见问题',
   `category` varchar(64) NOT NULL,
   `custom_category` varchar(64) DEFAULT NULL COMMENT '自定义活动类型，仅 category=其他 时使用',
   `registration_mode` varchar(64) NOT NULL DEFAULT 'AUDIT_REQUIRED' COMMENT '报名模式：AUDIT_REQUIRED/FIRST_COME_FIRST_SERVED',
@@ -90,6 +92,17 @@ CREATE TABLE IF NOT EXISTS `tb_activity_check_in_record` (
   KEY `idx_check_in_record_activity` (`activity_id`),
   KEY `idx_check_in_record_voucher` (`voucher_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `tb_activity_favorite` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `activity_id` bigint unsigned NOT NULL,
+  `user_id` bigint unsigned NOT NULL,
+  `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_activity_favorite_user_activity` (`user_id`,`activity_id`),
+  KEY `idx_activity_favorite_activity` (`activity_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='活动收藏表';
 
 CREATE TABLE IF NOT EXISTS `tb_sign` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,

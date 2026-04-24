@@ -529,14 +529,22 @@
       box-shadow: 0 -8px 24px rgba(32,94,156,.08);
     }
     .bottom-like {
+      border: none;
+      background: transparent;
+      padding: 0;
       color: var(--muted);
       font-size: 11px;
       text-align: center;
+      cursor: pointer;
     }
     .bottom-like i {
       display: block;
       font-size: 21px;
       margin-bottom: 3px;
+    }
+    .bottom-like.favorited,
+    .bottom-like.favorited i {
+      color: #f4b400;
     }
     .bottom-action .el-button {
       width: 100%;
@@ -583,6 +591,7 @@
       font-size:13px;
       font-weight:800;
       position:relative;
+      cursor: pointer;
     }
     .detail-tab.active { color:#102a43; }
     .detail-tab.active:after {
@@ -663,16 +672,16 @@
     </div>
 
     <div class="detail-tabs">
-      <div class="detail-tab active">活动详情</div>
-      <div class="detail-tab">活动流程</div>
-      <div class="detail-tab">常见问题</div>
+      <div :class="['detail-tab', {active: activeDetailTab === 'detail'}]" @click="activeDetailTab = 'detail'">活动详情</div>
+      <div :class="['detail-tab', {active: activeDetailTab === 'flow'}]" @click="activeDetailTab = 'flow'">活动流程</div>
+      <div :class="['detail-tab', {active: activeDetailTab === 'faq'}]" @click="activeDetailTab = 'faq'">常见问题</div>
     </div>
 
     <div class="shell">
       <div>
         <div class="card">
-          <div class="section-title">活动详情</div>
-          <div class="detail-text">{{activity.content || '主办方暂未补充详细说明。'}}</div>
+          <div class="section-title">{{activeDetailTabTitle}}</div>
+          <div class="detail-text">{{activeDetailContent}}</div>
         </div>
       </div>
 
@@ -707,52 +716,7 @@
           </div>
         </div>
 
-        <div class="card" v-if="activity.canManage">
-          <div class="section-title">签到凭证核销</div>
-          <div class="metric-grid">
-            <div class="metric-item">
-              <div class="metric-label">报名人数</div>
-              <div class="metric-value large">{{checkInStats.registeredCount || 0}}</div>
-            </div>
-            <div class="metric-item">
-              <div class="metric-label">已签到人数</div>
-              <div class="metric-value large">{{checkInStats.checkedInCount || 0}}</div>
-            </div>
-            <div class="metric-item">
-              <div class="metric-label">未签到人数</div>
-              <div class="metric-value large">{{checkInStats.uncheckedCount || 0}}</div>
-            </div>
-            <div class="metric-item">
-              <div class="metric-label">签到率</div>
-              <div class="metric-value large">{{formatRate(checkInStats.checkInRate)}}%</div>
-            </div>
-          </div>
-
-          <div class="verify-box">
-            <div class="box-title">凭证核销</div>
-            <div class="box-desc">输入签到凭证号或展示码，现场完成核销。只有活动主办方能看到这个区域。</div>
-            <el-input v-model.trim="verifyForm.displayCode" placeholder="请输入签到展示码，例如 A8F3K2M7"></el-input>
-            <div class="actions">
-              <el-button type="primary" :loading="verifying" @click="verifyVoucher">核销签到</el-button>
-            </div>
-
-            <div class="verify-result" v-if="verifyResult">
-              <div class="verify-line"><strong>核销结果：</strong>{{verifyResult.message || verifyResult.resultStatus || '已处理'}}</div>
-              <div class="verify-line" v-if="verifyResult.displayCode"><strong>凭证号：</strong>{{verifyResult.displayCode}}</div>
-              <div class="verify-line" v-if="verifyResult.userNickName"><strong>签到用户：</strong>{{verifyResult.userNickName}}</div>
-              <div class="verify-line" v-if="verifyResult.checkedInTime"><strong>签到时间：</strong>{{formatTime(verifyResult.checkedInTime)}}</div>
-            </div>
-          </div>
-
-          <div class="record-list" v-if="checkInRecords.length">
-            <div class="record-item" v-for="(item, index) in checkInRecords" :key="item.id || index">
-              <div class="record-title">{{readRecordTitle(item)}}</div>
-              <div class="record-meta">{{readRecordMeta(item)}}</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card" v-else-if="!isAdminPreview && activity.registered">
+        <div class="card" v-if="!isAdminPreview && activity.registered">
           <div class="section-title">我的签到凭证</div>
           <div class="voucher-box">
             <div :class="['status-chip', voucherStatusClass(activity.voucherStatus)]">{{voucherStatusText(activity.voucherStatus)}}</div>
@@ -783,10 +747,13 @@
         </div>
       </div>
     </div>
-    <div class="bottom-action" v-if="!isAdminPreview && !activity.canManage && !activity.registered && !isOrganizerUser">
-      <div class="bottom-like"><i class="el-icon-star-off"></i>收藏</div>
+    <div class="bottom-action" v-if="!isAdminPreview && !activity.canManage && !isOrganizerUser">
+      <button type="button" :class="['bottom-like', {favorited: activity.favorited}]" @click="toggleFavorite" :disabled="favoriteSubmitting">
+        <i :class="activity.favorited ? 'el-icon-star-on' : 'el-icon-star-off'"></i>{{activity.favorited ? '已收藏' : '收藏'}}
+      </button>
       <el-button plain @click="goMy">分享</el-button>
-      <el-button class="primary-cta" type="primary" :disabled="registerButtonDisabled" :loading="registerSubmitting" @click="registerActivity">{{registerButtonText}}</el-button>
+      <el-button v-if="!activity.registered" class="primary-cta" type="primary" :disabled="registerButtonDisabled" :loading="registerSubmitting" @click="registerActivity">{{registerButtonText}}</el-button>
+      <el-button v-else class="primary-cta" type="primary" plain @click="goMy">查看我的报名</el-button>
     </div>
   </template>
 
@@ -807,23 +774,12 @@
       user: window.auth.getUser() || {},
       defaultCover: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=1200&q=80',
       currentImage: '',
-      verifyForm: {
-        displayCode: ''
-      },
-      verifying: false,
-      verifyResult: null,
+      activeDetailTab: 'detail',
+      favoriteSubmitting: false,
       registerSubmitting: false,
       registrationSocket: null,
       registrationHeartbeatTimer: null,
-      registrationReconnectTimer: null,
-      checkInStats: {
-        registeredCount: 0,
-        checkedInCount: 0,
-        uncheckedCount: 0,
-        checkInRate: 0
-      },
-      registrations: [],
-      checkInRecords: []
+      registrationReconnectTimer: null
     },
     computed: {
       activityImages() {
@@ -895,6 +851,20 @@
       },
       registrationModeText() {
         return this.activity.registrationMode === 'FIRST_COME_FIRST_SERVED' ? '先到先得' : '审核制';
+      },
+      activeDetailTabTitle() {
+        if (this.activeDetailTab === 'flow') return '活动流程';
+        if (this.activeDetailTab === 'faq') return '常见问题';
+        return '活动详情';
+      },
+      activeDetailContent() {
+        if (this.activeDetailTab === 'flow') {
+          return this.activity.activityFlow || '主办方暂未补充活动流程。';
+        }
+        if (this.activeDetailTab === 'faq') {
+          return this.activity.faq || '主办方暂未补充常见问题。';
+        }
+        return this.activity.content || '主办方暂未补充详细说明。';
       }
     },
     created() {
@@ -928,13 +898,25 @@
           .then(({data}) => {
             this.activity = data || {};
             this.currentImage = this.activityImages[0] || '';
-            if (this.activity.canManage) {
-              this.refreshManagePanel();
-            } else if (this.user && this.user.id && !this.isPlatformAdmin) {
+            if (this.user && this.user.id && !this.isPlatformAdmin && !this.activity.canManage) {
               this.queryRegistrationStatus(true);
             }
           })
           .catch(err => this.$message.error(err));
+      },
+      toggleFavorite() {
+        if (!this.activity.id || this.favoriteSubmitting) return;
+        this.favoriteSubmitting = true;
+        const request = this.activity.favorited
+          ? axios.delete('/activity/' + this.activity.id + '/favorite')
+          : axios.post('/activity/' + this.activity.id + '/favorite');
+        request.then(() => {
+          this.activity.favorited = !this.activity.favorited;
+          this.$message.success(this.activity.favorited ? '收藏成功' : '已取消收藏');
+        }).catch(err => this.$message.error(err))
+          .finally(() => {
+            this.favoriteSubmitting = false;
+          });
       },
       queryRegistrationStatus(silent) {
         if (!this.activity.id || !this.user || !this.user.id || this.activity.canManage) return;
@@ -1061,36 +1043,13 @@
           onMessage: message => {
             if (!message || !message.payload) return;
             window.notifyToast(message.payload.title, 'info');
-            if (this.activity && this.activity.canManage && Number(message.payload.bizId) === Number(this.activity.id)) {
-              this.refreshManagePanel();
-              if (message.payload.type === 'REGISTRATION_REVIEW_PENDING'
-                  || message.payload.type === 'REGISTRATION_CANCEL_REVIEW_PENDING') {
-                window.notifyToast('请到个人主页处理待审核请求', 'info');
-              }
+            if (this.activity && this.activity.canManage
+                && (message.payload.type === 'REGISTRATION_REVIEW_PENDING'
+                || message.payload.type === 'REGISTRATION_CANCEL_REVIEW_PENDING')) {
+              window.notifyToast('请到个人主页处理待审核请求', 'info');
             }
           }
         });
-      },
-      refreshManagePanel() {
-        if (!this.activity.id || !this.activity.canManage) return;
-        axios.get('/activity/manage/' + this.activity.id + '/check-in/stats')
-          .then(({data}) => this.checkInStats = data || this.checkInStats)
-          .catch(() => {
-            this.checkInStats = {
-              registeredCount: 0,
-              checkedInCount: 0,
-              uncheckedCount: 0,
-              checkInRate: 0
-            };
-          });
-        axios.get('/activity/manage/' + this.activity.id + '/registrations')
-          .then(({data}) => {
-            this.registrations = data || [];
-          })
-          .catch(() => this.registrations = []);
-        axios.get('/activity/manage/' + this.activity.id + '/check-in/records')
-          .then(({data}) => this.checkInRecords = data || [])
-          .catch(() => this.checkInRecords = []);
       },
       registerActivity() {
         this.registerSubmitting = true;
@@ -1138,48 +1097,6 @@
           }).catch(err => this.$message.error(err));
         }).catch(() => {});
       },
-      registrationStatusTextForManage(status) {
-        if (status === 0) return '报名待审核';
-        if (status === 1) return '报名通过';
-        if (status === 2) return '报名驳回';
-        if (status === 3) return '已退出';
-        if (status === 4) return '退出待审核';
-        return '未知状态';
-      },
-      verifyVoucher() {
-        if (!this.verifyForm.displayCode) {
-          this.$message.error('请输入签到展示码');
-          return;
-        }
-        this.verifying = true;
-        const requestKey = 'checkin-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
-        axios.post('/activity/manage/' + this.activity.id + '/check-in/verify', {
-          displayCode: this.verifyForm.displayCode
-        }, {
-          headers: {
-            'Idempotency-Key': requestKey
-          }
-        }).then(({data}) => {
-          this.verifyResult = data || {};
-          this.$message.success(this.verifyResult.message || '核销已处理');
-          this.verifyForm.displayCode = '';
-          this.queryDetail();
-        }).catch(err => this.$message.error(err))
-          .finally(() => this.verifying = false);
-      },
-      readRecordTitle(item) {
-        if (!item || !item.responseBody) return '核销记录';
-        try {
-          const data = JSON.parse(item.responseBody);
-          return (data.userNickName || '未知用户') + ' 已签到';
-        } catch (e) {
-          return '核销记录';
-        }
-      },
-      readRecordMeta(item) {
-        if (!item) return '';
-        return '签到时间：' + this.formatTime(item.createTime);
-      },
       voucherStatusText(status) {
         if (status === 'CHECKED_IN') return '已签到';
         if (status === 'CANCELED') return '已取消';
@@ -1199,12 +1116,7 @@
         location.href = roleCodes.includes('PLATFORM_ADMIN') ? '/admin-dashboard.html' : '/info.html';
       },
       goBack() {
-        const returnUrl = util.getUrlParam('returnUrl');
-        if (returnUrl) {
-          location.href = decodeURIComponent(returnUrl);
-          return;
-        }
-        location.href = '/index.html';
+        util.goBack('/index.html');
       },
       displayCategory(item) {
         if (!item) return '未分类';
@@ -1215,10 +1127,6 @@
       },
       formatTime(value) {
         return value ? value.replace('T', ' ') : '待定';
-      },
-      formatRate(value) {
-        if (value === null || value === undefined || value === '') return '0.0';
-        return Number(value).toFixed(1);
       }
     }
   })

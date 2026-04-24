@@ -910,7 +910,8 @@
   <div class="app-bottom-spacer"></div>
   <nav class="campus-tabbar">
     <a class="campus-tab-item active" href="/index.html"><i class="el-icon-s-home"></i>首页</a>
-    <a class="campus-tab-item" href="/index.html"><i class="el-icon-discover"></i>发现</a>
+    <a v-if="canManageActivities" class="campus-tab-item" href="/organizer-dashboard.html"><i class="el-icon-data-analysis"></i>数据看板</a>
+    <a v-else class="campus-tab-item" href="/index.html"><i class="el-icon-discover"></i>发现</a>
     <a class="campus-tab-item" href="/activity-manage.html"><span class="campus-tab-plus">+</span>发布</a>
     <a class="campus-tab-item" href="/notification.html">
       <span class="campus-tab-icon">
@@ -961,12 +962,26 @@
     },
     mounted() {
       this.handleScroll = this.onWindowScroll.bind(this);
+      this.handlePopState = this.onPopState.bind(this);
+      history.replaceState({ campusHomeRoot: true }, '', location.pathname + location.search);
+      history.pushState({ campusHomeSentinel: true }, '', location.pathname + location.search);
       window.addEventListener('scroll', this.handleScroll, { passive: true });
+      window.addEventListener('popstate', this.handlePopState);
       this.$nextTick(() => this.tryAutoLoadMore());
     },
     beforeDestroy() {
       if (this.handleScroll) {
         window.removeEventListener('scroll', this.handleScroll);
+      }
+      if (this.handlePopState) {
+        window.removeEventListener('popstate', this.handlePopState);
+      }
+    },
+    computed: {
+      canManageActivities() {
+        const permissions = (this.user && this.user.permissions) || [];
+        const roleCodes = (this.user && this.user.roleCodes) || [];
+        return permissions.includes('activity:create') && !roleCodes.includes('PLATFORM_ADMIN');
       }
     },
     methods: {
@@ -1052,6 +1067,9 @@
           this.loadMore();
         }
       },
+      onPopState() {
+        history.pushState({ campusHomeSentinel: true }, '', location.pathname + location.search);
+      },
       openDetail(id) {
         location.href = '/activity-detail.html?id=' + id + '&returnUrl=' + encodeURIComponent(location.pathname + location.search);
       },
@@ -1070,7 +1088,7 @@
           location.href = '/login.html';
           return;
         }
-        location.href = '/notification.html';
+        location.href = '/notification.html?returnUrl=' + encodeURIComponent(location.pathname + location.search);
       },
       initNotifications() {
         if (!window.auth.getToken()) return;

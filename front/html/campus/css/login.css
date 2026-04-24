@@ -82,6 +82,89 @@ body {
   box-shadow: 0 10px 22px rgba(35, 136, 255, .18);
 }
 
+.btn-block.el-button--primary {
+  border: 0;
+  background: linear-gradient(135deg, #2388ff, #1769e0);
+  color: #fff;
+}
+
+.btn-block.el-button--primary:hover,
+.btn-block.el-button--primary:focus {
+  background: linear-gradient(135deg, #1f7ceb, #155fca);
+  color: #fff;
+}
+
+.login-text-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 0;
+  background: linear-gradient(135deg, #34c58a, #119d68);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+  text-decoration: none;
+  box-sizing: border-box;
+  transition: background .2s ease, color .2s ease, transform .2s ease, box-shadow .2s ease;
+  appearance: none;
+  outline: none;
+  box-shadow: 0 10px 22px rgba(17, 157, 104, .18);
+}
+
+.login-text-link:hover {
+  background: linear-gradient(135deg, #2db17c, #0f8759);
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 14px 26px rgba(17, 157, 104, .24);
+}
+
+.login-link-row {
+  margin: 12px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.login-link-row.left {
+  justify-content: flex-start;
+}
+
+.login-link-row.split {
+  justify-content: flex-end;
+}
+
+.login-link-row.split .login-text-link {
+  min-width: 74px;
+}
+
+.login-link-row.single-switch {
+  display: block;
+}
+
+.login-text-link--switch {
+  background: linear-gradient(135deg, #34c58a, #119d68);
+}
+
+.login-text-link--subtle {
+  background: linear-gradient(135deg, #34c58a, #119d68);
+  box-shadow: 0 10px 22px rgba(17, 157, 104, .18);
+}
+
+.login-text-link:focus {
+  box-shadow: 0 0 0 3px rgba(17, 157, 104, .14);
+}
+
+.login-link-row--bottom-right {
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
 .login-radio {
   margin-top: 12px;
   display: flex;
@@ -134,5 +217,10 @@ input[type="radio"] {
 
   .login-form {
     padding: 12px;
+  }
+
+  .login-link-row.split {
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 }

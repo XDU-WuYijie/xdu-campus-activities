@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>签到管理</title>
+  <link rel="stylesheet" href="css/element.css">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    body {
+      background:#f4f7fb;
+      font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+      color:#102a43;
+    }
+    .page { min-height:100vh; padding:12px 12px 28px; box-sizing:border-box; }
+    .topbar { display:grid; grid-template-columns:44px minmax(0,1fr) 44px; align-items:center; gap:8px; margin-bottom:12px; }
+    .top-title { text-align:center; font-size:16px; font-weight:900; color:#102a43; }
+    .back-btn, .ghost-btn { width:36px; height:36px; border:none; border-radius:12px; background:#fff; color:#425466; box-shadow:0 8px 18px rgba(31,78,121,.08); }
+    .panel { background:#fff; border-radius:16px; padding:14px; box-shadow:0 10px 24px rgba(32,94,156,.08); border:1px solid #eaf0f7; margin-bottom:12px; }
+    .hero-title { font-size:18px; line-height:1.4; font-weight:900; color:#102a43; margin-bottom:8px; }
+    .hero-meta { color:#617188; font-size:12px; line-height:1.7; }
+    .hero-actions { display:flex; gap:8px; margin-top:12px; }
+    .hero-actions .el-button { flex:1; border-radius:12px; }
+    .metric-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .metric-card { border-radius:14px; background:linear-gradient(180deg,#f8fbff 0%,#eef6ff 100%); padding:12px; border:1px solid #e2edf8; }
+    .metric-label { color:#7d8da3; font-size:12px; font-weight:700; margin-bottom:8px; }
+    .metric-value { color:#102a43; font-size:24px; font-weight:900; line-height:1; }
+    .metric-sub { color:#5b7088; font-size:11px; margin-top:8px; }
+    .section-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }
+    .section-title { color:#102a43; font-size:15px; font-weight:900; }
+    .section-desc { color:#7d8da3; font-size:12px; }
+    .chart-box { height:240px; border-radius:14px; background:#fbfdff; border:1px solid #edf2f8; }
+    .chart-empty { height:240px; display:flex; align-items:center; justify-content:center; color:#8a9bb0; font-size:12px; }
+    .chart-legend { display:flex; gap:14px; flex-wrap:wrap; margin:10px 0 0; }
+    .legend-item { display:flex; align-items:center; gap:6px; color:#5b7088; font-size:12px; font-weight:700; }
+    .legend-dot { width:10px; height:10px; border-radius:50%; }
+    .verify-input { margin-bottom:10px; }
+    .verify-result { margin-top:12px; padding:12px; border-radius:14px; background:#f7fbff; border:1px solid #e4eef8; }
+    .verify-line { color:#425466; font-size:12px; line-height:1.8; }
+    .record-item { padding:10px 0; border-bottom:1px solid #edf2f7; }
+    .record-item:last-child { border-bottom:none; padding-bottom:0; }
+    .record-title { color:#102a43; font-size:13px; font-weight:800; margin-bottom:4px; }
+    .record-meta { color:#6b7c93; font-size:12px; line-height:1.7; }
+    .empty { text-align:center; color:#8a9bb0; padding:26px 0 12px; font-size:12px; }
+  </style>
+</head>
+<body>
+<div id="app" class="page campus-mobile">
+  <div class="campus-status">9:41</div>
+  <div class="topbar">
+    <button class="back-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
+    <div class="top-title">签到管理</div>
+    <button class="ghost-btn" @click="goDetail"><i class="el-icon-view"></i></button>
+  </div>
+
+  <div v-if="dashboard.activitySummary">
+    <section class="panel">
+      <div class="hero-title">{{dashboard.activitySummary.title || '活动签到管理'}}</div>
+      <div class="hero-meta">活动时间：{{formatTime(dashboard.activitySummary.eventStartTime)}} - {{formatTime(dashboard.activitySummary.eventEndTime)}}</div>
+      <div class="hero-meta">活动地点：{{dashboard.activitySummary.location || '待定'}}　报名人数：{{stats.registeredCount || 0}} / {{dashboard.activitySummary.maxParticipants || 0}}</div>
+      <div class="hero-meta">报名时间：{{formatTime(dashboard.activitySummary.registrationStartTime)}} - {{formatTime(dashboard.activitySummary.registrationEndTime)}}</div>
+      <div class="hero-actions">
+        <el-button type="primary" @click="queryDashboard">刷新数据</el-button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <div class="section-title">签到情况</div>
+        <div class="section-desc">文字统计 + 图表概览</div>
+      </div>
+      <div class="metric-grid">
+        <div class="metric-card">
+          <div class="metric-label">报名人数</div>
+          <div class="metric-value">{{stats.registeredCount || 0}}</div>
+          <div class="metric-sub">当前活动成功报名总人数</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">已签到人数</div>
+          <div class="metric-value">{{stats.checkedInCount || 0}}</div>
+          <div class="metric-sub">已完成现场核销</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">未签到人数</div>
+          <div class="metric-value">{{stats.uncheckedCount || 0}}</div>
+          <div class="metric-sub">尚未完成签到核销</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">签到率</div>
+          <div class="metric-value">{{formatRate(stats.checkInRate)}}%</div>
+          <div class="metric-sub">签到完成度文字统计</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <div class="section-title">签到占比</div>
+        <div class="section-desc">颜色说明</div>
+      </div>
+      <div ref="statusChart" class="chart-box"></div>
+      <div class="chart-legend">
+        <div class="legend-item"><span class="legend-dot" style="background:#0aa36d;"></span>绿色表示已签到</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#ff9f43;"></span>橙色表示未签到</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <div class="section-title">报名趋势</div>
+        <div class="section-desc">按天统计成功报名</div>
+      </div>
+      <div ref="registrationTrendChart" class="chart-box"></div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <div class="section-title">签到趋势</div>
+        <div class="section-desc">按小时统计成功签到</div>
+      </div>
+      <div ref="checkInTrendChart" class="chart-box"></div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <div class="section-title">签到核销</div>
+        <div class="section-desc">输入展示码完成现场核销</div>
+      </div>
+      <el-input class="verify-input" v-model.trim="verifyForm.displayCode" placeholder="请输入签到展示码，例如 A8F3K2M7"></el-input>
+      <el-button type="primary" :loading="verifying" style="width:100%;border-radius:12px;" @click="verifyCheckIn">核销签到</el-button>
+      <div class="verify-result" v-if="verifyResult">
+        <div class="verify-line"><strong>核销结果：</strong>{{verifyResult.message || verifyResult.resultStatus || '已处理'}}</div>
+        <div class="verify-line" v-if="verifyResult.displayCode"><strong>凭证号：</strong>{{verifyResult.displayCode}}</div>
+        <div class="verify-line" v-if="verifyResult.userNickName"><strong>签到用户：</strong>{{verifyResult.userNickName}}</div>
+        <div class="verify-line" v-if="verifyResult.checkedInTime"><strong>签到时间：</strong>{{formatTime(verifyResult.checkedInTime)}}</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <div class="section-title">最近核销记录</div>
+        <div class="section-desc">最近 10 条成功核销</div>
+      </div>
+      <div v-if="recentRecords.length">
+        <div class="record-item" v-for="item in recentRecords" :key="item.id">
+          <div class="record-title">{{readRecordTitle(item)}}</div>
+          <div class="record-meta">{{readRecordMeta(item)}}</div>
+        </div>
+      </div>
+      <div v-else class="empty">暂无签到记录。</div>
+    </section>
+  </div>
+
+  <section v-else class="panel">
+    <div class="empty">签到管理数据加载中...</div>
+  </section>
+</div>
+
+<script src="js/vue.js"></script>
+<script src="js/axios.min.js"></script>
+<script src="js/element.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script src="js/common.js"></script>
+<script>
+  new Vue({
+    el: '#app',
+    data: {
+      user: window.auth.getUser() || {},
+      dashboard: {},
+      verifyForm: {
+        displayCode: ''
+      },
+      verifyResult: null,
+      verifying: false,
+      charts: {
+        status: null,
+        registration: null,
+        checkin: null
+      },
+      resizeHandler: null
+    },
+    computed: {
+      stats() {
+        return this.dashboard.stats || {
+          registeredCount: 0,
+          checkedInCount: 0,
+          uncheckedCount: 0,
+          checkInRate: 0
+        };
+      },
+      recentRecords() {
+        return this.dashboard.recentRecords || [];
+      }
+    },
+    created() {
+      this.queryUser();
+    },
+    mounted() {
+      this.resizeHandler = this.resizeCharts.bind(this);
+      window.addEventListener('resize', this.resizeHandler);
+    },
+    beforeDestroy() {
+      window.removeEventListener('resize', this.resizeHandler);
+      this.disposeCharts();
+    },
+    methods: {
+      queryUser() {
+        axios.get('/user/me')
+          .then(({data}) => {
+            this.user = data || {};
+            window.auth.setUser(this.user);
+            const permissions = (this.user && this.user.permissions) || [];
+            if (!permissions.includes('activity:create')) {
+              this.$message.error('无权查看签到管理');
+              this.goBack();
+              return;
+            }
+            this.queryDashboard();
+          })
+          .catch(() => location.href = '/login.html');
+      },
+      queryDashboard() {
+        axios.get('/activity/manage/' + this.activityId() + '/check-in/dashboard')
+          .then(({data}) => {
+            this.dashboard = data || {};
+            this.$nextTick(() => this.renderCharts());
+          })
+          .catch(err => this.$message.error(err));
+      },
+      verifyCheckIn() {
+        if (!this.verifyForm.displayCode) {
+          this.$message.error('请输入签到展示码');
+          return;
+        }
+        this.verifying = true;
+        const requestKey = 'checkin-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+        axios.post('/activity/manage/' + this.activityId() + '/check-in/verify', {
+          displayCode: this.verifyForm.displayCode
+        }, {
+          headers: {
+            'Idempotency-Key': requestKey
+          }
+        }).then(({data}) => {
+          this.verifyResult = data || {};
+          this.verifyForm.displayCode = '';
+          this.$message.success(this.verifyResult.message || '核销已处理');
+          this.queryDashboard();
+        }).catch(err => this.$message.error(err))
+          .finally(() => this.verifying = false);
+      },
+      renderCharts() {
+        if (!window.echarts) {
+          this.renderChartFallback(this.$refs.statusChart, '图表库未加载');
+          this.renderChartFallback(this.$refs.registrationTrendChart, '图表库未加载');
+          this.renderChartFallback(this.$refs.checkInTrendChart, '图表库未加载');
+          return;
+        }
+        this.renderStatusChart();
+        this.renderLineChart('registration', this.$refs.registrationTrendChart, this.dashboard.registrationTrendChart || [], '#2388ff', '报名人数');
+        this.renderLineChart('checkin', this.$refs.checkInTrendChart, this.dashboard.checkInTrendChart || [], '#0aa36d', '签到人数');
+      },
+      renderStatusChart() {
+        if (!this.$refs.statusChart) return;
+        const chart = this.getChart('status', this.$refs.statusChart);
+        const data = this.dashboard.statusChart || [];
+        chart.setOption({
+          tooltip: { trigger: 'item' },
+          legend: { bottom: 8, left: 'center', icon: 'circle' },
+          color: ['#0aa36d', '#ff9f43'],
+          series: [{
+            type: 'pie',
+            radius: ['52%', '76%'],
+            center: ['50%', '46%'],
+            label: {
+              formatter: '{b}\n{c}人'
+            },
+            data: data.length ? data : [
+              { name: '已签到', value: 0 },
+              { name: '未签到', value: 0 }
+            ]
+          }]
+        });
+      },
+      renderLineChart(key, el, data, color, seriesName) {
+        if (!el) return;
+        const chart = this.getChart(key, el);
+        chart.setOption({
+          tooltip: { trigger: 'axis' },
+          grid: { left: 36, right: 18, top: 24, bottom: 40 },
+          xAxis: {
+            type: 'category',
+            boundaryGap: false,
+            axisLabel: { color: '#6b7c93', fontSize: 11 },
+            data: data.length ? data.map(item => item.label) : ['暂无数据']
+          },
+          yAxis: {
+            type: 'value',
+            minInterval: 1,
+            axisLabel: { color: '#6b7c93', fontSize: 11 },
+            splitLine: { lineStyle: { color: '#edf2f7' } }
+          },
+          series: [{
+            name: seriesName,
+            type: 'line',
+            smooth: true,
+            symbolSize: 8,
+            lineStyle: { width: 3, color: color },
+            itemStyle: { color: color },
+            areaStyle: {
+              color: color === '#2388ff' ? 'rgba(35,136,255,.12)' : 'rgba(10,163,109,.12)'
+            },
+            data: data.length ? data.map(item => item.value) : [0]
+          }]
+        });
+      },
+      getChart(key, el) {
+        if (!this.charts[key]) {
+          this.charts[key] = window.echarts.init(el);
+        }
+        return this.charts[key];
+      },
+      renderChartFallback(el, text) {
+        if (!el) return;
+        el.innerHTML = '<div class="chart-empty">' + text + '</div>';
+      },
+      resizeCharts() {
+        Object.keys(this.charts).forEach(key => {
+          if (this.charts[key]) this.charts[key].resize();
+        });
+      },
+      disposeCharts() {
+        Object.keys(this.charts).forEach(key => {
+          if (this.charts[key]) {
+            this.charts[key].dispose();
+            this.charts[key] = null;
+          }
+        });
+      },
+      readRecordTitle(item) {
+        if (!item || !item.responseBody) return '核销记录';
+        try {
+          const data = JSON.parse(item.responseBody);
+          return (data.userNickName || '未知用户') + ' 已签到';
+        } catch (e) {
+          return '核销记录';
+        }
+      },
+      readRecordMeta(item) {
+        if (!item) return '';
+        let details = '签到时间：' + this.formatTime(item.createTime);
+        if (!item.responseBody) return details;
+        try {
+          const data = JSON.parse(item.responseBody);
+          if (data.displayCode) details += '　凭证：' + data.displayCode;
+          if (data.operatorName) details += '　操作人：' + data.operatorName;
+        } catch (e) {}
+        return details;
+      },
+      activityId() {
+        return util.getUrlParam('id');
+      },
+      goDetail() {
+        location.href = '/activity-detail.html?id=' + this.activityId() + '&returnUrl=' + encodeURIComponent(location.pathname + location.search);
+      },
+      goBack() {
+        util.goBack('/info.html?view=created');
+      },
+      formatTime(value) {
+        return value ? value.replace('T', ' ') : '待定';
+      },
+      formatRate(value) {
+        if (value === null || value === undefined || value === '') return '0.0';
+        return Number(value).toFixed(1);
+      }
+    }
+  });
+</script>
+</body>
+</html>

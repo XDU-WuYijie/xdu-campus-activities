@@ -319,6 +319,42 @@
     .item-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
     .logout-fixed { margin-top: 18px; }
     .count-text { color:#7a8da6; font-size:12px; font-weight:600; margin-bottom:12px; }
+    .title-with-badge {
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      min-width:0;
+    }
+    .review-badge {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:18px;
+      height:18px;
+      padding:0 5px;
+      border-radius:999px;
+      background:#ff4d6d;
+      color:#fff;
+      font-size:10px;
+      line-height:1;
+      font-weight:900;
+      box-sizing:border-box;
+      box-shadow:0 6px 14px rgba(255,77,109,.26);
+    }
+    .icon-action-btn {
+      width:28px;
+      height:28px;
+      padding:0;
+      border-radius:50%;
+      border:1px solid rgba(240,68,95,.18);
+      background:#fff0f3;
+      color:#f0445f;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      font-size:14px;
+      box-sizing:border-box;
+    }
     .inline-search { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
     .inline-search .el-input { width: 176px; }
     .load-more { text-align:center; margin:14px 0; }
@@ -330,13 +366,6 @@
     .compact-row { display:flex; align-items:center; gap:10px; }
     .thumb { width:58px; height:58px; border-radius:8px; object-fit:cover; background:#eaf3fb; flex:none; }
     .status-badge { margin-left:auto; border-radius:999px; padding:4px 8px; font-size:11px; font-weight:800; background:#e4f9ee; color:#0aa36d; white-space:nowrap; }
-    .entry-grid { display:grid; grid-template-columns:1fr; gap:10px; margin:14px 0; }
-    .entry-card { border:0; width:100%; text-align:left; background:#fff; border-radius:12px; padding:14px; box-shadow:0 8px 22px rgba(32,94,156,.07); border:1px solid #eef3fa; cursor:pointer; display:flex; align-items:center; gap:12px; color:#102a43; }
-    .entry-icon { width:38px; height:38px; border-radius:14px; display:grid; place-items:center; color:#2388ff; background:#eaf4ff; font-size:19px; flex:none; }
-    .entry-card:nth-child(2) .entry-icon { color:#0aa36d; background:#e4f9ee; }
-    .entry-card:nth-child(3) .entry-icon { color:#ff7a28; background:#fff3e8; }
-    .entry-title { font-size:15px; font-weight:900; margin-bottom:4px; }
-    .entry-desc { font-size:12px; color:#72849c; }
     .info-bottom-spacer { height:76px; }
     .organizer-tabs .el-tabs__header { margin: 0 0 12px; }
     .organizer-tabs .el-tabs__nav-wrap:after { display:none; }
@@ -494,7 +523,7 @@
     }
     .created-actions {
       display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
+      grid-template-columns:repeat(3,minmax(0,1fr));
       gap:8px;
       margin-top:9px;
       padding-left:86px;
@@ -544,7 +573,7 @@
   <div class="stats-row">
     <div class="stat"><div class="stat-num">{{canManageActivities ? createdActivityTotal : registrationTotal}}</div><div class="stat-label">{{canManageActivities ? '发起活动' : '我报名的'}}</div></div>
     <div class="stat"><div class="stat-num">{{canManageActivities ? pendingReviewTotal : registrations.length}}</div><div class="stat-label">{{canManageActivities ? '待审核' : '我参与的'}}</div></div>
-    <div class="stat"><div class="stat-num">{{canManageActivities ? reviewHistoryTotal : 0}}</div><div class="stat-label">{{canManageActivities ? '历史活动' : '收藏活动'}}</div></div>
+    <div class="stat" @click.stop="!canManageActivities && openView('favorites')"><div class="stat-num">{{canManageActivities ? reviewHistoryTotal : favoriteTotal}}</div><div class="stat-label">{{canManageActivities ? '历史活动' : '收藏活动'}}</div></div>
     <div class="stat"><div class="stat-num">0</div><div class="stat-label">获奖记录</div></div>
   </div>
   <div class="home-section-head" v-if="!canManageActivities">
@@ -568,23 +597,137 @@
     </div>
     <div class="card" v-if="!registrations.length">还没有报名任何活动。</div>
   </div>
-  <div class="entry-grid" v-else>
-    <button class="entry-card" @click="openView('reviews')">
-      <span class="entry-icon"><i class="el-icon-warning-outline"></i></span>
-      <div class="entry-copy"><div class="entry-title">待审核请求</div><div class="entry-desc">处理报名申请和退出申请</div></div>
-      <i class="el-icon-arrow-right" style="margin-left:auto;color:#a8b5c5;"></i>
-    </button>
-    <button class="entry-card" @click="openView('created')">
-      <span class="entry-icon"><i class="el-icon-notebook-2"></i></span>
-      <div class="entry-copy"><div class="entry-title">我发起的活动</div><div class="entry-desc">管理已创建活动、编辑和查看数据</div></div>
-      <i class="el-icon-arrow-right" style="margin-left:auto;color:#a8b5c5;"></i>
-    </button>
-    <button class="entry-card" @click="openView('reviewHistory')">
-      <span class="entry-icon"><i class="el-icon-time"></i></span>
-      <div class="entry-copy"><div class="entry-title">审核历史</div><div class="entry-desc">查看和清理历史审核记录</div></div>
-      <i class="el-icon-arrow-right" style="margin-left:auto;color:#a8b5c5;"></i>
+  <div class="home-section-head" v-if="!canManageActivities">
+    <div class="home-section-title">我的收藏</div>
+    <button class="home-section-link" type="button" @click="openView('favorites')">
+      <span>全部活动</span>
+      <i class="el-icon-arrow-right"></i>
     </button>
   </div>
+  <div class="registration-preview-list" v-if="!canManageActivities">
+    <div class="registration-preview-card" v-for="item in favoriteActivities.slice(0, 3)" :key="'favorite-' + item.id" @click="viewDetail(item.id)">
+      <button class="registration-thumb-btn" type="button" @click.stop="viewDetail(item.id)">
+        <img class="registration-thumb" :src="item.coverImage || '/imgs/blogs/blog1.jpg'" alt="">
+      </button>
+      <div class="registration-copy">
+        <div class="registration-title">{{item.title}}</div>
+        <div class="registration-meta">{{formatTime(item.eventStartTime)}}</div>
+        <div class="registration-meta">{{displayCategory(item)}} · {{item.location || '待定'}}</div>
+      </div>
+      <span class="registration-status success">已收藏</span>
+    </div>
+    <div class="card" v-if="!favoriteActivities.length">还没有收藏任何活动。</div>
+  </div>
+  <template v-else>
+    <el-tabs v-model="tab" class="organizer-tabs">
+      <el-tab-pane name="created">
+        <span slot="label">我发起的活动</span>
+        <section class="created-proto">
+          <div class="created-search-row">
+            <div class="created-search">
+              <el-input size="mini" v-model="createdKeyword" clearable placeholder="搜索我发起的活动" @keyup.enter.native="refreshCreatedActivities"></el-input>
+            </div>
+            <el-button class="create-btn" size="mini" @click="refreshCreatedActivities">搜索</el-button>
+          </div>
+          <div class="created-filter-row">
+            <el-select v-model="createdSort" class="created-sort-pill" size="mini">
+              <el-option label="按创建时间排序" value="createTimeDesc"></el-option>
+              <el-option label="按活动时间排序" value="eventStartAsc"></el-option>
+              <el-option label="按报名人数排序" value="signupCountDesc"></el-option>
+              <el-option label="按更新时间排序" value="updateTimeDesc"></el-option>
+            </el-select>
+            <el-select v-model="createdStatusFilter" class="created-status-pill" size="mini" @change="applyCreatedFilter">
+              <el-option label="全部状态" value="ALL"></el-option>
+              <el-option label="审核通过" value="2"></el-option>
+              <el-option label="审核中" value="1"></el-option>
+              <el-option label="已驳回" value="3"></el-option>
+              <el-option label="已下架" value="4"></el-option>
+              <el-option label="下架审核" value="5"></el-option>
+            </el-select>
+          </div>
+          <div class="count-text">共 {{createdActivityTotal}} 条活动，当前显示 {{filteredCreatedActivities.length}} 条</div>
+          <div class="card created-activity-card" v-for="item in filteredCreatedActivities" :key="'home-created-' + item.id">
+            <div class="created-card-main">
+              <img class="created-thumb" :src="item.coverImage || '/imgs/blogs/blog1.jpg'" alt="">
+              <div class="created-card-content">
+                <div class="created-title-row">
+                  <div class="created-title">{{item.title}}</div>
+                  <span :class="['created-status', activityStatusClass(item.status)]">{{activityAuditStatusText(item.status)}}</span>
+                </div>
+                <div class="created-meta"><strong>分类：</strong>{{item.category || '未分类'}}　<strong>地点：</strong>{{item.location || '待定'}}</div>
+                <div class="created-meta"><strong>活动时间：</strong>{{formatTime(item.eventStartTime)}} - {{formatTime(item.eventEndTime)}}</div>
+                <div class="created-meta"><strong>报名人数：</strong>{{item.registeredCount || 0}} / {{item.maxParticipants || 0}}</div>
+                <div class="created-meta" v-if="item.status === 3"><strong>驳回原因：</strong>{{item.reviewRemark || '平台暂未填写驳回原因'}}</div>
+                <div class="created-meta" v-else><strong>报名时间：</strong>{{formatTime(item.registrationStartTime)}} - {{formatTime(item.registrationEndTime)}}</div>
+              </div>
+            </div>
+            <div class="created-actions">
+              <el-button size="mini" plain @click="openCheckInManager(item.id)">签到管理</el-button>
+              <el-button size="mini" plain @click="editActivity(item.id)">编辑</el-button>
+              <el-button size="mini" plain @click="viewDetail(item.id)">详情</el-button>
+            </div>
+          </div>
+          <div class="card created-empty" v-if="!filteredCreatedActivities.length">{{createdActivities.length ? '当前状态下暂无活动。' : '你还没有发起任何活动。'}}</div>
+          <div class="load-more" v-if="createdActivities.length < createdActivityTotal">
+            <el-button size="mini" plain @click="loadMoreCreatedActivities">加载更多</el-button>
+          </div>
+        </section>
+      </el-tab-pane>
+
+      <el-tab-pane name="reviews">
+        <span slot="label" class="title-with-badge">
+          <span>待审核请求</span>
+          <span v-if="pendingReviewTotal" class="review-badge">{{pendingReviewTotal > 99 ? '99+' : pendingReviewTotal}}</span>
+        </span>
+        <section>
+          <div class="count-text">共 {{pendingReviewTotal}} 条待审核请求，当前显示 {{pendingReviews.length}} 条</div>
+          <div class="card" v-for="item in pendingReviews" :key="'home-review-' + item.id">
+            <div class="item-title">{{item.activityTitle}}</div>
+            <div class="item-line">申请用户：{{item.userNickName || ('用户' + item.userId)}}</div>
+            <div class="item-line">请求类型：{{registrationReviewTypeText(item.status)}}</div>
+            <div class="item-line">提交时间：{{formatTime(item.createTime)}}</div>
+            <div class="item-line" v-if="item.failReason">状态说明：{{item.failReason}}</div>
+            <div class="item-actions" v-if="item.status === 0">
+              <el-button size="mini" type="success" @click="reviewRegistration(item, true)">通过报名</el-button>
+              <el-button size="mini" type="danger" plain @click="reviewRegistration(item, false)">驳回报名</el-button>
+              <el-button size="mini" plain @click="viewDetail(item.activityId)">查看活动</el-button>
+            </div>
+            <div class="item-actions" v-if="item.status === 4">
+              <el-button size="mini" type="success" @click="reviewCancelRegistration(item, true)">同意退出</el-button>
+              <el-button size="mini" type="danger" plain @click="reviewCancelRegistration(item, false)">拒绝退出</el-button>
+              <el-button size="mini" plain @click="viewDetail(item.activityId)">查看活动</el-button>
+            </div>
+          </div>
+          <div class="card" v-if="!pendingReviews.length">暂无待审核请求。</div>
+        </section>
+      </el-tab-pane>
+
+      <el-tab-pane name="reviewHistory">
+        <span slot="label">审核历史</span>
+        <section>
+          <div class="section-head">
+            <div class="section-title">审核历史</div>
+            <div class="item-actions">
+              <el-button class="icon-action-btn" type="danger" plain icon="el-icon-delete" circle @click="clearReviewHistory"></el-button>
+            </div>
+          </div>
+          <div class="count-text">共 {{reviewHistoryTotal}} 条审核历史，当前显示 {{reviewHistory.length}} 条</div>
+          <div class="card" v-for="item in reviewHistory" :key="'home-history-' + item.id">
+            <div class="item-title">{{item.bizTitle}}</div>
+            <div class="item-line">审核对象：{{item.targetName || ('用户' + item.targetUserId)}}</div>
+            <div class="item-line">审核类型：{{reviewBizTypeText(item.bizType)}}</div>
+            <div class="item-line">审核结果：{{reviewActionText(item.action)}}</div>
+            <div class="item-line" v-if="item.remark">备注：{{item.remark}}</div>
+            <div class="item-line">审核时间：{{formatTime(item.createdAt)}}</div>
+            <div class="item-actions">
+              <el-button size="mini" type="danger" plain @click="deleteReviewRecord(item.id)">删除</el-button>
+            </div>
+          </div>
+          <div class="card" v-if="!reviewHistory.length">暂无审核历史。</div>
+        </section>
+      </el-tab-pane>
+    </el-tabs>
+  </template>
   </template>
 
   <el-tabs v-if="currentView !== 'home'" v-model="tab" :class="{'organizer-tabs': canManageActivities}">
@@ -641,32 +784,42 @@
       </div>
     </el-tab-pane>
 
-    <el-tab-pane v-if="canManageActivities" label="待审核请求" name="reviews">
-      <div class="section-head">
-        <div class="section-title">待审核请求</div>
-      </div>
-      <div class="count-text">共 {{pendingReviewTotal}} 条待审核请求，当前显示 {{pendingReviews.length}} 条</div>
-      <div class="card" v-for="item in pendingReviews" :key="item.id">
-        <div class="item-title">{{item.activityTitle}}</div>
-        <div class="item-line">申请用户：{{item.userNickName || ('用户' + item.userId)}}</div>
-        <div class="item-line">请求类型：{{registrationReviewTypeText(item.status)}}</div>
-        <div class="item-line">提交时间：{{formatTime(item.createTime)}}</div>
-        <div class="item-line" v-if="item.failReason">状态说明：{{item.failReason}}</div>
-        <div class="item-actions" v-if="item.status === 0">
-          <el-button size="mini" type="success" @click="reviewRegistration(item, true)">通过报名</el-button>
-          <el-button size="mini" type="danger" plain @click="reviewRegistration(item, false)">驳回报名</el-button>
-          <el-button size="mini" plain @click="viewDetail(item.activityId)">查看活动</el-button>
+    <el-tab-pane v-if="!canManageActivities" label="收藏活动" name="favorites">
+      <div class="registration-proto">
+        <div class="section-head">
+          <div class="section-title">收藏活动</div>
         </div>
-        <div class="item-actions" v-if="item.status === 4">
-          <el-button size="mini" type="success" @click="reviewCancelRegistration(item, true)">同意退出</el-button>
-          <el-button size="mini" type="danger" plain @click="reviewCancelRegistration(item, false)">拒绝退出</el-button>
-          <el-button size="mini" plain @click="viewDetail(item.activityId)">查看活动</el-button>
+        <div class="registration-search-row">
+          <div class="registration-search">
+            <el-input size="mini" v-model="favoriteKeyword" clearable placeholder="搜索收藏的活动" @keyup.enter.native="queryFavoriteActivities"></el-input>
+          </div>
+          <el-button class="create-btn" size="mini" @click="queryFavoriteActivities">搜索</el-button>
         </div>
+        <div class="registration-count">共 {{favoriteTotal}} 条收藏记录，当前显示 {{favoriteActivities.length}} 条</div>
+        <div class="card registration-activity-card" v-for="item in favoriteActivities" :key="'favorite-card-' + item.id">
+          <div class="registration-card-main">
+            <img class="registration-thumb" :src="item.coverImage || '/imgs/blogs/blog1.jpg'" alt="">
+            <div class="registration-card-content">
+              <div class="registration-title-row">
+                <div class="registration-title">{{item.title}}</div>
+                <span class="registration-status-pill success">已收藏</span>
+              </div>
+              <div class="registration-meta"><strong>时间：</strong>{{formatTime(item.eventStartTime)}}</div>
+              <div class="registration-meta"><strong>分类：</strong>{{displayCategory(item)}}　<strong>地点：</strong>{{item.location || '待定'}}</div>
+              <div class="registration-meta"><strong>摘要：</strong>{{item.summary || '主办方暂未补充活动摘要。'}}</div>
+            </div>
+          </div>
+          <div class="registration-actions">
+            <el-button size="mini" plain @click="viewDetail(item.id)">详情</el-button>
+            <el-button size="mini" type="warning" plain @click="toggleFavorite(item, false)">取消收藏</el-button>
+          </div>
+        </div>
+        <div class="card registration-empty" v-if="!favoriteActivities.length">{{favoriteKeyword ? '没有匹配的收藏活动。' : '还没有收藏任何活动。'}}</div>
       </div>
-      <div class="card" v-if="!pendingReviews.length">暂无待审核请求。</div>
     </el-tab-pane>
 
-    <el-tab-pane v-if="canManageActivities" label="我发起的活动" name="created">
+    <el-tab-pane v-if="canManageActivities" name="created">
+      <span slot="label">我发起的活动</span>
       <div class="created-proto">
         <div class="created-search-row">
           <div class="created-search">
@@ -707,10 +860,9 @@
             </div>
           </div>
           <div class="created-actions">
-            <el-button size="mini" plain @click="editActivity(item.id)">数据</el-button>
+            <el-button size="mini" plain @click="openCheckInManager(item.id)">签到管理</el-button>
             <el-button size="mini" plain @click="editActivity(item.id)">编辑</el-button>
             <el-button size="mini" plain @click="viewDetail(item.id)">详情</el-button>
-            <el-button size="mini" plain @click="viewDetail(item.id)">...</el-button>
           </div>
         </div>
         <div class="card created-empty" v-if="!filteredCreatedActivities.length">{{createdActivities.length ? '当前状态下暂无活动。' : '你还没有发起任何活动。'}}</div>
@@ -720,11 +872,43 @@
       </div>
     </el-tab-pane>
 
+    <el-tab-pane v-if="canManageActivities" name="reviews">
+      <span slot="label" class="title-with-badge">
+        <span>待审核请求</span>
+        <span v-if="pendingReviewTotal" class="review-badge">{{pendingReviewTotal > 99 ? '99+' : pendingReviewTotal}}</span>
+      </span>
+      <div class="section-head">
+        <div class="section-title title-with-badge">
+          <span>待审核请求</span>
+          <span v-if="pendingReviewTotal" class="review-badge">{{pendingReviewTotal > 99 ? '99+' : pendingReviewTotal}}</span>
+        </div>
+      </div>
+      <div class="count-text">共 {{pendingReviewTotal}} 条待审核请求，当前显示 {{pendingReviews.length}} 条</div>
+      <div class="card" v-for="item in pendingReviews" :key="item.id">
+        <div class="item-title">{{item.activityTitle}}</div>
+        <div class="item-line">申请用户：{{item.userNickName || ('用户' + item.userId)}}</div>
+        <div class="item-line">请求类型：{{registrationReviewTypeText(item.status)}}</div>
+        <div class="item-line">提交时间：{{formatTime(item.createTime)}}</div>
+        <div class="item-line" v-if="item.failReason">状态说明：{{item.failReason}}</div>
+        <div class="item-actions" v-if="item.status === 0">
+          <el-button size="mini" type="success" @click="reviewRegistration(item, true)">通过报名</el-button>
+          <el-button size="mini" type="danger" plain @click="reviewRegistration(item, false)">驳回报名</el-button>
+          <el-button size="mini" plain @click="viewDetail(item.activityId)">查看活动</el-button>
+        </div>
+        <div class="item-actions" v-if="item.status === 4">
+          <el-button size="mini" type="success" @click="reviewCancelRegistration(item, true)">同意退出</el-button>
+          <el-button size="mini" type="danger" plain @click="reviewCancelRegistration(item, false)">拒绝退出</el-button>
+          <el-button size="mini" plain @click="viewDetail(item.activityId)">查看活动</el-button>
+        </div>
+      </div>
+      <div class="card" v-if="!pendingReviews.length">暂无待审核请求。</div>
+    </el-tab-pane>
+
     <el-tab-pane v-if="canManageActivities" label="审核历史" name="reviewHistory">
       <div class="section-head">
         <div class="section-title">审核历史</div>
         <div class="item-actions">
-          <el-button size="mini" type="danger" plain @click="clearReviewHistory">一键删除</el-button>
+          <el-button class="icon-action-btn" type="danger" plain icon="el-icon-delete" circle @click="clearReviewHistory"></el-button>
         </div>
       </div>
       <div class="count-text">共 {{reviewHistoryTotal}} 条审核历史，当前显示 {{reviewHistory.length}} 条</div>
@@ -749,7 +933,8 @@
   <div class="info-bottom-spacer"></div>
   <nav class="campus-tabbar">
     <a class="campus-tab-item" href="/index.html"><i class="el-icon-s-home"></i>首页</a>
-    <a class="campus-tab-item" href="/index.html"><i class="el-icon-discover"></i>发现</a>
+    <a v-if="canManageActivities" class="campus-tab-item" href="/organizer-dashboard.html"><i class="el-icon-data-analysis"></i>数据看板</a>
+    <a v-else class="campus-tab-item" href="/index.html"><i class="el-icon-discover"></i>发现</a>
     <a class="campus-tab-item" href="/activity-manage.html"><span class="campus-tab-plus">+</span>发布</a>
     <a class="campus-tab-item" href="/notification.html">
       <span class="campus-tab-icon">
@@ -780,6 +965,9 @@
       registrationKeyword: '',
       registrations: [],
       registrationTotal: 0,
+      favoriteKeyword: '',
+      favoriteActivities: [],
+      favoriteTotal: 0,
       pendingReviews: [],
       pendingReviewTotal: 0,
       createdActivities: [],
@@ -826,6 +1014,7 @@
       currentViewTitle() {
         if (this.currentView === 'home') return '个人主页';
         if (this.currentView === 'registrations') return '报名信息';
+        if (this.currentView === 'favorites') return '收藏活动';
         if (this.currentView === 'reviews') return '待审核请求';
         if (this.currentView === 'created') return '我的活动';
         if (this.currentView === 'reviewHistory') return '审核历史';
@@ -858,14 +1047,15 @@
             }
             this.queryProfile();
             if (this.canManageActivities) {
-              this.tab = this.currentView === 'home' ? 'reviews' : this.currentView;
+              this.tab = this.currentView === 'home' ? 'created' : this.currentView;
               this.queryPendingReviews();
               this.refreshCreatedActivities();
               this.queryReviewHistory();
             } else {
-              this.currentView = this.currentView === 'home' ? 'home' : 'registrations';
-              this.tab = 'registrations';
+              this.currentView = ['home', 'registrations', 'favorites'].includes(this.currentView) ? this.currentView : 'home';
+              this.tab = this.currentView === 'favorites' ? 'favorites' : 'registrations';
               this.queryRegistrations();
+              this.queryFavoriteActivities();
               this.pendingReviews = [];
               this.createdActivities = [];
               this.reviewHistory = [];
@@ -889,6 +1079,20 @@
           .then(({data, total}) => {
             this.registrations = data || [];
             this.registrationTotal = total || this.registrations.length;
+          })
+          .catch(err => this.$message.error(err));
+      },
+      queryFavoriteActivities() {
+        axios.get('/activity/favorite/mine', {
+          params: {
+            keyword: this.favoriteKeyword,
+            current: 1,
+            pageSize: 100
+          }
+        })
+          .then(({data, total}) => {
+            this.favoriteActivities = data || [];
+            this.favoriteTotal = total || this.favoriteActivities.length;
           })
           .catch(err => this.$message.error(err));
       },
@@ -928,7 +1132,7 @@
       },
       canLoadMoreCreatedActivities() {
         return this.canManageActivities
-          && this.tab === 'created'
+          && (this.tab === 'created' || this.currentView === 'home')
           && !this.createdLoadingMore
           && this.createdActivities.length < this.createdActivityTotal;
       },
@@ -965,20 +1169,20 @@
           .catch(err => this.$message.error(err));
       },
       goBack() {
-        if (this.currentView !== 'home') {
-          location.href = '/info.html';
+        if (this.currentView === 'home') {
+          location.href = '/index.html';
           return;
         }
-        location.href = '/index.html';
+        util.goBack(this.canManageActivities ? '/organizer-dashboard.html' : '/info.html');
       },
       openView(view) {
-        location.href = '/info.html?view=' + view;
+        location.href = '/info.html?view=' + view + '&returnUrl=' + encodeURIComponent(location.pathname + location.search);
       },
       goEditProfile() {
         location.href = '/info-edit.html?returnUrl=' + encodeURIComponent(location.pathname + location.search);
       },
       goNotifications() {
-        location.href = '/notification.html';
+        location.href = '/notification.html?returnUrl=' + encodeURIComponent(location.pathname + location.search);
       },
       initNotifications() {
         window.notificationClient.fetchUnread().then(count => this.unreadCount = count || 0);
@@ -993,6 +1197,7 @@
                 this.queryReviewHistory();
               } else {
                 this.queryRegistrations();
+                this.queryFavoriteActivities();
               }
             }
           }
@@ -1001,11 +1206,24 @@
       editActivity(id) {
         location.href = '/activity-manage.html?id=' + id + '&returnUrl=' + encodeURIComponent(location.pathname + location.search);
       },
+      openCheckInManager(id) {
+        location.href = '/activity-checkin.html?id=' + id + '&returnUrl=' + encodeURIComponent(location.pathname + location.search);
+      },
       createActivity() {
         location.href = '/activity-manage.html?returnUrl=' + encodeURIComponent(location.pathname + location.search);
       },
       viewDetail(id) {
         location.href = '/activity-detail.html?id=' + id + '&returnUrl=' + encodeURIComponent(location.pathname + location.search);
+      },
+      toggleFavorite(item, nextStatus) {
+        if (!item || !item.id) return;
+        const request = nextStatus
+          ? axios.post('/activity/' + item.id + '/favorite')
+          : axios.delete('/activity/' + item.id + '/favorite');
+        request.then(() => {
+          this.$message.success(nextStatus ? '已收藏活动' : '已取消收藏');
+          this.queryFavoriteActivities();
+        }).catch(err => this.$message.error(err));
       },
       logout() {
         axios.post('/user/logout')
@@ -1220,6 +1438,13 @@
       },
       formatTime(value) {
         return value ? value.replace('T', ' ') : '待定';
+      },
+      displayCategory(item) {
+        if (!item) return '未分类';
+        if (item.category === '其他' && item.customCategory) {
+          return item.customCategory;
+        }
+        return item.category || '未分类';
       },
       activityAuditStatusText(status) {
         if (status === 1) return '待审核';

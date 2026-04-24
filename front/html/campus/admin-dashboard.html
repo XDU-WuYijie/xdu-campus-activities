@@ -252,6 +252,55 @@
       font-size: 12px;
       font-weight: 600;
     }
+    .title-with-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-width: 0;
+    }
+    .review-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 999px;
+      background: #ff4d6d;
+      color: #fff;
+      font-size: 10px;
+      line-height: 1;
+      font-weight: 900;
+      box-sizing: border-box;
+      box-shadow: 0 6px 14px rgba(255, 77, 109, .26);
+    }
+    .icon-action-btn {
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border-radius: 50%;
+      border: 1px solid rgba(240, 68, 95, .18);
+      background: #fff0f3;
+      color: #f0445f;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: 900;
+      color: var(--ink);
+    }
     .inline-search {
       display: grid;
       grid-template-columns: minmax(0, 1fr) 72px;
@@ -402,6 +451,10 @@
       padding-left: 0;
       margin-top: 8px;
     }
+    .review-activity-card .item-actions .el-button {
+      flex: 0 0 auto;
+      min-width: 64px;
+    }
     .section-head .item-actions {
       margin-top: 0;
       flex: 0 0 auto;
@@ -410,6 +463,10 @@
     .section-head .item-actions .el-button {
       flex: 0 0 auto;
       min-width: 72px;
+    }
+    .item-actions.review-history-actions .el-button {
+      min-width: 64px;
+      padding: 0 10px;
     }
     .ai-review-error {
       margin-top: 10px;
@@ -484,7 +541,11 @@
   </section>
 
   <el-tabs v-model="tab" class="admin-tabs">
-    <el-tab-pane label="活动审核" name="activities">
+    <el-tab-pane name="activities">
+      <span slot="label" class="title-with-badge">
+        <span>活动审核</span>
+        <span v-if="activities.length" class="review-badge">{{activities.length > 99 ? '99+' : activities.length}}</span>
+      </span>
       <div class="inline-search">
         <el-input size="mini" v-model="activityKeyword" clearable placeholder="搜索待审核活动" @keyup.enter.native="queryActivities"></el-input>
         <el-button size="mini" type="primary" plain @click="queryActivities">搜索</el-button>
@@ -542,7 +603,11 @@
       </div>
     </el-tab-pane>
 
-    <el-tab-pane label="主办方申请审核" name="organizers">
+    <el-tab-pane name="organizers">
+      <span slot="label" class="title-with-badge">
+        <span>主办方申请审核</span>
+        <span v-if="organizerApplications.length" class="review-badge">{{organizerApplications.length > 99 ? '99+' : organizerApplications.length}}</span>
+      </span>
       <div class="count-text">共 {{organizerApplications.length}} 条主办方申请</div>
       <div class="card review-activity-card" v-for="item in organizerApplications" :key="item.id">
         <div class="compact-card-body">
@@ -561,8 +626,11 @@
     </el-tab-pane>
 
     <el-tab-pane label="审核历史" name="reviewHistory">
-      <div class="item-actions" style="margin-bottom:12px;">
-        <el-button size="mini" type="danger" plain @click="clearReviewHistory">一键删除</el-button>
+      <div class="section-head">
+        <div class="section-title">审核历史</div>
+        <div class="item-actions review-history-actions">
+          <el-button class="icon-action-btn" type="danger" plain icon="el-icon-delete" circle @click="clearReviewHistory"></el-button>
+        </div>
       </div>
       <div class="count-text">共 {{reviewHistory.length}} 条审核历史</div>
       <div class="card review-activity-card" v-for="item in reviewHistory" :key="item.id">
@@ -573,7 +641,7 @@
           <div class="item-line">审核结果：{{ reviewActionText(item.action) }}</div>
           <div class="item-line" v-if="item.remark">备注：{{ item.remark }}</div>
           <div class="item-line">审核时间：{{ formatTime(item.createdAt) }}</div>
-          <div class="item-actions two-actions">
+          <div class="item-actions">
             <el-button size="mini" type="danger" plain @click="deleteReviewRecord(item.id)">删除</el-button>
           </div>
         </div>
@@ -690,12 +758,19 @@
     },
     mounted() {
       this.handleScroll = this.onWindowScroll.bind(this);
+      this.handlePopState = this.onPopState.bind(this);
+      history.replaceState({ adminDashboardRoot: true }, '', location.pathname + location.search);
+      history.pushState({ adminDashboardSentinel: true }, '', location.pathname + location.search);
       window.addEventListener('scroll', this.handleScroll, { passive: true });
+      window.addEventListener('popstate', this.handlePopState);
       this.$nextTick(() => this.tryAutoLoadMorePublishedActivities());
     },
     beforeDestroy() {
       if (this.handleScroll) {
         window.removeEventListener('scroll', this.handleScroll);
+      }
+      if (this.handlePopState) {
+        window.removeEventListener('popstate', this.handlePopState);
       }
     },
     methods: {
@@ -724,11 +799,10 @@
         }
       },
       goBack() {
-        if (window.history.length > 1) {
-          window.history.back();
-          return;
-        }
-        location.href = '/login2.html';
+        util.goBack('/login2.html');
+      },
+      onPopState() {
+        history.pushState({ adminDashboardSentinel: true }, '', location.pathname + location.search);
       },
       queryActivities() {
         axios.get('/activity/admin/review-list', {
@@ -884,7 +958,7 @@
         location.href = '/activity-detail.html?id=' + id + '&mode=admin-preview&returnUrl=' + encodeURIComponent(location.pathname + location.search + '#activities');
       },
       goNotifications() {
-        location.href = '/notification.html';
+        location.href = '/notification.html?returnUrl=' + encodeURIComponent(location.pathname + location.search);
       },
       initNotifications() {
         window.notificationClient.fetchUnread().then(count => this.unreadCount = count || 0);

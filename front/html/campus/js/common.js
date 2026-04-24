@@ -134,6 +134,18 @@ const util = {
     }
     return "";
   },
+  goBack(fallback) {
+    const returnUrl = this.getUrlParam('returnUrl');
+    if (returnUrl) {
+      location.href = decodeURIComponent(returnUrl);
+      return;
+    }
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    location.href = fallback || '/index.html';
+  },
   formatPrice(val) {
     if (typeof val === 'string') {
       if (isNaN(val)) {

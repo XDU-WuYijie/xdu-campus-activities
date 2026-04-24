@@ -671,6 +671,16 @@
           <el-input type="textarea" :rows="6" v-model="form.content" placeholder="分享活动亮点、流程安排、参与提醒，像写一条动态正文一样自然展开。"></el-input>
         </el-form-item>
 
+        <div class="form-section-title"><span>活动流程</span></div>
+        <el-form-item class="composer-area">
+          <el-input type="textarea" :rows="4" v-model="form.activityFlow" placeholder="选填，例如：签到入场、开场致辞、主题分享、互动环节、自由交流。"></el-input>
+        </el-form-item>
+
+        <div class="form-section-title"><span>常见问题</span></div>
+        <el-form-item class="composer-area">
+          <el-input type="textarea" :rows="4" v-model="form.faq" placeholder="选填，例如：是否需要自带设备、是否需要提前到场、是否提供证明材料。"></el-input>
+        </el-form-item>
+
         <div class="image-section" style="display:none;">
           <div class="image-strip">
             <div class="image-upload-trigger">
@@ -843,6 +853,8 @@
         location: '',
         summary: '',
         content: '',
+        activityFlow: '',
+        faq: '',
         maxParticipants: 50,
         registrationStartTime: '',
         registrationEndTime: '',
@@ -945,6 +957,8 @@
           location: this.form.location,
           summary: this.form.summary,
           content: this.form.content,
+          activityFlow: this.form.activityFlow,
+          faq: this.form.faq,
           maxParticipants: this.form.maxParticipants,
           coverImage: this.imageList[0],
           images: this.imageList.join(','),
@@ -982,6 +996,8 @@
               location: data.location || '',
               summary: data.summary || '',
               content: data.content || '',
+              activityFlow: data.activityFlow || '',
+              faq: data.faq || '',
               maxParticipants: data.maxParticipants || 50,
               registrationStartTime: this.toInputDate(data.registrationStartTime),
               registrationEndTime: this.toInputDate(data.registrationEndTime),
@@ -1006,6 +1022,8 @@
           location: '',
           summary: '',
           content: '',
+          activityFlow: '',
+          faq: '',
           maxParticipants: 50,
           registrationStartTime: '',
           registrationEndTime: '',
@@ -1031,7 +1049,7 @@
         }).catch(() => {});
       },
       goBack() {
-        location.href = this.resolveReturnUrl('/info.html?tab=created');
+        util.goBack('/info.html?tab=created');
       },
       goHome() {
         location.href = '/index.html';
@@ -1040,7 +1058,7 @@
         location.href = '/info.html';
       },
       viewDetail(id) {
-        location.href = '/activity-detail.html?id=' + id;
+        location.href = '/activity-detail.html?id=' + id + '&returnUrl=' + encodeURIComponent(location.pathname + location.search);
       },
       toInputDate(value) {
         if (!value) return '';

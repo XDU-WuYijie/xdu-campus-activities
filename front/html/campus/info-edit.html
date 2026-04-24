@@ -436,7 +436,7 @@
           .finally(() => this.saving = false);
       },
       goBack(){
-        location.href = this.resolveReturnUrl('/info.html');
+        util.goBack('/info.html');
       },
       resolveReturnUrl(fallback) {
         const returnUrl = util.getUrlParam('returnUrl');

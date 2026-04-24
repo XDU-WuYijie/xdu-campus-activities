@@ -4,10 +4,10 @@
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
   <title>校园活动平台登录</title>
-  <link href="./css/main.css" rel="stylesheet">
-  <link href="./css/login.css" rel="stylesheet">
   <!-- 引入样式 -->
   <link rel="stylesheet" href="./css/element.css">
+  <link href="./css/main.css" rel="stylesheet">
+  <link href="./css/login.css" rel="stylesheet">
 
   <style type="text/css">
       .el-radio__input.is-checked .el-radio__inner {
@@ -16,6 +16,9 @@
       }
       .el-input__inner:focus {
           border: 1px solid #2388ff;
+      }
+      .login-form .el-input__inner {
+          border-radius: 12px;
       }
   </style>
 </head>
@@ -31,11 +34,13 @@
         <el-input placeholder="请输入手机号或账号" v-model="form.phone">
         </el-input>
         <div style="height: 5px"></div>
-        <el-input placeholder="请输入密码" v-model="form.password">
+        <el-input placeholder="请输入密码" v-model="form.password" show-password>
         </el-input>
-        <div style="text-align: center; color: #8c939d;margin: 5px 0"><a href="javascript:void(0)">忘记密码</a></div>
         <el-button class="btn-block" @click="login" type="primary">登录</el-button>
-        <div style="text-align: right; color:#333333; margin: 5px 0"><a href="/login.html">验证码登录</a></div>
+        <div class="login-link-row login-link-row--bottom-right">
+          <button class="login-text-link login-text-link--subtle" type="button">忘记密码</button>
+          <button class="login-text-link login-text-link--switch" type="button" @click="goCodeLogin">验证码登录</button>
+        </div>
       </div>
       <div class="login-radio">
         <div>
@@ -62,7 +67,7 @@
   const app = new Vue({
     el: "#app",
     data: {
-      radio: "",
+      radio: "1",
       form:{
       }
     },
@@ -88,6 +93,9 @@
       },
       goBack(){
         history.back();
+      },
+      goCodeLogin(){
+        location.href = '/login.html';
       }
     }
   })

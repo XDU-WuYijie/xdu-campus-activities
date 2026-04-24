@@ -46,6 +46,12 @@ public interface IActivityService extends IService<Activity> {
 
     Result cancelRegistration(Long activityId);
 
+    Result favoriteActivity(Long activityId);
+
+    Result unfavoriteActivity(Long activityId);
+
+    Result queryMyFavoriteActivities(String keyword, Integer current, Integer pageSize);
+
     Result queryMyRegistrations(String filter, String keyword, Integer current, Integer pageSize);
 
     Result queryActivityRegistrations(Long activityId, Integer current, Integer pageSize);
@@ -61,6 +67,8 @@ public interface IActivityService extends IService<Activity> {
     Result queryCheckInStats(Long activityId);
 
     Result queryCheckInRecords(Long activityId, Integer current, Integer pageSize);
+
+    Result queryCheckInDashboard(Long activityId);
 
     Result queryPendingReviewActivities(String keyword);
 
