@@ -30,6 +30,7 @@ public class Activity implements Serializable {
     private String summary;
     private String content;
     private String category;
+    private String registrationMode;
     private String location;
     private Integer maxParticipants;
     private Integer registeredCount;

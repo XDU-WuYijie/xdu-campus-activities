@@ -8,45 +8,57 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.io.IOException;
-import java.util.Map;
+import java.util.Collections;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Component
 public class ActivityRegistrationSessionRegistry {
 
-    private final Map<Long, WebSocketSession> sessions = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, Set<WebSocketSession>> sessions = new ConcurrentHashMap<>();
 
     public void register(Long userId, WebSocketSession session) {
         if (userId == null || session == null) {
             return;
         }
-        sessions.put(userId, session);
+        sessions.computeIfAbsent(userId, key -> ConcurrentHashMap.newKeySet()).add(session);
     }
 
     public void unregister(Long userId, WebSocketSession session) {
         if (userId == null) {
             return;
         }
+        Set<WebSocketSession> userSessions = sessions.getOrDefault(userId, Collections.emptySet());
         if (session == null) {
-            sessions.remove(userId);
+            userSessions.clear();
             return;
         }
-        sessions.remove(userId, session);
+        userSessions.remove(session);
+        if (userSessions.isEmpty()) {
+            sessions.remove(userId);
+        }
     }
 
     public void push(Long userId, ActivityRegistrationPushDTO payload) {
         if (userId == null || payload == null) {
             return;
         }
-        WebSocketSession session = sessions.get(userId);
-        if (session == null || !session.isOpen()) {
+        Set<WebSocketSession> userSessions = sessions.get(userId);
+        if (userSessions == null || userSessions.isEmpty()) {
             return;
         }
-        try {
-            session.sendMessage(new TextMessage(JSONUtil.toJsonStr(payload)));
-        } catch (IOException e) {
-            log.warn("报名结果推送失败 userId={}", userId, e);
+        String message = JSONUtil.toJsonStr(payload);
+        for (WebSocketSession session : userSessions) {
+            if (session == null || !session.isOpen()) {
+                userSessions.remove(session);
+                continue;
+            }
+            try {
+                session.sendMessage(new TextMessage(message));
+            } catch (IOException e) {
+                log.warn("报名结果推送失败 userId={}", userId, e);
+            }
         }
     }
 }

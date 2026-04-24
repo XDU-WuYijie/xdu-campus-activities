@@ -9,8 +9,10 @@
   <style>
     body { background: #f6f8fb; }
     .page { max-width: 960px; margin: 0 auto; padding: 18px 16px 90px; }
-    .topbar { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+    .topbar-left { display:flex; align-items:center; gap:12px; }
     .back-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: #ffffff; color:#17324d; box-shadow:0 10px 24px rgba(16,35,61,.08); cursor:pointer; }
+    .notice-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: #ffffff; color:#17324d; box-shadow:0 10px 24px rgba(16,35,61,.08); cursor:pointer; }
     .top-title { font-size: 18px; font-weight: 700; color:#17324d; }
     .profile { background: #17324d; color: #fff; border-radius: 20px; padding: 18px 16px; margin-bottom: 16px; cursor: pointer; }
     .profile-main { display:flex; align-items:center; gap:14px; }
@@ -28,15 +30,22 @@
     .item-line { color:#556273; font-size:14px; line-height:1.8; }
     .item-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
     .logout-fixed { margin-top: 18px; }
-    .apply-box { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-    .apply-meta { color:#556273; font-size:14px; line-height:1.8; }
+    .count-text { color:#607086; font-size:14px; font-weight:600; margin-bottom:12px; }
+    .inline-search { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .inline-search .el-input { width: 240px; }
+    .load-more { text-align:center; margin:14px 0; }
   </style>
 </head>
 <body>
 <div id="app" class="page">
   <div class="topbar">
-    <button class="back-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
-    <div class="top-title">个人主页</div>
+    <div class="topbar-left">
+      <button class="back-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
+      <div class="top-title">个人主页</div>
+    </div>
+    <el-badge :value="unreadCount" :hidden="!unreadCount">
+      <button class="notice-btn" @click="goNotifications"><i class="el-icon-bell"></i></button>
+    </el-badge>
   </div>
   <section class="profile" @click="goEditProfile">
     <div class="profile-main">
@@ -49,21 +58,8 @@
     </div>
   </section>
 
-  <section class="card" v-if="showOrganizerApply">
-    <div class="section-head">
-      <div class="section-title">活动主办方申请</div>
-      <el-button size="mini" type="primary" class="create-btn" @click="openApplyDialog">申请成为主办方</el-button>
-    </div>
-    <div class="apply-meta" v-if="organizerApplication">
-      当前申请状态：{{ organizerStatusText }}
-    </div>
-    <div class="apply-meta" v-if="organizerApplication && organizerApplication.orgName">申请组织：{{ organizerApplication.orgName }}</div>
-    <div class="apply-meta" v-if="organizerApplication && organizerApplication.reviewRemark">审核备注：{{ organizerApplication.reviewRemark }}</div>
-    <div class="apply-meta" v-if="!organizerApplication">成为主办方后可发起活动、管理报名名单与执行签到核销。</div>
-  </section>
-
   <el-tabs v-model="tab">
-    <el-tab-pane label="我的报名" name="registrations">
+    <el-tab-pane v-if="!canManageActivities" label="我的报名" name="registrations">
       <el-select v-model="registrationFilter" class="filter-select" @change="queryRegistrations">
         <el-option label="全部活动" value="ALL"></el-option>
         <el-option label="待签到" value="PENDING_CHECK_IN"></el-option>
@@ -71,6 +67,7 @@
         <el-option label="已结束" value="FINISHED"></el-option>
         <el-option label="已取消" value="CANCELED"></el-option>
       </el-select>
+      <div class="count-text">共 {{registrationTotal}} 条报名记录，当前显示 {{registrations.length}} 条</div>
       <div class="card" v-for="item in registrations" :key="item.id">
         <div class="item-title">{{item.activityTitle}}</div>
         <div class="item-line">活动分类：{{item.category}}</div>
@@ -88,11 +85,42 @@
       <div class="card" v-if="!registrations.length">还没有报名任何活动。</div>
     </el-tab-pane>
 
+    <el-tab-pane v-if="canManageActivities" label="待审核请求" name="reviews">
+      <div class="section-head">
+        <div class="section-title">待审核请求</div>
+        <el-button class="create-btn" size="mini" @click="queryPendingReviews">刷新</el-button>
+      </div>
+      <div class="count-text">共 {{pendingReviewTotal}} 条待审核请求，当前显示 {{pendingReviews.length}} 条</div>
+      <div class="card" v-for="item in pendingReviews" :key="item.id">
+        <div class="item-title">{{item.activityTitle}}</div>
+        <div class="item-line">申请用户：{{item.userNickName || ('用户' + item.userId)}}</div>
+        <div class="item-line">请求类型：{{registrationReviewTypeText(item.status)}}</div>
+        <div class="item-line">提交时间：{{formatTime(item.createTime)}}</div>
+        <div class="item-line" v-if="item.failReason">状态说明：{{item.failReason}}</div>
+        <div class="item-actions" v-if="item.status === 0">
+          <el-button size="mini" type="success" @click="reviewRegistration(item, true)">通过报名</el-button>
+          <el-button size="mini" type="danger" plain @click="reviewRegistration(item, false)">驳回报名</el-button>
+          <el-button size="mini" plain @click="viewDetail(item.activityId)">查看活动</el-button>
+        </div>
+        <div class="item-actions" v-if="item.status === 4">
+          <el-button size="mini" type="success" @click="reviewCancelRegistration(item, true)">同意退出</el-button>
+          <el-button size="mini" type="danger" plain @click="reviewCancelRegistration(item, false)">拒绝退出</el-button>
+          <el-button size="mini" plain @click="viewDetail(item.activityId)">查看活动</el-button>
+        </div>
+      </div>
+      <div class="card" v-if="!pendingReviews.length">暂无待审核请求。</div>
+    </el-tab-pane>
+
     <el-tab-pane v-if="canManageActivities" label="我发起的活动" name="created">
       <div class="section-head">
         <div class="section-title">我发起的活动</div>
-        <el-button class="create-btn" size="mini" @click="createActivity">发起活动</el-button>
+        <div class="inline-search">
+          <el-input size="mini" v-model="createdKeyword" clearable placeholder="搜索我发起的活动" @keyup.enter.native="refreshCreatedActivities"></el-input>
+          <el-button size="mini" type="primary" plain @click="refreshCreatedActivities">搜索</el-button>
+          <el-button class="create-btn" size="mini" @click="createActivity">发起活动</el-button>
+        </div>
       </div>
+      <div class="count-text">共 {{createdActivityTotal}} 条活动，当前显示 {{createdActivities.length}} 条</div>
       <div class="card" v-for="item in createdActivities" :key="item.id">
         <div class="item-title">{{item.title}}</div>
         <div class="item-line">分类：{{item.category}}</div>
@@ -106,6 +134,32 @@
         </div>
       </div>
       <div class="card" v-if="!createdActivities.length">你还没有发起任何活动。</div>
+      <div class="load-more" v-if="createdActivities.length < createdActivityTotal">
+        <el-button size="mini" plain @click="loadMoreCreatedActivities">加载更多</el-button>
+      </div>
+    </el-tab-pane>
+
+    <el-tab-pane v-if="canManageActivities" label="审核历史" name="reviewHistory">
+      <div class="section-head">
+        <div class="section-title">审核历史</div>
+        <div class="item-actions">
+          <el-button class="create-btn" size="mini" @click="queryReviewHistory">刷新</el-button>
+          <el-button size="mini" type="danger" plain @click="clearReviewHistory">一键删除</el-button>
+        </div>
+      </div>
+      <div class="count-text">共 {{reviewHistoryTotal}} 条审核历史，当前显示 {{reviewHistory.length}} 条</div>
+      <div class="card" v-for="item in reviewHistory" :key="item.id">
+        <div class="item-title">{{item.bizTitle}}</div>
+        <div class="item-line">审核对象：{{item.targetName || ('用户' + item.targetUserId)}}</div>
+        <div class="item-line">审核类型：{{reviewBizTypeText(item.bizType)}}</div>
+        <div class="item-line">审核结果：{{reviewActionText(item.action)}}</div>
+        <div class="item-line" v-if="item.remark">备注：{{item.remark}}</div>
+        <div class="item-line">审核时间：{{formatTime(item.createdAt)}}</div>
+        <div class="item-actions">
+          <el-button size="mini" type="danger" plain @click="deleteReviewRecord(item.id)">删除</el-button>
+        </div>
+      </div>
+      <div class="card" v-if="!reviewHistory.length">暂无审核历史。</div>
     </el-tab-pane>
   </el-tabs>
 
@@ -126,14 +180,23 @@
       tab: 'registrations',
       user: window.auth.getUser() || {},
       profile: {},
-      organizerApplication: null,
-      applyForm: { orgName: '', reason: '' },
       registrationFilter: 'ALL',
       registrations: [],
-      createdActivities: []
+      registrationTotal: 0,
+      pendingReviews: [],
+      pendingReviewTotal: 0,
+      createdActivities: [],
+      createdActivityTotal: 0,
+      createdKeyword: '',
+      createdCurrent: 1,
+      createdPageSize: 20,
+      reviewHistory: [],
+      reviewHistoryTotal: 0,
+      unreadCount: 0
     },
     created() {
       this.queryUser();
+      this.initNotifications();
     },
     computed: {
       canManageActivities() {
@@ -143,17 +206,6 @@
       isPlatformAdmin() {
         const roleCodes = (this.user && this.user.roleCodes) || [];
         return roleCodes.includes('PLATFORM_ADMIN');
-      },
-      showOrganizerApply() {
-        return this.user && !this.canManageActivities && !this.isPlatformAdmin;
-      },
-      organizerStatusText() {
-        if (!this.organizerApplication) return '未申请';
-        const status = this.organizerApplication.applyStatus;
-        if (status === 'PENDING') return '待审核';
-        if (status === 'APPROVED') return '已通过';
-        if (status === 'REJECTED') return '已驳回';
-        return status || '未知';
       },
       profileMeta() {
         const grade = this.profile.grade || '';
@@ -173,13 +225,17 @@
               return;
             }
             this.queryProfile();
-            this.queryMyOrganizerApplication();
-            this.queryRegistrations();
             if (this.canManageActivities) {
-              this.queryCreatedActivities();
+              this.tab = util.getUrlParam('tab') || 'reviews';
+              this.queryPendingReviews();
+              this.refreshCreatedActivities();
+              this.queryReviewHistory();
             } else {
-              this.createdActivities = [];
               this.tab = 'registrations';
+              this.queryRegistrations();
+              this.pendingReviews = [];
+              this.createdActivities = [];
+              this.reviewHistory = [];
             }
           })
           .catch(() => location.href = '/login.html');
@@ -190,28 +246,58 @@
           .then(({data}) => this.profile = data || {})
           .catch(() => this.profile = {});
       },
-      queryMyOrganizerApplication() {
-        if (!this.showOrganizerApply) {
-          this.organizerApplication = null;
-          return;
-        }
-        axios.get('/user/organizer/apply/me')
-          .then(({data}) => this.organizerApplication = data || null)
-          .catch(() => this.organizerApplication = null);
-      },
       queryRegistrations() {
         axios.get('/activity/registration/mine', {
           params: {
             filter: this.registrationFilter
           }
         })
-          .then(({data}) => this.registrations = data || [])
+          .then(({data, total}) => {
+            this.registrations = data || [];
+            this.registrationTotal = total || this.registrations.length;
+          })
           .catch(err => this.$message.error(err));
       },
-      queryCreatedActivities() {
+      queryCreatedActivities(append) {
         if (!this.canManageActivities) return;
-        axios.get('/activity/manage/mine')
-          .then(({data}) => this.createdActivities = data || [])
+        axios.get('/activity/manage/mine', {
+          params: {
+            current: this.createdCurrent,
+            pageSize: this.createdPageSize,
+            keyword: this.createdKeyword
+          }
+        })
+          .then(({data, total}) => {
+            const rows = data || [];
+            this.createdActivities = append ? this.createdActivities.concat(rows) : rows;
+            this.createdActivityTotal = total === undefined || total === null ? this.createdActivities.length : total;
+          })
+          .catch(err => this.$message.error(err));
+      },
+      refreshCreatedActivities() {
+        this.createdCurrent = 1;
+        this.queryCreatedActivities(false);
+      },
+      loadMoreCreatedActivities() {
+        this.createdCurrent += 1;
+        this.queryCreatedActivities(true);
+      },
+      queryPendingReviews() {
+        if (!this.canManageActivities) return;
+        axios.get('/activity/manage/registration-reviews')
+          .then(({data, total}) => {
+            this.pendingReviews = data || [];
+            this.pendingReviewTotal = total || this.pendingReviews.length;
+          })
+          .catch(err => this.$message.error(err));
+      },
+      queryReviewHistory() {
+        if (!this.canManageActivities) return;
+        axios.get('/review-records/mine', { params: { reviewType: 'ACTIVITY_ADMIN' } })
+          .then(({data, total}) => {
+            this.reviewHistory = data || [];
+            this.reviewHistoryTotal = total || this.reviewHistory.length;
+          })
           .catch(err => this.$message.error(err));
       },
       goBack() {
@@ -219,6 +305,27 @@
       },
       goEditProfile() {
         location.href = '/info-edit.html';
+      },
+      goNotifications() {
+        location.href = '/notification.html';
+      },
+      initNotifications() {
+        window.notificationClient.fetchUnread().then(count => this.unreadCount = count || 0);
+        window.notificationClient.connect({
+          onUnread: count => this.unreadCount = count,
+          onMessage: message => {
+            if (message && message.payload) {
+              this.$message.info(message.payload.title);
+              if (this.canManageActivities) {
+                this.queryPendingReviews();
+                this.refreshCreatedActivities();
+                this.queryReviewHistory();
+              } else {
+                this.queryRegistrations();
+              }
+            }
+          }
+        });
       },
       editActivity(id) {
         location.href = '/activity-manage.html?id=' + id;
@@ -238,44 +345,110 @@
           })
           .catch(err => this.$message.error(err));
       },
-      openApplyDialog() {
-        this.$prompt('请填写申请组织/社团名称', '申请成为主办方', {
-          confirmButtonText: '下一步',
-          cancelButtonText: '取消',
-          inputValue: this.applyForm.orgName || ''
-        }).then(({ value }) => {
-          this.applyForm.orgName = value;
-          this.$prompt('请填写申请理由', '申请成为主办方', {
-            confirmButtonText: '提交申请',
-            cancelButtonText: '取消',
-            inputType: 'textarea',
-            inputValue: this.applyForm.reason || ''
-          }).then(({ value: reason }) => {
-            this.applyForm.reason = reason;
-            axios.post('/user/organizer/apply', this.applyForm)
-              .then(() => {
-                this.$message.success('申请已提交');
-                this.queryMyOrganizerApplication();
-              })
-              .catch(err => this.$message.error(err));
-          }).catch(() => {});
-        }).catch(() => {});
-      },
       canCancelRegistration(item) {
         if (!item || item.status !== 1 || item.checkInStatus) return false;
         if (!item.eventStartTime) return true;
         return new Date(item.eventStartTime.replace(/-/g, '/')).getTime() > Date.now();
       },
       cancelRegistration(activityId) {
-        this.$confirm('退出活动后会释放名额并删除签到凭证，确认继续吗？', '退出活动', {
-          confirmButtonText: '确认退出',
+        this.$confirm('退出活动需要主办方审核，通过后才会释放名额并删除签到凭证。', '申请退出活动', {
+          confirmButtonText: '提交申请',
           cancelButtonText: '再想想',
           type: 'warning'
         }).then(() => {
           axios.delete('/activity/' + activityId + '/register')
             .then(() => {
-              this.$message.success('已退出活动');
+              this.$message.success('退出申请已提交');
               this.queryRegistrations();
+            })
+            .catch(err => this.$message.error(err));
+        }).catch(() => {});
+      },
+      reviewRegistration(item, approved) {
+        if (approved) {
+          axios.post('/activity/manage/' + item.activityId + '/registrations/' + item.id + '/review', { approved: true })
+            .then(() => {
+              this.$message.success('报名已通过');
+              this.queryPendingReviews();
+              this.queryReviewHistory();
+            })
+            .catch(err => this.$message.error(err));
+          return;
+        }
+        this.$prompt('请输入驳回原因', '驳回报名', {
+          confirmButtonText: '确认驳回',
+          cancelButtonText: '取消',
+          inputType: 'textarea'
+        }).then(({ value }) => {
+          axios.post('/activity/manage/' + item.activityId + '/registrations/' + item.id + '/review', {
+            approved: false,
+            reviewRemark: value
+          }).then(() => {
+            this.$message.success('报名已驳回');
+            this.queryPendingReviews();
+            this.queryReviewHistory();
+          }).catch(err => this.$message.error(err));
+        }).catch(() => {});
+      },
+      reviewCancelRegistration(item, approved) {
+        if (approved) {
+          axios.post('/activity/manage/' + item.activityId + '/registrations/' + item.id + '/cancel-review', { approved: true })
+            .then(() => {
+              this.$message.success('已同意退出');
+              this.queryPendingReviews();
+              this.queryReviewHistory();
+            })
+            .catch(err => this.$message.error(err));
+          return;
+        }
+        this.$prompt('请输入拒绝原因', '拒绝退出', {
+          confirmButtonText: '确认拒绝',
+          cancelButtonText: '取消',
+          inputType: 'textarea'
+        }).then(({ value }) => {
+          axios.post('/activity/manage/' + item.activityId + '/registrations/' + item.id + '/cancel-review', {
+            approved: false,
+            reviewRemark: value
+          }).then(() => {
+            this.$message.success('已拒绝退出');
+            this.queryPendingReviews();
+            this.queryReviewHistory();
+          }).catch(err => this.$message.error(err));
+        }).catch(() => {});
+      },
+      registrationReviewTypeText(status) {
+        if (status === 0) return '报名申请';
+        if (status === 4) return '退出申请';
+        return '未知请求';
+      },
+      reviewBizTypeText(type) {
+        if (type === 'REGISTRATION') return '报名审核';
+        if (type === 'REGISTRATION_CANCEL') return '退出审核';
+        return type || '审核';
+      },
+      reviewActionText(action) {
+        if (action === 'APPROVED') return '通过';
+        if (action === 'REJECTED') return '驳回';
+        return action || '未知';
+      },
+      deleteReviewRecord(id) {
+        axios.delete('/review-records/' + id)
+          .then(() => {
+            this.$message.success('记录已删除');
+            this.queryReviewHistory();
+          })
+          .catch(err => this.$message.error(err));
+      },
+      clearReviewHistory() {
+        this.$confirm('确认删除全部审核历史记录吗？不会影响已审核的业务结果。', '删除审核历史', {
+          confirmButtonText: '确认删除',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }).then(() => {
+          axios.delete('/review-records/clear', { params: { reviewType: 'ACTIVITY_ADMIN' } })
+            .then(() => {
+              this.reviewHistory = [];
+              this.$message.success('审核历史已清空');
             })
             .catch(err => this.$message.error(err));
         }).catch(() => {});
@@ -287,6 +460,8 @@
         if (status === 1) return '待审核';
         if (status === 2) return '已通过';
         if (status === 3) return '已驳回';
+        if (status === 4) return '已下架';
+        if (status === 5) return '下架待审核';
         return '未知';
       }
     }

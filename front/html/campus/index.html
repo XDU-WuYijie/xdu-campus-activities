@@ -37,7 +37,7 @@
       padding: 12px;
       backdrop-filter: blur(10px);
     }
-    .search-bar { display:grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; }
+    .search-bar { display:grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 10px; align-items: center; }
     .search-bar .el-input__inner {
       height: 46px;
       border-radius: 16px;
@@ -53,9 +53,76 @@
       color: #fff;
       box-shadow: 0 10px 22px rgba(23,50,77,.18);
     }
+    .home-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .home-title {
+      font-size: 26px;
+      font-weight: 900;
+      color: var(--ink);
+    }
+    .home-meta {
+      color: var(--muted);
+      font-size: 14px;
+      margin-top: 6px;
+    }
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .category-btn {
+      min-height: 118px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: rgba(255,255,255,.92);
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      text-align: left;
+      padding: 18px;
+      color: var(--ink);
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+    .category-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 22px 44px rgba(16,35,61,.14);
+    }
+    .category-name {
+      font-size: 20px;
+      font-weight: 900;
+      margin-bottom: 10px;
+    }
+    .category-desc {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .list-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 4px 0 14px;
+    }
+    .list-title {
+      font-size: 22px;
+      font-weight: 900;
+      color: var(--ink);
+    }
+    .count-text {
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 600;
+    }
     .filter-row {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 220px));
+      grid-template-columns: minmax(0, 220px);
       gap: 10px;
       justify-content: start;
     }
@@ -82,6 +149,17 @@
     }
     .hero-profile img { width:100%; height:100%; object-fit:cover; display:block; }
     .hero-profile i { font-size: 20px; color:#17324d; }
+    .notice-btn {
+      width: 50px;
+      height: 50px;
+      border: none;
+      border-radius: 50%;
+      background: linear-gradient(180deg, #ffffff, #edf3fa);
+      color:#17324d;
+      box-shadow: 0 10px 24px rgba(16,35,61,.08);
+      cursor:pointer;
+      font-size: 18px;
+    }
     .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
     .activity-card {
       background: rgba(255,255,255,.92);
@@ -140,6 +218,9 @@
       color: var(--brand);
     }
     @media (max-width: 720px) {
+      .category-grid {
+        grid-template-columns: 1fr;
+      }
       .filter-row {
         grid-template-columns: 1fr;
       }
@@ -148,22 +229,38 @@
 </head>
 <body>
 <div id="app" class="page">
-  <div class="toolbar">
-    <div class="search-bar">
-      <el-input v-model="keyword" clearable placeholder="搜索活动标题" @keyup.enter.native="refreshActivities">
-        <i slot="prefix" class="el-input__icon el-icon-search"></i>
-      </el-input>
-      <el-button type="primary" plain @click="refreshActivities">搜索</el-button>
+  <div class="home-head">
+    <div>
+      <div class="home-title">校园活动</div>
+      <div class="home-meta">按分类进入活动主页，再浏览对应活动流。</div>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <el-badge :value="unreadCount" :hidden="!unreadCount">
+        <button class="notice-btn" @click="goNotifications"><i class="el-icon-bell"></i></button>
+      </el-badge>
       <div class="hero-profile" @click="goProfile">
         <img v-if="user.icon" :src="user.icon" alt="">
         <i v-else class="el-icon-user-solid"></i>
       </div>
     </div>
-    <div class="filter-row">
-      <el-select v-model="selectedCategory" class="filter-box" @change="refreshActivities">
-        <el-option label="全部分类" value=""></el-option>
-        <el-option v-for="item in categories" :key="item" :label="item" :value="item"></el-option>
-      </el-select>
+  </div>
+
+  <section v-if="!categorySelected" class="category-grid">
+    <button class="category-btn" v-for="item in categoryButtons" :key="item.name" @click="openCategory(item.name)">
+      <div class="category-name">{{item.name}}</div>
+      <div class="category-desc">{{item.desc}}</div>
+    </button>
+  </section>
+
+  <div class="toolbar" v-if="categorySelected">
+    <div class="search-bar">
+      <el-input v-model="keyword" clearable placeholder="搜索活动标题" @keyup.enter.native="refreshActivities">
+        <i slot="prefix" class="el-input__icon el-icon-search"></i>
+      </el-input>
+      <el-button type="primary" plain @click="refreshActivities">搜索</el-button>
+      <el-button v-if="categorySelected" plain @click="backToCategories">返回分类</el-button>
+    </div>
+    <div class="filter-row" v-if="categorySelected">
       <el-select v-model="sortBy" class="sort-box" @change="refreshActivities">
         <el-option label="综合排序" value="composite"></el-option>
         <el-option label="即将开始" value="startTimeAsc"></el-option>
@@ -172,6 +269,11 @@
         <el-option label="热门优先" value="heatScoreDesc"></el-option>
       </el-select>
     </div>
+  </div>
+
+  <div class="list-head" v-if="categorySelected">
+    <div class="list-title">{{selectedCategory}}活动</div>
+    <div class="count-text">共 {{total}} 条，已显示 {{activities.length}} 条</div>
   </div>
 
   <section class="card-grid" v-if="activities.length">
@@ -194,7 +296,7 @@
     </article>
   </section>
 
-  <div class="empty" v-else>
+  <div class="empty" v-if="categorySelected && !activities.length">
     当前筛选条件下暂无活动。
   </div>
 
@@ -213,20 +315,28 @@
     el: '#app',
     data: {
       user: window.auth.getUser() || {},
-      categories: [],
+      categoryButtons: [
+        { name: '公益活动', desc: '环保公益、社区服务、校园公益实践。' },
+        { name: '创新实践', desc: '创客开放日、实验室体验、项目孵化。' },
+        { name: '志愿服务', desc: '大型活动服务、迎新引导、会务协作。' },
+        { name: '文艺活动', desc: '音乐会、展演、文化节与社团演出。' },
+        { name: '竞赛训练', desc: '算法、安全、工程训练和赛前辅导。' },
+        { name: '其他', desc: '暂未归入固定分类的校园活动。' }
+      ],
       activities: [],
       keyword: '',
       selectedCategory: '',
+      categorySelected: false,
       sortBy: 'composite',
       current: 1,
       pageSize: 6,
       total: 0,
+      unreadCount: 0,
       defaultCover: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=1200&q=80'
     },
     created() {
       this.queryUser();
-      this.queryCategories();
-      this.queryActivities();
+      this.initNotifications();
     },
     methods: {
       queryUser() {
@@ -240,12 +350,12 @@
           })
           .catch(() => this.user = {});
       },
-      queryCategories() {
-        axios.get('/activity/public/categories')
-          .then(({data}) => this.categories = data || [])
-          .catch(err => this.$message.error(err));
-      },
       queryActivities(append) {
+        if (!this.categorySelected) {
+          this.activities = [];
+          this.total = 0;
+          return;
+        }
         axios.get('/activity/public/list', {
           params: {
             current: this.current,
@@ -263,6 +373,21 @@
         this.current = 1;
         this.queryActivities(false);
       },
+      openCategory(category) {
+        this.selectedCategory = category;
+        this.categorySelected = true;
+        this.keyword = '';
+        this.current = 1;
+        this.queryActivities(false);
+      },
+      backToCategories() {
+        this.categorySelected = false;
+        this.selectedCategory = '';
+        this.keyword = '';
+        this.current = 1;
+        this.total = 0;
+        this.activities = [];
+      },
       loadMore() {
         this.current += 1;
         this.queryActivities(true);
@@ -279,6 +404,25 @@
         location.href = user && user.roleCodes && user.roleCodes.includes('PLATFORM_ADMIN')
           ? '/admin-dashboard.html'
           : '/info.html';
+      },
+      goNotifications() {
+        if (!window.auth.getToken()) {
+          location.href = '/login.html';
+          return;
+        }
+        location.href = '/notification.html';
+      },
+      initNotifications() {
+        if (!window.auth.getToken()) return;
+        window.notificationClient.fetchUnread().then(count => this.unreadCount = count || 0);
+        window.notificationClient.connect({
+          onUnread: count => this.unreadCount = count,
+          onMessage: message => {
+            if (message && message.payload) {
+              this.$message.info(message.payload.title);
+            }
+          }
+        });
       },
       formatTime(value) {
         if (!value) return '待定';

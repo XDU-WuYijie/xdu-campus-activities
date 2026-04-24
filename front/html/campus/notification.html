@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <title>通知中心</title>
+  <link rel="stylesheet" href="./css/element.css">
+  <link href="./css/main.css" rel="stylesheet">
+  <style>
+    body { margin:0; background:#f5f8fc; color:#10233d; font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; }
+    .page { max-width: 900px; margin: 0 auto; padding: 18px 16px 70px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+    .topbar-left { display:flex; align-items:center; gap:12px; }
+    .icon-btn { width:40px; height:40px; border:none; border-radius:50%; background:#fff; color:#17324d; box-shadow:0 10px 24px rgba(16,35,61,.08); cursor:pointer; }
+    .top-title { font-size:20px; font-weight:800; }
+    .toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; background:#fff; border-radius:18px; padding:14px; box-shadow:0 12px 30px rgba(16,35,61,.08); margin-bottom:12px; }
+    .filters { display:flex; gap:10px; flex-wrap:wrap; }
+    .filters .el-select { width: 180px; }
+    .notice { background:#fff; border-radius:18px; padding:16px; box-shadow:0 12px 30px rgba(16,35,61,.08); margin-bottom:10px; border-left:4px solid transparent; cursor:pointer; }
+    .notice.unread { border-left-color:#2a5f97; }
+    .notice-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+    .notice-title { font-size:16px; font-weight:800; color:#10233d; }
+    .notice-time { font-size:12px; color:#7a8897; white-space:nowrap; }
+    .notice-content { color:#556273; font-size:14px; line-height:1.8; }
+    .notice-foot { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; }
+    .notice-type { color:#2a5f97; font-size:12px; background:#eef4fb; padding:4px 8px; border-radius:999px; }
+    .count-text { color:#607086; font-size:14px; font-weight:600; margin:0 0 12px; }
+    .empty { background:#fff; border-radius:18px; padding:38px 18px; text-align:center; color:#7a8897; box-shadow:0 12px 30px rgba(16,35,61,.08); }
+    .load-more { text-align:center; margin-top:14px; }
+    @media (max-width: 640px) {
+      .filters, .filters .el-select { width:100%; }
+      .toolbar .el-button { width:100%; }
+    }
+  </style>
+</head>
+<body>
+<div id="app" class="page">
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="icon-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
+      <div class="top-title">通知中心</div>
+    </div>
+    <el-badge :value="unreadCount" :hidden="!unreadCount">
+      <button class="icon-btn"><i class="el-icon-bell"></i></button>
+    </el-badge>
+  </div>
+
+  <div class="toolbar">
+    <div class="filters">
+      <el-select v-model="readFilter" @change="refresh">
+        <el-option label="全部状态" value=""></el-option>
+        <el-option label="未读" value="false"></el-option>
+        <el-option label="已读" value="true"></el-option>
+      </el-select>
+      <el-select v-model="typeFilter" filterable clearable placeholder="全部类型" @change="refresh">
+        <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value"></el-option>
+      </el-select>
+    </div>
+    <div class="filters">
+      <el-button type="primary" plain @click="markAllRead">全部已读</el-button>
+      <el-button type="danger" plain @click="clearMailbox">清空信箱</el-button>
+    </div>
+  </div>
+
+  <div class="count-text">共 {{total}} 条通知，当前显示 {{notifications.length}} 条</div>
+
+  <div v-if="notifications.length">
+    <article class="notice" v-for="item in notifications" :key="item.id" :class="{unread: !item.isRead}" @click="openNotice(item)">
+      <div class="notice-head">
+        <div class="notice-title">{{item.title}}</div>
+        <div class="notice-time">{{formatTime(item.createdAt)}}</div>
+      </div>
+      <div class="notice-content">{{item.content}}</div>
+      <div class="notice-foot">
+        <span class="notice-type">{{typeText(item.type)}}</span>
+        <el-button v-if="!item.isRead" size="mini" type="primary" plain @click.stop="markRead(item)">标为已读</el-button>
+      </div>
+    </article>
+  </div>
+  <div class="empty" v-else>暂无通知</div>
+
+  <div class="load-more" v-if="notifications.length < total">
+    <el-button @click="loadMore">加载更多</el-button>
+  </div>
+</div>
+
+<script src="js/vue.js"></script>
+<script src="js/axios.min.js"></script>
+<script src="js/element.js"></script>
+<script src="js/common.js"></script>
+<script>
+  new Vue({
+    el: '#app',
+    data: {
+      notifications: [],
+      unreadCount: 0,
+      total: 0,
+      current: 1,
+      pageSize: 10,
+      readFilter: '',
+      typeFilter: '',
+      typeOptions: [
+        { value: 'REGISTRATION_SUCCESS', label: '报名成功' },
+        { value: 'REGISTRATION_FAILED', label: '报名失败' },
+        { value: 'REGISTRATION_REVIEW_PENDING', label: '报名待审核' },
+        { value: 'REGISTRATION_CANCEL_REVIEW_PENDING', label: '退出待审核' },
+        { value: 'REGISTRATION_CANCEL_APPROVED', label: '退出通过' },
+        { value: 'REGISTRATION_CANCEL_REJECTED', label: '退出驳回' },
+        { value: 'ACTIVITY_SUBMITTED', label: '活动提交' },
+        { value: 'ACTIVITY_APPROVED', label: '审核通过' },
+        { value: 'ACTIVITY_REJECTED', label: '审核驳回' },
+        { value: 'ACTIVITY_REVIEW_PENDING', label: '待审核活动' },
+        { value: 'ACTIVITY_OFFLINE', label: '活动下架' },
+        { value: 'ACTIVITY_OFFLINE_APPLY_SUBMITTED', label: '下架申请提交' },
+        { value: 'ACTIVITY_OFFLINE_REVIEW_PENDING', label: '下架待审核' },
+        { value: 'ACTIVITY_OFFLINE_APPLY_APPROVED', label: '下架申请通过' },
+        { value: 'ACTIVITY_OFFLINE_APPLY_REJECTED', label: '下架申请驳回' },
+        { value: 'ACTIVITY_LOCATION_CHANGED', label: '地点变更' },
+        { value: 'ORGANIZER_APPLY_PENDING', label: '主办方申请' },
+        { value: 'ORGANIZER_APPLY_APPROVED', label: '申请通过' },
+        { value: 'ORGANIZER_APPLY_REJECTED', label: '申请驳回' }
+      ]
+    },
+    created() {
+      this.refresh();
+      this.loadUnread();
+      window.notificationClient.connect({
+        onUnread: count => this.unreadCount = count,
+        onMessage: message => {
+          if (message && message.payload) {
+            this.notifications.unshift(message.payload);
+            this.total += 1;
+          }
+        }
+      });
+    },
+    methods: {
+      refresh() {
+        this.current = 1;
+        this.queryNotifications(false);
+      },
+      queryNotifications(append) {
+        axios.get('/notification/list', {
+          params: {
+            current: this.current,
+            pageSize: this.pageSize,
+            type: this.typeFilter,
+            isRead: this.readFilter
+          }
+        }).then(({data, total}) => {
+          this.total = total || 0;
+          this.notifications = append ? this.notifications.concat(data || []) : (data || []);
+        }).catch(err => this.$message.error(err));
+      },
+      loadMore() {
+        this.current += 1;
+        this.queryNotifications(true);
+      },
+      loadUnread() {
+        window.notificationClient.fetchUnread().then(count => this.unreadCount = count || 0);
+      },
+      openNotice(item) {
+        if (!item.isRead) {
+          this.markRead(item, false);
+        }
+        if (item.bizType === 'REGISTRATION' && item.bizId) {
+          const reviewTypes = ['REGISTRATION_REVIEW_PENDING', 'REGISTRATION_CANCEL_REVIEW_PENDING'];
+          if (reviewTypes.includes(item.type)) {
+            location.href = '/info.html?tab=reviews';
+            return;
+          }
+          location.href = '/activity-detail.html?id=' + item.bizId;
+          return;
+        }
+        if (item.bizType === 'ACTIVITY' && item.bizId) {
+          location.href = '/activity-detail.html?id=' + item.bizId;
+        }
+      },
+      markRead(item, showMessage) {
+        axios.put('/notification/' + item.id + '/read')
+          .then(() => {
+            item.isRead = true;
+            this.loadUnread();
+            if (showMessage !== false) this.$message.success('已标为已读');
+          })
+          .catch(err => this.$message.error(err));
+      },
+      markAllRead() {
+        axios.put('/notification/read-all')
+          .then(() => {
+            this.notifications.forEach(item => item.isRead = true);
+            this.unreadCount = 0;
+            this.$message.success('已全部标为已读');
+          })
+          .catch(err => this.$message.error(err));
+      },
+      clearMailbox() {
+        this.$confirm('清空后当前信箱内的通知记录将被删除，确认继续吗？', '清空信箱', {
+          confirmButtonText: '确认清空',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }).then(() => {
+          axios.delete('/notification/clear')
+            .then(() => {
+              this.notifications = [];
+              this.total = 0;
+              this.unreadCount = 0;
+              this.$message.success('信箱已清空');
+            })
+            .catch(err => this.$message.error(err));
+        }).catch(() => {});
+      },
+      typeText(type) {
+        const hit = this.typeOptions.find(item => item.value === type);
+        return hit ? hit.label : (type || '通知');
+      },
+      formatTime(value) {
+        return value ? String(value).replace('T', ' ') : '';
+      },
+      goBack() {
+        history.length > 1 ? history.back() : location.href = '/index.html';
+      }
+    }
+  });
+</script>
+</body>
+</html>

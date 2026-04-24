@@ -168,3 +168,133 @@ const util = {
     }
   }
 }
+
+window.notificationClient = {
+  socket: null,
+  reconnectTimer: null,
+  heartbeatTimer: null,
+  reconnectDelay: 3000,
+  listeners: [],
+  unreadCount: 0,
+  fetchUnread() {
+    if (!window.auth.getToken()) return Promise.resolve(0);
+    return axios.get('/notification/unread-count')
+      .then(({data}) => {
+        this.unreadCount = data || 0;
+        return this.unreadCount;
+      })
+      .catch(() => 0);
+  },
+  connect(options) {
+    const token = window.auth.getToken();
+    if (options) this.addListener(options);
+    if (!token) return;
+    if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+    const url = util.buildWsUrl('/api/ws/notification', { token });
+    try {
+      this.socket = new WebSocket(url);
+      this.socket.onopen = () => {
+        this.startHeartbeat();
+        this.fetchUnread().then(count => this.emitUnread(count));
+      };
+      this.socket.onmessage = (event) => {
+        if (event.data === 'pong') return;
+        let message = null;
+        try {
+          message = JSON.parse(event.data);
+        } catch (e) {
+          return;
+        }
+        if (typeof message.unreadCount === 'number') {
+          this.unreadCount = message.unreadCount;
+          this.emitUnread(this.unreadCount);
+        }
+        this.emitMessage(message);
+      };
+      this.socket.onerror = () => {
+        this.closeSocketOnly();
+        this.scheduleReconnect();
+      };
+      this.socket.onclose = () => {
+        this.closeSocketOnly();
+        this.scheduleReconnect();
+      };
+    } catch (e) {
+      this.socket = null;
+      this.scheduleReconnect();
+    }
+  },
+  addListener(options) {
+    const exists = this.listeners.some(item => item && item.owner === options.owner);
+    if (options.owner && exists) return;
+    this.listeners.push(options);
+  },
+  emitMessage(message) {
+    this.listeners.forEach(item => {
+      if (item && item.onMessage) item.onMessage(message);
+    });
+  },
+  emitUnread(count) {
+    this.listeners.forEach(item => {
+      if (item && item.onUnread) item.onUnread(count);
+    });
+  },
+  startHeartbeat() {
+    this.stopHeartbeat();
+    this.heartbeatTimer = setInterval(() => {
+      if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+        this.closeSocketOnly();
+        this.scheduleReconnect();
+        return;
+      }
+      try {
+        this.socket.send('ping');
+      } catch (e) {
+        this.closeSocketOnly();
+        this.scheduleReconnect();
+      }
+    }, 25000);
+  },
+  stopHeartbeat() {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  },
+  scheduleReconnect() {
+    if (this.reconnectTimer || !window.auth.getToken()) return;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.connect();
+    }, this.reconnectDelay);
+  },
+  closeSocketOnly() {
+    this.stopHeartbeat();
+    if (this.socket) {
+      const socket = this.socket;
+      this.socket = null;
+      socket.onclose = null;
+      socket.onerror = null;
+      try {
+        if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+          socket.close();
+        }
+      } catch (e) {}
+    }
+  },
+  close() {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.closeSocketOnly();
+  }
+};
+
+window.addEventListener('online', () => window.notificationClient.connect());
+window.addEventListener('focus', () => window.notificationClient.connect());
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) window.notificationClient.connect();
+});

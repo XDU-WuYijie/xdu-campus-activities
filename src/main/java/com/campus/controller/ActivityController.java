@@ -4,6 +4,7 @@ import com.campus.dto.ActivityCheckInVerifyDTO;
 import com.campus.dto.ReviewActionDTO;
 import com.campus.dto.Result;
 import com.campus.entity.Activity;
+import com.campus.ratelimit.RateLimit;
 import com.campus.service.IActivityService;
 import com.campus.service.OssService;
 import com.campus.utils.AuthorizationUtils;
@@ -14,7 +15,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.time.LocalDateTime;
 
 @RestController
@@ -28,6 +29,7 @@ public class ActivityController {
     private OssService ossService;
 
     @GetMapping("/public/list")
+    @RateLimit(scene = "search")
     public Result queryPublicActivities(
             @RequestParam(value = "keyword", required = false) String keyword,
             @RequestParam(value = "category", required = false) String category,
@@ -49,6 +51,7 @@ public class ActivityController {
     }
 
     @GetMapping("/public/{id}")
+    @RateLimit(scene = "activity-detail-hot")
     public Result queryActivityDetail(@PathVariable("id") Long id) {
         return activityService.queryActivityDetail(id);
     }
@@ -65,12 +68,19 @@ public class ActivityController {
 
     @GetMapping("/manage/mine")
     public Result queryMyCreatedActivities(
+            @RequestParam(value = "keyword", required = false) String keyword,
             @RequestParam(value = "current", defaultValue = "1") Integer current,
             @RequestParam(value = "pageSize", defaultValue = "" + SystemConstants.MAX_PAGE_SIZE) Integer pageSize) {
-        return activityService.queryMyCreatedActivities(current, pageSize);
+        return activityService.queryMyCreatedActivities(keyword, current, pageSize);
+    }
+
+    @PostMapping("/manage/{id}/offline-apply")
+    public Result requestOfflineActivity(@PathVariable("id") Long activityId, @RequestBody(required = false) ReviewActionDTO dto) {
+        return activityService.requestOfflineActivity(activityId, dto);
     }
 
     @PostMapping("/{id}/register")
+    @RateLimit(scene = "register")
     public Result register(@PathVariable("id") Long activityId) {
         return activityService.register(activityId);
     }
@@ -99,6 +109,27 @@ public class ActivityController {
             @RequestParam(value = "current", defaultValue = "1") Integer current,
             @RequestParam(value = "pageSize", defaultValue = "" + SystemConstants.MAX_PAGE_SIZE) Integer pageSize) {
         return activityService.queryActivityRegistrations(activityId, current, pageSize);
+    }
+
+    @GetMapping("/manage/registration-reviews")
+    public Result queryMyPendingRegistrationReviews(
+            @RequestParam(value = "current", defaultValue = "1") Integer current,
+            @RequestParam(value = "pageSize", defaultValue = "" + SystemConstants.MAX_PAGE_SIZE) Integer pageSize) {
+        return activityService.queryMyPendingRegistrationReviews(current, pageSize);
+    }
+
+    @PostMapping("/manage/{id}/registrations/{registrationId}/review")
+    public Result reviewRegistration(@PathVariable("id") Long activityId,
+                                     @PathVariable("registrationId") Long registrationId,
+                                     @RequestBody ReviewActionDTO dto) {
+        return activityService.reviewRegistration(activityId, registrationId, dto);
+    }
+
+    @PostMapping("/manage/{id}/registrations/{registrationId}/cancel-review")
+    public Result reviewCancelRegistration(@PathVariable("id") Long activityId,
+                                           @PathVariable("registrationId") Long registrationId,
+                                           @RequestBody ReviewActionDTO dto) {
+        return activityService.reviewCancelRegistration(activityId, registrationId, dto);
     }
 
     @PostMapping("/manage/image")
@@ -132,11 +163,23 @@ public class ActivityController {
     }
 
     @GetMapping("/admin/review-list")
-    public Result queryPendingReviewActivities() {
+    @RateLimit(scene = "review-list")
+    public Result queryPendingReviewActivities(@RequestParam(value = "keyword", required = false) String keyword) {
         if (!AuthorizationUtils.hasPermission(UserHolder.getUser(), RbacConstants.PERM_ACTIVITY_APPROVE)) {
             return Result.fail("无权查看待审核活动");
         }
-        return activityService.queryPendingReviewActivities();
+        return activityService.queryPendingReviewActivities(keyword);
+    }
+
+    @GetMapping("/admin/published-list")
+    public Result queryPublishedActivitiesForAdmin(
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "current", defaultValue = "1") Integer current,
+            @RequestParam(value = "pageSize", defaultValue = "" + SystemConstants.MAX_PAGE_SIZE) Integer pageSize) {
+        if (!AuthorizationUtils.hasPermission(UserHolder.getUser(), RbacConstants.PERM_ACTIVITY_OFFLINE)) {
+            return Result.fail("无权查看已发布活动");
+        }
+        return activityService.queryPublishedActivitiesForAdmin(keyword, current, pageSize);
     }
 
     @PostMapping("/admin/{id}/review")
@@ -145,5 +188,13 @@ public class ActivityController {
             return Result.fail("无权审核活动");
         }
         return activityService.reviewActivity(activityId, dto);
+    }
+
+    @PostMapping("/admin/{id}/offline")
+    public Result offlineActivity(@PathVariable("id") Long activityId, @RequestBody(required = false) ReviewActionDTO dto) {
+        if (!AuthorizationUtils.hasPermission(UserHolder.getUser(), RbacConstants.PERM_ACTIVITY_OFFLINE)) {
+            return Result.fail("无权下架活动");
+        }
+        return activityService.offlineActivity(activityId, dto);
     }
 }

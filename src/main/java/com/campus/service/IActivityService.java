@@ -25,11 +25,19 @@ public interface IActivityService extends IService<Activity> {
 
     Result queryActivityDetail(Long id);
 
+    Result rateLimitFallbackPublicActivities(String category, Integer current, Integer pageSize);
+
+    Result rateLimitFallbackActivityDetail(Long id);
+
+    boolean shouldApplyRegisterRateLimit(Long activityId);
+
     Result createActivity(Activity activity);
 
     Result updateActivity(Activity activity);
 
-    Result queryMyCreatedActivities(Integer current, Integer pageSize);
+    Result queryMyCreatedActivities(String keyword, Integer current, Integer pageSize);
+
+    Result requestOfflineActivity(Long activityId, ReviewActionDTO dto);
 
     Result register(Long activityId);
 
@@ -41,13 +49,23 @@ public interface IActivityService extends IService<Activity> {
 
     Result queryActivityRegistrations(Long activityId, Integer current, Integer pageSize);
 
+    Result queryMyPendingRegistrationReviews(Integer current, Integer pageSize);
+
+    Result reviewRegistration(Long activityId, Long registrationId, ReviewActionDTO dto);
+
+    Result reviewCancelRegistration(Long activityId, Long registrationId, ReviewActionDTO dto);
+
     Result verifyCheckIn(Long activityId, ActivityCheckInVerifyDTO dto, String idempotencyKey);
 
     Result queryCheckInStats(Long activityId);
 
     Result queryCheckInRecords(Long activityId, Integer current, Integer pageSize);
 
-    Result queryPendingReviewActivities();
+    Result queryPendingReviewActivities(String keyword);
+
+    Result queryPublishedActivitiesForAdmin(String keyword, Integer current, Integer pageSize);
 
     Result reviewActivity(Long activityId, ReviewActionDTO dto);
+
+    Result offlineActivity(Long activityId, ReviewActionDTO dto);
 }

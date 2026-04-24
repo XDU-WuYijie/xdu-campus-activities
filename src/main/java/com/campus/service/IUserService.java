@@ -7,7 +7,7 @@ import com.campus.dto.ReviewActionDTO;
 import com.campus.dto.Result;
 import com.campus.entity.User;
 
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpSession;
 
 /**
  * <p>

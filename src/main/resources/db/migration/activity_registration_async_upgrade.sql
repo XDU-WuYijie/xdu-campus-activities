@@ -49,6 +49,6 @@ EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
 ALTER TABLE `tb_activity_registration`
-  MODIFY COLUMN `status` tinyint(1) NOT NULL DEFAULT 0 COMMENT '报名状态：0待确认，1成功，2失败，3已取消';
+  MODIFY COLUMN `status` tinyint(1) NOT NULL DEFAULT 0 COMMENT '报名状态：0报名待审核，1报名通过，2报名驳回，3已退出，4退出待审核';
 
 SET FOREIGN_KEY_CHECKS = 1;

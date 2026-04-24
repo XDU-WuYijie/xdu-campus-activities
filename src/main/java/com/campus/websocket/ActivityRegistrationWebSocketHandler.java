@@ -6,7 +6,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 
 @Component
 public class ActivityRegistrationWebSocketHandler extends TextWebSocketHandler {
@@ -23,7 +23,10 @@ public class ActivityRegistrationWebSocketHandler extends TextWebSocketHandler {
     }
 
     @Override
-    protected void handleTextMessage(WebSocketSession session, TextMessage message) {
+    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+        if ("ping".equalsIgnoreCase(message.getPayload())) {
+            session.sendMessage(new TextMessage("pong"));
+        }
     }
 
     @Override

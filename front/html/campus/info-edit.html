@@ -160,6 +160,24 @@
       flex-wrap: wrap;
     }
 
+    .apply-card {
+      padding: 18px;
+      margin-top: 14px;
+    }
+
+    .apply-title {
+      font-size: 17px;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+
+    .apply-meta {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.8;
+      margin-bottom: 10px;
+    }
+
     @media (max-width: 900px) {
       .shell,
       .field-grid {
@@ -186,6 +204,16 @@
           <img :src="user.icon || '/imgs/icons/default-icon.png'" alt="">
         </div>
         <el-button size="mini" type="primary" plain :loading="uploading" @click="chooseAvatar">更换头像</el-button>
+      </div>
+
+      <div class="card apply-card" v-if="showOrganizerApply">
+        <div class="apply-title">活动主办方申请</div>
+        <div class="apply-meta" v-if="canManageActivities">当前账号已具备活动主办方权限，可以发起活动并管理报名审核。</div>
+        <div class="apply-meta" v-if="organizerApplication">当前申请状态：{{ organizerStatusText }}</div>
+        <div class="apply-meta" v-if="organizerApplication && organizerApplication.orgName">申请组织：{{ organizerApplication.orgName }}</div>
+        <div class="apply-meta" v-if="organizerApplication && organizerApplication.reviewRemark">审核备注：{{ organizerApplication.reviewRemark }}</div>
+        <div class="apply-meta" v-if="!canManageActivities && !organizerApplication">成为主办方后可发起活动、审核报名请求并执行签到核销。</div>
+        <el-button v-if="!canManageActivities" size="mini" type="primary" plain @click="openApplyDialog">申请成为主办方</el-button>
       </div>
     </div>
 
@@ -282,6 +310,8 @@
         grade: "",
         mentor: ""
       },
+      organizerApplication: null,
+      applyForm: { orgName: "", reason: "" },
       saving: false,
       uploading: false,
     },
@@ -294,6 +324,7 @@
           .then(({data}) => {
             this.user = data || {};
             window.auth.setUser(this.user);
+            this.queryMyOrganizerApplication();
             return axios.get("/user/info/" + this.user.id);
           })
           .then(({data}) => {
@@ -315,6 +346,38 @@
       chooseAvatar() {
         if (this.uploading) return;
         this.$refs.avatarInput && this.$refs.avatarInput.click();
+      },
+      queryMyOrganizerApplication() {
+        if (!this.showOrganizerApply) {
+          this.organizerApplication = null;
+          return;
+        }
+        axios.get("/user/organizer/apply/me")
+          .then(({data}) => this.organizerApplication = data || null)
+          .catch(() => this.organizerApplication = null);
+      },
+      openApplyDialog() {
+        this.$prompt("请填写申请组织/社团名称", "申请成为主办方", {
+          confirmButtonText: "下一步",
+          cancelButtonText: "取消",
+          inputValue: this.applyForm.orgName || ""
+        }).then(({ value }) => {
+          this.applyForm.orgName = value;
+          this.$prompt("请填写申请理由", "申请成为主办方", {
+            confirmButtonText: "提交申请",
+            cancelButtonText: "取消",
+            inputType: "textarea",
+            inputValue: this.applyForm.reason || ""
+          }).then(({ value: reason }) => {
+            this.applyForm.reason = reason;
+            axios.post("/user/organizer/apply", this.applyForm)
+              .then(() => {
+                this.$message.success("申请已提交");
+                this.queryMyOrganizerApplication();
+              })
+              .catch(err => this.$message.error(err));
+          }).catch(() => {});
+        }).catch(() => {});
       },
       onPickAvatar(e) {
         const file = e.target.files && e.target.files[0];
@@ -346,6 +409,27 @@
       },
       goBack(){
         history.back();
+      }
+    },
+    computed: {
+      canManageActivities() {
+        const permissions = (this.user && this.user.permissions) || [];
+        return permissions.includes("activity:create");
+      },
+      isPlatformAdmin() {
+        const roleCodes = (this.user && this.user.roleCodes) || [];
+        return roleCodes.includes("PLATFORM_ADMIN");
+      },
+      showOrganizerApply() {
+        return this.user && !this.isPlatformAdmin;
+      },
+      organizerStatusText() {
+        if (!this.organizerApplication) return "未申请";
+        const status = this.organizerApplication.applyStatus;
+        if (status === "PENDING") return "待审核";
+        if (status === "APPROVED") return "已通过";
+        if (status === "REJECTED") return "已驳回";
+        return status || "未知";
       }
     }
 
