@@ -18,9 +18,20 @@ public interface ActivitySearchService {
                                            Integer current,
                                            Integer pageSize);
 
+    ActivitySearchPageDTO searchActivitiesByCreator(Long creatorId,
+                                                    String keyword,
+                                                    Integer current,
+                                                    Integer pageSize);
+
+    ActivitySearchPageDTO searchActivitiesByKeyword(String keyword,
+                                                     Integer current,
+                                                     Integer pageSize);
+
     List<String> queryCategories(Integer status);
 
     void syncActivity(Long activityId);
+
+    void rebuildIndexFromMysql();
 
     boolean isAvailable();
 }

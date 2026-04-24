@@ -30,7 +30,9 @@ public class Activity implements Serializable {
     private String summary;
     private String content;
     private String category;
+    private String customCategory;
     private String registrationMode;
+    private String contactInfo;
     private String location;
     private Integer maxParticipants;
     private Integer registeredCount;
@@ -54,6 +56,11 @@ public class Activity implements Serializable {
     private LocalDateTime checkInCodeExpireTime;
 
     private Integer status;
+    private Long reviewerId;
+    private String reviewRemark;
+
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime reviewTime;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;

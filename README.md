@@ -2,14 +2,16 @@
 
 西电校园大型活动报名与签到平台。
 
+
 ## 技术栈
 
-- 后端：Spring Boot 3.5, JDK 17, MyBatis-Plus, Redis, RocketMQ, WebSocket, Elasticsearch
+- 后端：Spring Boot 3.5, JDK 17, MyBatis-Plus, Spring AI, Redis, RocketMQ, WebSocket, Elasticsearch
 - 前端：原生 HTML + Vue 2 + Element UI
 - 数据库：MySQL 8.0
 - 缓存：Redis 7.2
 - 本地基础设施：Docker Compose
 - 静态资源代理：Nginx
+- 横切能力：AOP 限流、Token Bucket 令牌桶、场景化降级、WebSocket 实时推送
 
 ## 核心特性
 
@@ -24,6 +26,11 @@
 - 报名成功后自动生成签到凭证
 - 主办方按展示码或凭证 ID 进行签到核销
 - 签到统计、核销记录、报名名单查询
+- 报名模式支持 `审核制` 和 `先到先得`
+- 基于 AOP + 本地令牌桶的接口限流与降级
+- 通知中心支持离线通知、未读数、实时推送和业务跳转
+- 审核历史支持活动审核、报名/退出审核和主办方申请审核留痕
+- 活动 AI 辅助审核，提供结构化建议与人工复核记录
 - 头像与活动图片上传到阿里云 OSS，URL 回写用户/活动数据
 
 ## 目录说明
@@ -254,5 +261,5 @@ mysql -h127.0.0.1 -P3307 -u[用户名] -p[密码] campus < "D:\Java\IDEA_JAVA_pr
 
 ## 参考文档
 
-- `功能模块设计.md`
-- `工程进展.md`
+- [功能模块设计](doc/功能模块设计.md)
+- [工程进展](doc/工程进展.md)

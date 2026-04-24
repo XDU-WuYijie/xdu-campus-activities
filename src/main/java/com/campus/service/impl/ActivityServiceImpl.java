@@ -35,6 +35,7 @@ import com.campus.mapper.ActivityVoucherMapper;
 import com.campus.mapper.UserMapper;
 import com.campus.service.ActivitySearchService;
 import com.campus.service.IActivityService;
+import com.campus.service.IActivityAiReviewService;
 import com.campus.service.INotificationService;
 import com.campus.service.IReviewRecordService;
 import com.campus.utils.CacheClient;
@@ -62,11 +63,14 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -104,7 +108,8 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
             "创新实践",
             "志愿服务",
             "文艺活动",
-            "竞赛训练"
+            "竞赛训练",
+            "其他"
     );
     private static final int REGISTRATION_PENDING = 0;
     private static final int REGISTRATION_SUCCESS = 1;
@@ -196,6 +201,9 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
 
     @Resource
     private IReviewRecordService reviewRecordService;
+
+    @Resource
+    private IActivityAiReviewService activityAiReviewService;
 
     @Override
     public Result queryPublicActivities(String keyword,
@@ -301,6 +309,8 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         if (StrUtil.isBlank(activity.getOrganizerName())) {
             activity.setOrganizerName(user.getNickName());
         }
+        normalizeCustomCategory(activity);
+        activity.setContactInfo(StrUtil.trim(activity.getContactInfo()));
         if (activity.getRegisteredCount() == null) {
             activity.setRegisteredCount(0);
         }
@@ -310,6 +320,9 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         if (StrUtil.isBlank(activity.getRegistrationMode())) {
             activity.setRegistrationMode(REGISTRATION_MODE_AUDIT_REQUIRED);
         }
+        activity.setReviewerId(null);
+        activity.setReviewRemark(null);
+        activity.setReviewTime(null);
         activity.setCheckInEnabled(true);
         activity.setCheckInCode(null);
         activity.setCheckInCodeExpireTime(null);
@@ -317,6 +330,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         save(activity);
         refreshActivityCacheState(activity.getId(), true);
         notifyActivitySubmitted(activity);
+        activityAiReviewService.scheduleActivityReview(activity, "CREATE");
         return Result.ok(activity.getId());
     }
 
@@ -348,7 +362,9 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         existing.setSummary(activity.getSummary());
         existing.setContent(activity.getContent());
         existing.setCategory(activity.getCategory());
+        existing.setCustomCategory(activity.getCustomCategory());
         existing.setRegistrationMode(resolveRegistrationMode(activity));
+        existing.setContactInfo(StrUtil.trim(activity.getContactInfo()));
         existing.setLocation(activity.getLocation());
         existing.setOrganizerName(StrUtil.isBlank(activity.getOrganizerName()) ? existing.getOrganizerName() : activity.getOrganizerName());
         existing.setMaxParticipants(activity.getMaxParticipants());
@@ -357,6 +373,9 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         existing.setEventStartTime(activity.getEventStartTime());
         existing.setEventEndTime(activity.getEventEndTime());
         existing.setStatus(STATUS_PENDING_REVIEW);
+        existing.setReviewerId(null);
+        existing.setReviewRemark(null);
+        existing.setReviewTime(null);
         existing.setCheckInEnabled(true);
         existing.setCheckInCode(null);
         existing.setCheckInCodeExpireTime(null);
@@ -364,6 +383,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         updateById(existing);
         refreshActivityCacheState(existing.getId(), true);
         notifyActivitySubmitted(existing);
+        activityAiReviewService.scheduleActivityReview(existing, "UPDATE");
         if (!Objects.equals(oldLocation, existing.getLocation())) {
             notifyActivityLocationChanged(existing, oldLocation);
         }
@@ -376,6 +396,25 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         if (authResult != null) {
             return authResult;
         }
+        int currentPage = current == null || current < 1 ? 1 : current;
+        try {
+            if (activitySearchService.isAvailable()) {
+                ActivitySearchPageDTO searchPage = activitySearchService.searchActivitiesByCreator(
+                        UserHolder.getUser().getId(),
+                        keyword,
+                        currentPage,
+                        pageSize
+                );
+                List<Activity> records = searchPage.getRecords();
+                if (records != null && (!records.isEmpty() || currentPage > 1)) {
+                    syncRemainingSlots(records);
+                    enrichActivities(records, UserHolder.getUser());
+                    return Result.ok(records, searchPage.getTotal());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("我发起的活动 ES 查询失败，降级 MySQL keyword={}", keyword, e);
+        }
         QueryWrapper<Activity> wrapper = new QueryWrapper<Activity>()
                 .eq("creator_id", UserHolder.getUser().getId())
                 .and(StrUtil.isNotBlank(keyword), query -> query
@@ -385,13 +424,15 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                         .or()
                         .like("content", keyword)
                         .or()
+                        .like("custom_category", keyword)
+                        .or()
                         .like("category", keyword)
                         .or()
                         .like("location", keyword))
                 .orderByDesc("create_time");
         Page<Activity> page = page(
                 new Page<>(
-                        current == null || current < 1 ? 1 : current,
+                        currentPage,
                         normalizePageSize(pageSize)
                 ),
                 wrapper
@@ -579,24 +620,17 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     }
 
     @Override
-    public Result queryMyRegistrations(String filter, Integer current, Integer pageSize) {
+    public Result queryMyRegistrations(String filter, String keyword, Integer current, Integer pageSize) {
         Result authResult = requirePermission(RbacConstants.PERM_REGISTRATION_VIEW_SELF, "无权查看我的报名");
         if (authResult != null) {
             return authResult;
         }
-        QueryWrapper<ActivityRegistration> wrapper = new QueryWrapper<ActivityRegistration>()
-                .eq("user_id", UserHolder.getUser().getId())
-                .orderByDesc("create_time");
-        List<ActivityRegistration> records = activityRegistrationMapper.selectList(wrapper);
-        enrichRegistrationActivities(records);
-        enrichRegistrationVoucherInfo(records);
-        List<ActivityRegistration> filteredRecords = filterMyRegistrations(records, filter);
-        int normalizedPageSize = normalizePageSize(pageSize);
-        int currentPage = current == null || current < 1 ? 1 : current;
-        int fromIndex = Math.min((currentPage - 1) * normalizedPageSize, filteredRecords.size());
-        int toIndex = Math.min(fromIndex + normalizedPageSize, filteredRecords.size());
-        List<ActivityRegistration> pagedRecords = filteredRecords.subList(fromIndex, toIndex);
-        return Result.ok(pagedRecords, (long) filteredRecords.size());
+        try {
+            return queryMyRegistrationsWithSearch(filter, keyword, current, pageSize);
+        } catch (Exception e) {
+            log.warn("我的报名 ES 查询失败，降级 MySQL filter={}, keyword={}", filter, keyword, e);
+            return queryMyRegistrationsFromMysql(filter, keyword, current, pageSize);
+        }
     }
 
     @Override
@@ -819,6 +853,8 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                         .or()
                         .like("content", keyword)
                         .or()
+                        .like("custom_category", keyword)
+                        .or()
                         .like("organizer_name", keyword)
                         .or()
                         .like("category", keyword)
@@ -840,6 +876,18 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
             }
         }
         return Result.ok(activities);
+    }
+
+    @Override
+    public Result queryActivityAiReview(Long activityId) {
+        if (activityId == null) {
+            return Result.fail("活动ID不能为空");
+        }
+        Activity activity = getById(activityId);
+        if (activity == null) {
+            return Result.fail("活动不存在");
+        }
+        return Result.ok(activityAiReviewService.queryReport(activityId));
     }
 
     @Override
@@ -875,6 +923,8 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                         .or()
                         .like("content", keyword)
                         .or()
+                        .like("custom_category", keyword)
+                        .or()
                         .like("category", keyword)
                         .or()
                         .like("organizer_name", keyword)
@@ -900,11 +950,17 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         if (dto == null || dto.getApproved() == null) {
             return Result.fail("审核结果不能为空");
         }
+        if (!Boolean.TRUE.equals(dto.getApproved()) && StrUtil.isBlank(dto.getReviewRemark())) {
+            return Result.fail("驳回原因不能为空");
+        }
         Activity activity = getById(activityId);
         if (activity == null) {
             return Result.fail("活动不存在");
         }
         boolean offlineApply = Objects.equals(activity.getStatus(), STATUS_OFFLINE_PENDING_REVIEW);
+        activity.setReviewerId(UserHolder.getUser() == null ? null : UserHolder.getUser().getId());
+        activity.setReviewTime(LocalDateTime.now());
+        activity.setReviewRemark(Boolean.TRUE.equals(dto.getApproved()) ? null : StrUtil.trim(dto.getReviewRemark()));
         if (offlineApply) {
             activity.setStatus(Boolean.TRUE.equals(dto.getApproved()) ? STATUS_OFFLINE : STATUS_PUBLISHED);
         } else {
@@ -928,6 +984,9 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                 Boolean.TRUE.equals(dto.getApproved()) ? "APPROVED" : "REJECTED",
                 dto.getReviewRemark()
         );
+        if (!offlineApply) {
+            activityAiReviewService.recordManualReview(activity, dto.getApproved(), dto.getReviewRemark());
+        }
         return Result.ok();
     }
 
@@ -1743,7 +1802,10 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         QueryWrapper<Activity> wrapper = new QueryWrapper<>();
         wrapper.in(targetStatus == null, "status", STATUS_PUBLISHED, STATUS_OFFLINE_PENDING_REVIEW)
                 .eq(targetStatus != null, "status", targetStatus)
-                .like(StrUtil.isNotBlank(keyword), "title", keyword)
+                .and(StrUtil.isNotBlank(keyword), query -> query
+                        .like("title", keyword)
+                        .or()
+                        .like("custom_category", keyword))
                 .eq(StrUtil.isNotBlank(category), "category", category)
                 .like(StrUtil.isNotBlank(location), "location", location)
                 .like(StrUtil.isNotBlank(organizerName), "organizer_name", organizerName)
@@ -1768,6 +1830,130 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         return records.stream()
                 .filter(record -> matchesMyRegistrationFilter(record, targetFilter, now))
                 .collect(Collectors.toList());
+    }
+
+    private List<ActivityRegistration> filterMyRegistrationsByKeyword(List<ActivityRegistration> records, String keyword) {
+        if (records == null || records.isEmpty() || StrUtil.isBlank(keyword)) {
+            return records;
+        }
+        String normalizedKeyword = StrUtil.trim(keyword).toLowerCase();
+        return records.stream()
+                .filter(record -> matchesMyRegistrationKeyword(record, normalizedKeyword))
+                .collect(Collectors.toList());
+    }
+
+    private boolean matchesMyRegistrationKeyword(ActivityRegistration record, String keyword) {
+        if (record == null || StrUtil.isBlank(keyword)) {
+            return false;
+        }
+        return containsIgnoreCase(record.getActivityTitle(), keyword)
+                || containsIgnoreCase(record.getCategory(), keyword)
+                || containsIgnoreCase(record.getLocation(), keyword)
+                || containsIgnoreCase(record.getOrganizerName(), keyword)
+                || containsIgnoreCase(record.getStatusText(), keyword)
+                || containsIgnoreCase(record.getFailReason(), keyword)
+                || containsIgnoreCase(record.getVoucherDisplayCode(), keyword)
+                || containsIgnoreCase(record.getRequestId(), keyword);
+    }
+
+    private boolean containsIgnoreCase(String source, String keyword) {
+        return StrUtil.isNotBlank(source) && source.toLowerCase().contains(keyword);
+    }
+
+    private Result queryMyRegistrationsWithSearch(String filter, String keyword, Integer current, Integer pageSize) {
+        QueryWrapper<ActivityRegistration> wrapper = new QueryWrapper<ActivityRegistration>()
+                .eq("user_id", UserHolder.getUser().getId())
+                .orderByDesc("create_time");
+        List<ActivityRegistration> records = activityRegistrationMapper.selectList(wrapper);
+        enrichRegistrationActivities(records);
+        enrichRegistrationVoucherInfo(records);
+        List<ActivityRegistration> filteredRecords = filterMyRegistrations(records, filter);
+        if (StrUtil.isNotBlank(keyword) && activitySearchService.isAvailable()) {
+            List<Long> matchedActivityIds = queryMatchedActivityIdsByKeyword(keyword);
+            filteredRecords = mergeRegistrationKeywordMatches(filteredRecords, keyword, matchedActivityIds);
+        } else {
+            filteredRecords = filterMyRegistrationsByKeyword(filteredRecords, keyword);
+        }
+        return paginateRegistrations(filteredRecords, current, pageSize);
+    }
+
+    private Result queryMyRegistrationsFromMysql(String filter, String keyword, Integer current, Integer pageSize) {
+        QueryWrapper<ActivityRegistration> wrapper = new QueryWrapper<ActivityRegistration>()
+                .eq("user_id", UserHolder.getUser().getId())
+                .orderByDesc("create_time");
+        List<ActivityRegistration> records = activityRegistrationMapper.selectList(wrapper);
+        enrichRegistrationActivities(records);
+        enrichRegistrationVoucherInfo(records);
+        List<ActivityRegistration> filteredRecords = filterMyRegistrations(records, filter);
+        filteredRecords = filterMyRegistrationsByKeyword(filteredRecords, keyword);
+        return paginateRegistrations(filteredRecords, current, pageSize);
+    }
+
+    private Result paginateRegistrations(List<ActivityRegistration> records, Integer current, Integer pageSize) {
+        int normalizedPageSize = normalizePageSize(pageSize);
+        int currentPage = current == null || current < 1 ? 1 : current;
+        int fromIndex = Math.min((currentPage - 1) * normalizedPageSize, records.size());
+        int toIndex = Math.min(fromIndex + normalizedPageSize, records.size());
+        List<ActivityRegistration> pagedRecords = records.subList(fromIndex, toIndex);
+        return Result.ok(pagedRecords, (long) records.size());
+    }
+
+    private List<ActivityRegistration> mergeRegistrationKeywordMatches(List<ActivityRegistration> records,
+                                                                       String keyword,
+                                                                       List<Long> matchedActivityIds) {
+        if (records == null || records.isEmpty() || StrUtil.isBlank(keyword)) {
+            return records;
+        }
+        List<ActivityRegistration> mysqlMatches = filterMyRegistrationsByKeyword(records, keyword);
+        if (matchedActivityIds == null || matchedActivityIds.isEmpty()) {
+            return mysqlMatches;
+        }
+        Map<Long, Integer> orderMap = new HashMap<>();
+        for (int i = 0; i < matchedActivityIds.size(); i++) {
+            orderMap.putIfAbsent(matchedActivityIds.get(i), i);
+        }
+        List<ActivityRegistration> esMatches = records.stream()
+                .filter(record -> record != null && record.getActivityId() != null && orderMap.containsKey(record.getActivityId()))
+                .sorted(Comparator
+                        .comparingInt((ActivityRegistration record) -> orderMap.getOrDefault(record.getActivityId(), Integer.MAX_VALUE))
+                        .thenComparing(ActivityRegistration::getCreateTime, Comparator.nullsLast(Comparator.reverseOrder())))
+                .collect(Collectors.toList());
+        Set<Long> seenIds = esMatches.stream()
+                .map(ActivityRegistration::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        List<ActivityRegistration> merged = new ArrayList<>(esMatches);
+        for (ActivityRegistration record : mysqlMatches) {
+            if (record == null || record.getId() == null || seenIds.contains(record.getId())) {
+                continue;
+            }
+            merged.add(record);
+        }
+        return merged;
+    }
+
+    private List<Long> queryMatchedActivityIdsByKeyword(String keyword) {
+        List<Long> activityIds = new ArrayList<>();
+        int current = 1;
+        int pageSize = 100;
+        while (true) {
+            ActivitySearchPageDTO searchPage = activitySearchService.searchActivitiesByKeyword(keyword, current, pageSize);
+            List<Activity> activities = searchPage.getRecords();
+            if (activities == null || activities.isEmpty()) {
+                break;
+            }
+            for (Activity activity : activities) {
+                if (activity != null && activity.getId() != null) {
+                    activityIds.add(activity.getId());
+                }
+            }
+            Long total = searchPage.getTotal();
+            if (activities.size() < pageSize || total == null || activityIds.size() >= total) {
+                break;
+            }
+            current++;
+        }
+        return activityIds;
     }
 
     private boolean matchesMyRegistrationFilter(ActivityRegistration record, String filter, LocalDateTime now) {
@@ -2747,7 +2933,14 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
             return "活动分类不能为空";
         }
         if (!ACTIVITY_CATEGORY_OPTIONS.contains(activity.getCategory())) {
-            return "活动分类只能选择公益活动、创新实践、志愿服务、文艺活动、竞赛训练";
+            return "活动分类只能选择公益活动、创新实践、志愿服务、文艺活动、竞赛训练、其他";
+        }
+        normalizeCustomCategory(activity);
+        if ("其他".equals(activity.getCategory()) && StrUtil.isBlank(activity.getCustomCategory())) {
+            return "选择其他分类时，请填写具体活动类型";
+        }
+        if (StrUtil.length(StrUtil.trim(activity.getCustomCategory())) > 64) {
+            return "自定义活动类型长度不能超过64个字符";
         }
         if (StrUtil.isBlank(activity.getRegistrationMode())) {
             activity.setRegistrationMode(REGISTRATION_MODE_AUDIT_REQUIRED);
@@ -2758,6 +2951,9 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         }
         if (StrUtil.isBlank(activity.getLocation())) {
             return "活动地点不能为空";
+        }
+        if (StrUtil.length(StrUtil.trim(activity.getContactInfo())) > 255) {
+            return "主办方联系方式长度不能超过255个字符";
         }
         if (StrUtil.isBlank(activity.getImages()) && StrUtil.isBlank(activity.getCoverImage())) {
             return "请至少上传一张活动图片";
@@ -2805,6 +3001,17 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         }
         activity.setImages(String.join(",", imageList));
         activity.setCoverImage(imageList.get(0));
+    }
+
+    private void normalizeCustomCategory(Activity activity) {
+        if (activity == null) {
+            return;
+        }
+        if ("其他".equals(activity.getCategory())) {
+            activity.setCustomCategory(StrUtil.trim(activity.getCustomCategory()));
+            return;
+        }
+        activity.setCustomCategory(null);
     }
 
     private static class CachedActivityPage {

@@ -108,32 +108,25 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
                                                   LocalDateTime startTimeTo,
                                                   Integer current,
                                                   Integer pageSize) {
-        assertClientAvailable();
-        try {
-            ensureIndex();
-            int currentPage = current == null || current < 1 ? 1 : current;
-            int size = pageSize == null || pageSize < 1 ? 10 : pageSize;
-            SearchRequest request = new SearchRequest(indexName());
-            SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-            sourceBuilder.query(buildSearchQuery(keyword, category, status, location, organizerName, startTimeFrom, startTimeTo));
-            sourceBuilder.from((currentPage - 1) * size);
-            sourceBuilder.size(size);
-            sourceBuilder.trackTotalHits(true);
-            sourceBuilder.fetchSource(false);
-            applySort(sourceBuilder, sortBy, StrUtil.isNotBlank(keyword));
-            request.source(sourceBuilder);
+        return searchActivitiesInternal(keyword, category, status, location, organizerName, sortBy,
+                startTimeFrom, startTimeTo, null, true, current, pageSize);
+    }
 
-            SearchResponse response = restHighLevelClient.search(request, RequestOptions.DEFAULT);
-            List<Long> ids = new ArrayList<>();
-            for (SearchHit hit : response.getHits().getHits()) {
-                ids.add(Long.valueOf(hit.getId()));
-            }
-            List<Activity> orderedActivities = loadActivitiesInOrder(ids);
-            long total = response.getHits().getTotalHits() == null ? 0L : response.getHits().getTotalHits().value;
-            return new ActivitySearchPageDTO(orderedActivities, total);
-        } catch (Exception e) {
-            throw new IllegalStateException("ES 活动搜索失败", e);
-        }
+    @Override
+    public ActivitySearchPageDTO searchActivitiesByCreator(Long creatorId,
+                                                           String keyword,
+                                                           Integer current,
+                                                           Integer pageSize) {
+        return searchActivitiesInternal(keyword, null, null, null, null, StrUtil.isBlank(keyword) ? SORT_PUBLISH_TIME_DESC : SORT_COMPOSITE,
+                null, null, creatorId, false, current, pageSize);
+    }
+
+    @Override
+    public ActivitySearchPageDTO searchActivitiesByKeyword(String keyword,
+                                                           Integer current,
+                                                           Integer pageSize) {
+        return searchActivitiesInternal(keyword, null, null, null, null, SORT_COMPOSITE,
+                null, null, null, false, current, pageSize);
     }
 
     @Override
@@ -172,7 +165,7 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
         try {
             ensureIndex();
             Activity activity = activityMapper.selectById(activityId);
-            if (activity == null || !isPublicActivityStatus(activity.getStatus())) {
+            if (activity == null) {
                 restHighLevelClient.delete(new DeleteRequest(indexName(), String.valueOf(activityId)), RequestOptions.DEFAULT);
                 return;
             }
@@ -183,6 +176,20 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
         } catch (Exception e) {
             log.error("同步活动搜索索引失败 activityId={}", activityId, e);
             throw new IllegalStateException("同步活动索引失败", e);
+        }
+    }
+
+    @Override
+    public void rebuildIndexFromMysql() {
+        if (!isAvailable()) {
+            return;
+        }
+        try {
+            ensureIndex();
+            rebuildIndex();
+            bootstrapIndexIfEmpty();
+        } catch (Exception e) {
+            throw new IllegalStateException("重建活动索引失败", e);
         }
     }
 
@@ -239,7 +246,6 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
         }
         log.info("活动搜索索引为空，开始执行启动全量同步 index={}", indexName());
         QueryWrapper<Activity> wrapper = new QueryWrapper<Activity>()
-                .in("status", STATUS_PUBLISHED, STATUS_OFFLINE_PENDING_REVIEW)
                 .orderByAsc("id");
         List<Activity> activities = activityMapper.selectList(wrapper);
         for (Activity activity : activities) {
@@ -270,7 +276,7 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
         return lookbackHours <= 0 ? null : LocalDateTime.now().minusHours(lookbackHours);
     }
 
-    private List<Activity> loadActivitiesInOrder(List<Long> ids) {
+    private List<Activity> loadActivitiesInOrder(List<Long> ids, boolean publicOnly) {
         if (CollUtil.isEmpty(ids)) {
             return Collections.emptyList();
         }
@@ -279,7 +285,7 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
             return Collections.emptyList();
         }
         Map<Long, Activity> activityMap = activities.stream()
-                .filter(item -> isPublicActivityStatus(item.getStatus()))
+                .filter(item -> !publicOnly || isPublicActivityStatus(item.getStatus()))
                 .collect(Collectors.toMap(Activity::getId, item -> item, (a, b) -> a, HashMap::new));
         List<Activity> ordered = new ArrayList<>(ids.size());
         for (Long id : ids) {
@@ -289,6 +295,47 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
             }
         }
         return ordered;
+    }
+
+    private ActivitySearchPageDTO searchActivitiesInternal(String keyword,
+                                                           String category,
+                                                           Integer status,
+                                                           String location,
+                                                           String organizerName,
+                                                           String sortBy,
+                                                           LocalDateTime startTimeFrom,
+                                                           LocalDateTime startTimeTo,
+                                                           Long creatorId,
+                                                           boolean publicOnly,
+                                                           Integer current,
+                                                           Integer pageSize) {
+        assertClientAvailable();
+        try {
+            ensureIndex();
+            int currentPage = current == null || current < 1 ? 1 : current;
+            int size = pageSize == null || pageSize < 1 ? 10 : pageSize;
+            SearchRequest request = new SearchRequest(indexName());
+            SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+            sourceBuilder.query(buildSearchQuery(keyword, category, status, location, organizerName,
+                    startTimeFrom, startTimeTo, creatorId, publicOnly));
+            sourceBuilder.from((currentPage - 1) * size);
+            sourceBuilder.size(size);
+            sourceBuilder.trackTotalHits(true);
+            sourceBuilder.fetchSource(false);
+            applySort(sourceBuilder, sortBy, StrUtil.isNotBlank(keyword));
+            request.source(sourceBuilder);
+
+            SearchResponse response = restHighLevelClient.search(request, RequestOptions.DEFAULT);
+            List<Long> ids = new ArrayList<>();
+            for (SearchHit hit : response.getHits().getHits()) {
+                ids.add(Long.valueOf(hit.getId()));
+            }
+            List<Activity> orderedActivities = loadActivitiesInOrder(ids, publicOnly);
+            long total = response.getHits().getTotalHits() == null ? 0L : response.getHits().getTotalHits().value;
+            return new ActivitySearchPageDTO(orderedActivities, total);
+        } catch (Exception e) {
+            throw new IllegalStateException("ES 活动搜索失败", e);
+        }
     }
 
     private void assertClientAvailable() {
@@ -372,9 +419,11 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
         XContentBuilder builder = XContentFactory.jsonBuilder();
         builder.startObject();
         builder.startObject("properties");
+        appendLongField(builder, "creatorId");
         appendTextField(builder, "title");
         appendTextField(builder, "summary");
         appendTextField(builder, "content");
+        appendTextField(builder, "customCategory");
         appendTextField(builder, "organizerName");
         appendTextField(builder, "location");
         appendKeywordField(builder, "category");
@@ -435,17 +484,23 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
                                               String location,
                                               String organizerName,
                                               LocalDateTime startTimeFrom,
-                                              LocalDateTime startTimeTo) {
+                                              LocalDateTime startTimeTo,
+                                              Long creatorId,
+                                              boolean publicOnly) {
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
-        if (status == null) {
+        if (creatorId != null) {
+            boolQuery.filter(QueryBuilders.termQuery("creatorId", creatorId));
+        }
+        if (status == null && publicOnly) {
             boolQuery.filter(QueryBuilders.termsQuery("status", List.of(STATUS_PUBLISHED, STATUS_OFFLINE_PENDING_REVIEW)));
-        } else {
+        } else if (status != null) {
             boolQuery.filter(QueryBuilders.termQuery("status", status));
         }
         if (StrUtil.isNotBlank(keyword)) {
             String normalizedKeyword = keyword.trim();
             MultiMatchQueryBuilder multiMatchQuery = QueryBuilders.multiMatchQuery(normalizedKeyword)
                     .field("title", 4.0f)
+                    .field("customCategory", 3.0f)
                     .field("summary", 2.0f)
                     .field("organizerName", 2.0f)
                     .field("location")
@@ -535,9 +590,11 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
 
     private Map<String, Object> buildDocument(Activity activity) {
         Map<String, Object> document = new LinkedHashMap<>();
+        document.put("creatorId", activity.getCreatorId());
         document.put("title", StrUtil.blankToDefault(activity.getTitle(), ""));
         document.put("summary", StrUtil.blankToDefault(activity.getSummary(), ""));
         document.put("content", StrUtil.blankToDefault(activity.getContent(), ""));
+        document.put("customCategory", StrUtil.blankToDefault(activity.getCustomCategory(), ""));
         document.put("organizerName", StrUtil.blankToDefault(activity.getOrganizerName(), ""));
         document.put("category", StrUtil.blankToDefault(activity.getCategory(), ""));
         document.put("registrationMode", StrUtil.blankToDefault(activity.getRegistrationMode(), "AUDIT_REQUIRED"));

@@ -8,31 +8,58 @@
   <link href="./css/main.css" rel="stylesheet">
   <style>
     :root {
-      --ink: #10233d;
-      --muted: #5b6b81;
-      --brand: #17324d;
-      --brand-soft: #e7f0fb;
-      --line: rgba(23, 50, 77, 0.08);
-      --card: rgba(255, 255, 255, 0.96);
-      --shadow: 0 18px 42px rgba(16, 35, 61, 0.10);
-      --success: #2f6a49;
-      --warning: #b26a17;
-      --danger: #b54b5d;
+      --ink: #102a43;
+      --muted: #6b7d93;
+      --primary: #2388ff;
+      --primary-deep: #1769e0;
+      --mint: #20c98f;
+      --orange: #ff805d;
+      --line: rgba(35, 136, 255, .12);
+      --card: rgba(255, 255, 255, .9);
+      --shadow: 0 18px 46px rgba(39, 101, 170, .13);
+      --success: #0b9668;
+      --warning: #dd7d19;
+      --danger: #d84f67;
     }
 
     body {
       margin: 0;
       color: var(--ink);
       background:
-        radial-gradient(circle at top left, rgba(69, 119, 184, 0.12), transparent 28%),
-        linear-gradient(180deg, #f6f8fc 0%, #eef3f9 100%);
+        radial-gradient(circle at 10% 0%, rgba(72, 185, 255, .2), transparent 26%),
+        radial-gradient(circle at 90% 10%, rgba(32, 201, 143, .14), transparent 26%),
+        linear-gradient(180deg, #f8fcff 0%, #eef8ff 52%, #f7fbff 100%);
       font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
     }
 
     .page {
-      max-width: 1040px;
+      width: min(390px, 100%);
       margin: 0 auto;
-      padding: 18px 16px 36px;
+      min-height: 100vh;
+      padding: 0 10px 0;
+      position: relative;
+      box-sizing: border-box;
+      background: #fff;
+    }
+
+    .page:before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(35, 136, 255, .045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(35, 136, 255, .045) 1px, transparent 1px);
+      background-size: 38px 38px;
+      mask-image: linear-gradient(180deg, rgba(0, 0, 0, .45), transparent 58%);
+    }
+
+    .topbar,
+    .hero,
+    .shell,
+    .empty-card {
+      position: relative;
+      z-index: 1;
     }
 
     .topbar {
@@ -40,7 +67,12 @@
       justify-content: space-between;
       align-items: center;
       gap: 12px;
-      margin-bottom: 16px;
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      right: 16px;
+      z-index: 4;
+      margin-bottom: 0;
     }
 
     .topbar-left {
@@ -50,76 +82,97 @@
     }
 
     .icon-btn {
-      width: 44px;
-      height: 44px;
-      border: none;
+      width: 48px;
+      height: 48px;
+      border: 1px solid rgba(35, 136, 255, .12);
       border-radius: 50%;
-      background: rgba(255, 255, 255, 0.92);
-      color: var(--brand);
-      box-shadow: 0 10px 28px rgba(16, 35, 61, 0.08);
+      background: rgba(16, 42, 67, .45);
+      color: #fff;
+      box-shadow: none;
       cursor: pointer;
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+
+    .icon-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 36px rgba(39, 101, 170, .18);
     }
 
     .topbar-title {
-      font-size: 18px;
-      font-weight: 700;
+      display: none;
+      font-weight: 900;
+      letter-spacing: .02em;
+    }
+
+    .topbar .el-button {
+      height: 42px;
+      border-radius: 16px;
+      display: none;
     }
 
     .hero {
-      background: rgba(255, 255, 255, 0.96);
-      border-radius: 28px;
+      background: var(--card);
+      border-radius: 0 0 18px 18px;
       overflow: hidden;
       box-shadow: var(--shadow);
-      margin-bottom: 18px;
-      border: 1px solid var(--line);
+      margin: 0 -10px 12px;
+      border: 1px solid rgba(255, 255, 255, .76);
     }
 
     .hero-cover {
       width: 100%;
-      height: 300px;
+      height: 236px;
       object-fit: cover;
       display: block;
+      background: #dceeff;
     }
 
     .thumb-row {
       display: flex;
       gap: 10px;
-      padding: 14px 18px 0;
+      padding: 10px 14px 0;
       overflow-x: auto;
     }
 
     .thumb {
-      width: 72px;
-      height: 72px;
-      border-radius: 16px;
+      width: 56px;
+      height: 56px;
+      border-radius: 18px;
       object-fit: cover;
       cursor: pointer;
       border: 2px solid transparent;
       flex: none;
-      background: #edf3f9;
-      opacity: 0.78;
+      background: #edf7ff;
+      opacity: .72;
+      transition: all .18s ease;
     }
 
     .thumb.active {
-      border-color: #17324d;
+      border-color: var(--primary);
       opacity: 1;
+      box-shadow: 0 10px 24px rgba(35, 136, 255, .18);
     }
 
     .hero-body {
-      padding: 18px 18px 22px;
+      margin-top: 0;
+      padding: 18px 14px 18px;
+      background: #fff;
+      border-radius: 0 0 18px 18px;
+      position: relative;
+      z-index: 2;
     }
 
     .hero-head {
       display: flex;
       justify-content: space-between;
-      gap: 14px;
+      gap: 18px;
       align-items: flex-start;
     }
 
     .hero-title {
-      font-size: 30px;
-      line-height: 1.2;
-      font-weight: 800;
+      font-size: 20px;
+      line-height: 1.16;
+      font-weight: 900;
       margin-bottom: 10px;
       color: var(--ink);
     }
@@ -127,7 +180,7 @@
     .hero-summary {
       color: var(--muted);
       line-height: 1.8;
-      font-size: 14px;
+      font-size: 12px;
       max-width: 720px;
     }
 
@@ -139,30 +192,41 @@
     }
 
     .tag {
-      padding: 7px 12px;
+      padding: 5px 9px;
       border-radius: 999px;
-      background: #eef4fb;
-      color: #36506e;
-      font-size: 12px;
-      border: 1px solid rgba(23, 50, 77, 0.08);
+      background: rgba(35, 136, 255, .1);
+      color: var(--primary-deep);
+      font-size: 10px;
+      font-weight: 800;
+      border: 1px solid rgba(35, 136, 255, .1);
+    }
+
+    .tag.success {
+      color: var(--success);
+      background: rgba(32, 201, 143, .14);
+    }
+
+    .tag.warm {
+      color: #c96221;
+      background: rgba(255, 128, 93, .15);
     }
 
     .manage-btn {
-      height: 40px;
+      height: 42px;
       padding: 0 16px;
-      border: 1px solid rgba(23, 50, 77, 0.12);
+      border: 1px solid rgba(35, 136, 255, .14);
       border-radius: 999px;
-      background: #f8fbff;
-      color: var(--brand);
+      background: rgba(255, 255, 255, .92);
+      color: var(--primary-deep);
       font-size: 13px;
-      font-weight: 700;
+      font-weight: 800;
       cursor: pointer;
-      transition: all .2s ease;
+      transition: all .18s ease;
     }
 
     .manage-btn:hover {
-      background: #eef4fb;
-      border-color: rgba(23, 50, 77, 0.18);
+      transform: translateY(-1px);
+      box-shadow: 0 12px 24px rgba(39, 101, 170, .12);
     }
 
     .hero-actions {
@@ -170,69 +234,82 @@
       flex-wrap: wrap;
       gap: 10px;
       justify-content: flex-end;
+      flex: none;
     }
 
     .manage-btn.danger {
       color: var(--danger);
-      border-color: rgba(181, 75, 93, 0.24);
-      background: rgba(181, 75, 93, 0.08);
+      border-color: rgba(216, 79, 103, .22);
+      background: rgba(216, 79, 103, .08);
     }
 
     .shell {
-      display: grid;
-      grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
-      gap: 18px;
+      display: block;
       align-items: start;
     }
 
     .card {
       background: var(--card);
-      border-radius: 22px;
-      box-shadow: var(--shadow);
+      border-radius: 12px;
+      box-shadow: none;
       border: 1px solid var(--line);
-      padding: 18px;
+      padding: 14px;
+      backdrop-filter: blur(12px);
+      margin-bottom: 12px;
     }
 
     .section-title {
-      font-size: 18px;
-      font-weight: 800;
-      margin-bottom: 12px;
+      font-size: 14px;
+      font-weight: 900;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title:before {
+      content: "";
+      width: 8px;
+      height: 20px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, var(--primary), var(--mint));
     }
 
     .detail-text {
       color: var(--muted);
-      line-height: 1.9;
+      line-height: 1.75;
       white-space: pre-line;
       font-size: 14px;
     }
 
     .info-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: 1fr;
       gap: 12px;
     }
 
     .info-item,
     .metric-item {
-      padding: 14px;
-      border-radius: 16px;
-      background: #f7faff;
-      border: 1px solid rgba(23, 50, 77, 0.06);
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(248, 252, 255, .9);
+      border: 1px solid rgba(35, 136, 255, .08);
     }
 
     .info-label,
     .metric-label {
-      color: #718096;
-      font-size: 12px;
-      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 11px;
+      margin-bottom: 7px;
+      font-weight: 700;
     }
 
     .info-value,
     .metric-value {
       color: var(--ink);
-      font-size: 14px;
+      font-size: 12px;
       line-height: 1.7;
-      font-weight: 600;
+      font-weight: 800;
     }
 
     .metric-grid {
@@ -243,37 +320,41 @@
     }
 
     .metric-value.large {
-      font-size: 26px;
-      font-weight: 800;
-      color: var(--brand);
+      font-size: 28px;
+      color: var(--primary-deep);
       line-height: 1.2;
     }
 
     .note-box,
     .voucher-box,
     .verify-box {
-      padding: 16px;
-      border-radius: 18px;
-      border: 1px solid rgba(23, 50, 77, 0.08);
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(35, 136, 255, .1);
     }
 
     .note-box {
-      background: #f8fbff;
+      background: linear-gradient(180deg, rgba(248, 252, 255, .95), rgba(239, 248, 255, .9));
     }
 
     .voucher-box {
-      background: linear-gradient(180deg, #eef6ff, #f7fbff);
-      border-color: rgba(42, 101, 173, 0.14);
+      background: linear-gradient(135deg, rgba(35, 136, 255, .13), rgba(32, 201, 143, .12));
     }
 
     .verify-box {
-      background: linear-gradient(180deg, #f8fbff, #eef4fb);
-      border-color: rgba(42, 101, 173, 0.14);
+      background: linear-gradient(180deg, rgba(248, 252, 255, .96), rgba(238, 248, 255, .92));
+    }
+
+    .verify-box .el-input__inner {
+      height: 46px;
+      border-radius: 16px;
+      border-color: rgba(35, 136, 255, .12);
+      background: rgba(255, 255, 255, .9);
     }
 
     .box-title {
       font-size: 16px;
-      font-weight: 700;
+      font-weight: 900;
       margin-bottom: 10px;
     }
 
@@ -287,57 +368,72 @@
     .voucher-code {
       display: inline-flex;
       align-items: center;
-      padding: 12px 14px;
-      border-radius: 14px;
-      background: rgba(255,255,255,0.88);
-      border: 1px dashed rgba(42, 101, 173, 0.28);
-      font-size: 24px;
-      letter-spacing: 0.14em;
-      font-weight: 800;
-      color: var(--brand);
+      max-width: 100%;
+      padding: 13px 15px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, .9);
+      border: 1px dashed rgba(35, 136, 255, .34);
+      font-size: 20px;
+      letter-spacing: .14em;
+      font-weight: 900;
+      color: var(--primary-deep);
       margin-bottom: 10px;
       word-break: break-all;
+      box-sizing: border-box;
     }
 
     .status-chip {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 6px 10px;
+      padding: 7px 11px;
       border-radius: 999px;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 900;
       margin-bottom: 10px;
     }
 
     .status-chip.success {
       color: var(--success);
-      background: rgba(47, 106, 73, 0.12);
+      background: rgba(32, 201, 143, .16);
     }
 
     .status-chip.warning {
       color: var(--warning);
-      background: rgba(178, 106, 23, 0.14);
+      background: rgba(255, 128, 93, .15);
     }
 
     .status-chip.danger {
       color: var(--danger);
-      background: rgba(181, 75, 93, 0.12);
+      background: rgba(216, 79, 103, .12);
     }
 
     .actions {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
-      margin-top: 16px;
+      margin-top: 14px;
+      padding-bottom: 8px;
+    }
+
+    .actions .el-button {
+      height: 44px;
+      border-radius: 16px;
+      font-weight: 800;
+    }
+
+    .actions .el-button--primary {
+      border: none;
+      background: linear-gradient(135deg, var(--primary), var(--primary-deep));
+      box-shadow: 0 12px 26px rgba(35, 136, 255, .23);
     }
 
     .verify-result {
       margin-top: 14px;
       padding: 14px;
-      border-radius: 14px;
-      background: rgba(255,255,255,0.88);
-      border: 1px solid rgba(23, 50, 77, 0.08);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, .9);
+      border: 1px solid rgba(35, 136, 255, .1);
     }
 
     .verify-line {
@@ -359,14 +455,14 @@
 
     .record-item {
       padding: 14px;
-      border-radius: 16px;
-      background: #f7faff;
-      border: 1px solid rgba(23, 50, 77, 0.06);
+      border-radius: 18px;
+      background: rgba(248, 252, 255, .9);
+      border: 1px solid rgba(35, 136, 255, .08);
     }
 
     .record-title {
       font-size: 14px;
-      font-weight: 700;
+      font-weight: 900;
       margin-bottom: 6px;
     }
 
@@ -378,34 +474,136 @@
     }
 
     .empty-card {
-      padding: 48px 20px;
+      padding: 52px 20px;
       text-align: center;
       color: var(--muted);
-      background: rgba(255, 255, 255, 0.92);
-      border-radius: 28px;
+      background: rgba(255, 255, 255, .88);
+      border-radius: 30px;
       box-shadow: var(--shadow);
+      border: 1px solid rgba(255, 255, 255, .76);
     }
 
     @media (max-width: 900px) {
+      .page {
+      width: min(390px, 100%);
+      }
+
       .shell,
       .info-grid,
       .metric-grid {
         grid-template-columns: 1fr;
       }
 
-      .hero-cover {
-        height: 220px;
-      }
-
       .hero-head {
         display: grid;
         grid-template-columns: 1fr;
       }
+
+      .hero-title {
+        font-size: 20px;
+      }
+
+      .hero-actions {
+        justify-content: flex-start;
+      }
     }
+
+    @media (max-width: 520px) {
+      .topbar .el-button {
+        padding: 0 12px;
+      }
+
+    }
+    .bottom-action {
+      position: sticky;
+      bottom: 0;
+      z-index: 5;
+      display: grid;
+      grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      margin: 4px -10px 0;
+      padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+      background: rgba(255,255,255,.97);
+      border-top: 1px solid var(--line);
+      box-shadow: 0 -8px 24px rgba(32,94,156,.08);
+    }
+    .bottom-like {
+      color: var(--muted);
+      font-size: 11px;
+      text-align: center;
+    }
+    .bottom-like i {
+      display: block;
+      font-size: 21px;
+      margin-bottom: 3px;
+    }
+    .bottom-action .el-button {
+      width: 100%;
+      height: 42px;
+      border-radius: 999px;
+    }
+    .bottom-action .primary-cta {
+      border: none;
+      color: #fff;
+      background: linear-gradient(135deg, #2388ff, #1769e0);
+    }
+    .proto-info-card {
+      margin: -4px 14px 14px;
+      padding: 14px;
+      border-radius: 14px;
+      background: #f7faff;
+      border: 1px solid #eef3fa;
+    }
+    .proto-info-row {
+      display: grid;
+      grid-template-columns: 26px 58px minmax(0, 1fr);
+      align-items: start;
+      gap: 8px;
+      min-height: 28px;
+      color: #53657c;
+      font-size: 12px;
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+    .proto-info-row:last-child { margin-bottom: 0; }
+    .proto-info-row i { color:#53657c; font-size:15px; margin-top:2px; }
+    .proto-info-label { font-weight:900; color:#344863; }
+    .proto-info-value { color:#344863; font-weight:700; }
+    .detail-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin: 0 14px 12px;
+      border-bottom: 1px solid #eef3fa;
+    }
+    .detail-tab {
+      text-align: center;
+      padding: 12px 0 10px;
+      color:#53657c;
+      font-size:13px;
+      font-weight:800;
+      position:relative;
+    }
+    .detail-tab.active { color:#102a43; }
+    .detail-tab.active:after {
+      content:"";
+      position:absolute;
+      left:24%;
+      right:24%;
+      bottom:-1px;
+      height:3px;
+      border-radius:999px;
+      background:#2388ff;
+    }
+    .side-info-card { display:none; }
+    .shell > div:first-child { margin:0 14px; }
+    .shell > div:nth-child(2) { margin:0 14px; }
+    .card.register-panel-user { display:none; }
   </style>
 </head>
 <body>
-<div id="app" class="page">
+<div id="app" class="page campus-mobile">
+  <div class="campus-status" style="position:absolute;top:4px;left:14px;right:14px;z-index:4;color:#fff;">9:41</div>
   <div class="topbar">
     <div class="topbar-left">
       <button class="icon-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
@@ -425,22 +623,49 @@
           <div>
             <div class="hero-title">{{activity.title}}</div>
             <div class="hero-summary">{{activity.summary || '主办方暂未补充活动摘要。'}}</div>
+            <div class="tag-row">
+              <span class="tag">{{displayCategory(activity)}}</span>
+              <span class="tag success" v-if="activity.registrationOpen">报名中</span>
+              <span class="tag warm" v-else>报名未开放</span>
+              <span class="tag">{{registrationModeText}}</span>
+              <span class="tag success" v-if="activity.registered">已报名</span>
+            </div>
           </div>
           <div class="hero-actions">
             <button v-if="activity.canManage" class="manage-btn" @click="goManage">编辑活动</button>
             <button v-if="canOfflineActivity" class="manage-btn danger" @click="offlineActivity">强制下架</button>
           </div>
         </div>
-        <div class="tag-row">
-          <span class="tag">{{activity.category || '未分类'}}</span>
-          <span class="tag">{{registrationModeText}}</span>
-          <span class="tag">{{activity.registrationOpen ? '报名中' : '报名未开放'}}</span>
-          <span class="tag" v-if="activity.registered">已报名</span>
-          <span class="tag" v-if="activity.registrationStatus && activity.registrationStatus !== 'NOT_REGISTERED'">{{registrationStatusText}}</span>
-          <span class="tag" v-if="activity.checkedIn">已签到</span>
-          <span class="tag" v-if="isOrganizerUser && !activity.canManage">主办方账号</span>
-        </div>
       </div>
+    </div>
+
+    <div class="proto-info-card">
+      <div class="proto-info-row">
+        <i class="el-icon-time"></i>
+        <div class="proto-info-label">时间</div>
+        <div class="proto-info-value">{{formatTime(activity.eventStartTime)}} - {{formatTime(activity.eventEndTime)}}</div>
+      </div>
+      <div class="proto-info-row">
+        <i class="el-icon-location-outline"></i>
+        <div class="proto-info-label">地点</div>
+        <div class="proto-info-value">{{activity.location || '待定'}}</div>
+      </div>
+      <div class="proto-info-row">
+        <i class="el-icon-user"></i>
+        <div class="proto-info-label">主办方</div>
+        <div class="proto-info-value">{{activity.organizerName || '待补充'}}</div>
+      </div>
+      <div class="proto-info-row">
+        <i class="el-icon-user-solid"></i>
+        <div class="proto-info-label">报名人数</div>
+        <div class="proto-info-value">{{activity.registeredCount || 0}} / {{activity.maxParticipants || 0}}<br>报名截止：{{formatTime(activity.registrationEndTime)}}</div>
+      </div>
+    </div>
+
+    <div class="detail-tabs">
+      <div class="detail-tab active">活动详情</div>
+      <div class="detail-tab">活动流程</div>
+      <div class="detail-tab">常见问题</div>
     </div>
 
     <div class="shell">
@@ -452,12 +677,20 @@
       </div>
 
       <div>
-        <div class="card" style="margin-bottom:18px;">
+        <div class="card side-info-card" style="margin-bottom:18px;">
           <div class="section-title">活动信息</div>
           <div class="info-grid">
             <div class="info-item">
+              <div class="info-label">活动类型</div>
+              <div class="info-value">{{displayCategory(activity)}}</div>
+            </div>
+            <div class="info-item">
               <div class="info-label">主办方</div>
               <div class="info-value">{{activity.organizerName || '待补充'}}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">联系方式</div>
+              <div class="info-value">{{activity.contactInfo || '待补充'}}</div>
             </div>
             <div class="info-item">
               <div class="info-label">活动地点</div>
@@ -501,7 +734,6 @@
             <el-input v-model.trim="verifyForm.displayCode" placeholder="请输入签到展示码，例如 A8F3K2M7"></el-input>
             <div class="actions">
               <el-button type="primary" :loading="verifying" @click="verifyVoucher">核销签到</el-button>
-              <el-button plain @click="refreshManagePanel">刷新数据</el-button>
             </div>
 
             <div class="verify-result" v-if="verifyResult">
@@ -520,7 +752,7 @@
           </div>
         </div>
 
-        <div class="card" v-else-if="activity.registered">
+        <div class="card" v-else-if="!isAdminPreview && activity.registered">
           <div class="section-title">我的签到凭证</div>
           <div class="voucher-box">
             <div :class="['status-chip', voucherStatusClass(activity.voucherStatus)]">{{voucherStatusText(activity.voucherStatus)}}</div>
@@ -534,7 +766,7 @@
           </div>
         </div>
 
-        <div class="card" v-else>
+        <div class="card register-panel-user" v-else-if="!isAdminPreview">
           <div class="section-title">报名与签到</div>
           <div class="note-box" v-if="isOrganizerUser">
             <div class="box-title">主办方账号不可报名</div>
@@ -550,6 +782,11 @@
           </div>
         </div>
       </div>
+    </div>
+    <div class="bottom-action" v-if="!isAdminPreview && !activity.canManage && !activity.registered && !isOrganizerUser">
+      <div class="bottom-like"><i class="el-icon-star-off"></i>收藏</div>
+      <el-button plain @click="goMy">分享</el-button>
+      <el-button class="primary-cta" type="primary" :disabled="registerButtonDisabled" :loading="registerSubmitting" @click="registerActivity">{{registerButtonText}}</el-button>
     </div>
   </template>
 
@@ -603,6 +840,9 @@
       isPlatformAdmin() {
         const roleCodes = (this.user && this.user.roleCodes) || [];
         return roleCodes.includes('PLATFORM_ADMIN');
+      },
+      isAdminPreview() {
+        return util.getUrlParam('mode') === 'admin-preview' || util.getUrlParam('from') === 'admin';
       },
       canCancelRegistration() {
         if (!this.activity || !this.activity.registered || this.activity.canManage || this.isPlatformAdmin) return false;
@@ -820,12 +1060,12 @@
         window.notificationClient.connect({
           onMessage: message => {
             if (!message || !message.payload) return;
-            this.$message.info(message.payload.title);
+            window.notifyToast(message.payload.title, 'info');
             if (this.activity && this.activity.canManage && Number(message.payload.bizId) === Number(this.activity.id)) {
               this.refreshManagePanel();
               if (message.payload.type === 'REGISTRATION_REVIEW_PENDING'
                   || message.payload.type === 'REGISTRATION_CANCEL_REVIEW_PENDING') {
-                this.$message.info('请到个人主页处理待审核请求');
+                window.notifyToast('请到个人主页处理待审核请求', 'info');
               }
             }
           }
@@ -952,14 +1192,26 @@
         return 'warning';
       },
       goManage() {
-        location.href = '/activity-manage.html?id=' + this.activity.id;
+        location.href = '/activity-manage.html?id=' + this.activity.id + '&returnUrl=' + encodeURIComponent(location.pathname + location.search);
       },
       goMy() {
         const roleCodes = (this.user && this.user.roleCodes) || [];
         location.href = roleCodes.includes('PLATFORM_ADMIN') ? '/admin-dashboard.html' : '/info.html';
       },
       goBack() {
-        history.back();
+        const returnUrl = util.getUrlParam('returnUrl');
+        if (returnUrl) {
+          location.href = decodeURIComponent(returnUrl);
+          return;
+        }
+        location.href = '/index.html';
+      },
+      displayCategory(item) {
+        if (!item) return '未分类';
+        if (item.category === '其他' && item.customCategory) {
+          return item.customCategory;
+        }
+        return item.category || '未分类';
       },
       formatTime(value) {
         return value ? value.replace('T', ' ') : '待定';

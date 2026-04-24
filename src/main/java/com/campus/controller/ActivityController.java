@@ -98,9 +98,10 @@ public class ActivityController {
     @GetMapping("/registration/mine")
     public Result queryMyRegistrations(
             @RequestParam(value = "filter", required = false) String filter,
+            @RequestParam(value = "keyword", required = false) String keyword,
             @RequestParam(value = "current", defaultValue = "1") Integer current,
             @RequestParam(value = "pageSize", defaultValue = "" + SystemConstants.MAX_PAGE_SIZE) Integer pageSize) {
-        return activityService.queryMyRegistrations(filter, current, pageSize);
+        return activityService.queryMyRegistrations(filter, keyword, current, pageSize);
     }
 
     @GetMapping("/manage/{id}/registrations")
@@ -169,6 +170,14 @@ public class ActivityController {
             return Result.fail("无权查看待审核活动");
         }
         return activityService.queryPendingReviewActivities(keyword);
+    }
+
+    @GetMapping("/admin/{id}/ai-review")
+    public Result queryActivityAiReview(@PathVariable("id") Long activityId) {
+        if (!AuthorizationUtils.hasPermission(UserHolder.getUser(), RbacConstants.PERM_ACTIVITY_APPROVE)) {
+            return Result.fail("无权查看 AI 审核建议");
+        }
+        return activityService.queryActivityAiReview(activityId);
     }
 
     @GetMapping("/admin/published-list")
