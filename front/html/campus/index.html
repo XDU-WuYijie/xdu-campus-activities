@@ -361,7 +361,7 @@
 
     .filter-row {
       display: grid;
-      grid-template-columns: minmax(0, 100%);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
       justify-content: stretch;
     }
@@ -592,6 +592,10 @@
 
       .search-bar {
         grid-template-columns: 1fr;
+      }
+
+      .filter-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
 
@@ -850,6 +854,13 @@
       <el-button type="primary" plain @click="refreshActivities">搜索</el-button>
     </div>
     <div class="filter-row" v-if="categorySelected">
+      <el-select v-model="stageFilter" class="sort-box" @change="refreshActivities">
+        <el-option label="全部状态" value=""></el-option>
+        <el-option label="开放报名" value="REGISTRATION_OPEN"></el-option>
+        <el-option label="未开放报名" value="REGISTRATION_NOT_OPEN"></el-option>
+        <el-option label="已开始" value="IN_PROGRESS"></el-option>
+        <el-option label="已结束" value="FINISHED"></el-option>
+      </el-select>
       <el-select v-model="sortBy" class="sort-box" @change="refreshActivities">
         <el-option label="综合排序" value="composite"></el-option>
         <el-option label="即将开始" value="startTimeAsc"></el-option>
@@ -934,17 +945,29 @@
       keyword: '',
       selectedCategory: '',
       categorySelected: false,
+      stageFilter: '',
       sortBy: 'composite',
       current: 1,
       pageSize: 6,
       total: 0,
       unreadCount: 0,
+      loadingMore: false,
       defaultCover: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=1200&q=80'
     },
     created() {
       this.queryUser();
       this.initNotifications();
       this.restoreCategoryState();
+    },
+    mounted() {
+      this.handleScroll = this.onWindowScroll.bind(this);
+      window.addEventListener('scroll', this.handleScroll, { passive: true });
+      this.$nextTick(() => this.tryAutoLoadMore());
+    },
+    beforeDestroy() {
+      if (this.handleScroll) {
+        window.removeEventListener('scroll', this.handleScroll);
+      }
     },
     methods: {
       queryUser() {
@@ -964,18 +987,24 @@
           this.total = 0;
           return;
         }
+        this.loadingMore = true;
         axios.get('/activity/public/list', {
           params: {
             current: this.current,
             pageSize: this.pageSize,
             keyword: this.keyword,
             category: this.selectedCategory,
+            stageFilter: this.stageFilter,
             sortBy: this.sortBy
           }
         }).then(({data, total}) => {
           this.total = total || 0;
           this.activities = append ? this.activities.concat(data || []) : (data || []);
-        }).catch(err => this.$message.error(err));
+        }).catch(err => this.$message.error(err))
+          .finally(() => {
+            this.loadingMore = false;
+            this.$nextTick(() => this.tryAutoLoadMore());
+          });
       },
       refreshActivities() {
         this.current = 1;
@@ -986,6 +1015,7 @@
         this.selectedCategory = category;
         this.categorySelected = true;
         this.keyword = '';
+        this.stageFilter = '';
         this.current = 1;
         this.syncCategoryState();
         this.queryActivities(false);
@@ -994,14 +1024,33 @@
         this.categorySelected = false;
         this.selectedCategory = '';
         this.keyword = '';
+        this.stageFilter = '';
         this.current = 1;
         this.total = 0;
         this.activities = [];
         history.replaceState(null, '', '/index.html');
       },
       loadMore() {
+        if (!this.canLoadMore()) return;
         this.current += 1;
         this.queryActivities(true);
+      },
+      canLoadMore() {
+        return this.categorySelected && !this.loadingMore && this.activities.length < this.total;
+      },
+      onWindowScroll() {
+        if (!this.canLoadMore()) return;
+        const viewportBottom = window.innerHeight + window.scrollY;
+        const threshold = document.documentElement.scrollHeight - 120;
+        if (viewportBottom >= threshold) {
+          this.loadMore();
+        }
+      },
+      tryAutoLoadMore() {
+        if (!this.canLoadMore()) return;
+        if (document.documentElement.scrollHeight <= window.innerHeight + 120) {
+          this.loadMore();
+        }
       },
       openDetail(id) {
         location.href = '/activity-detail.html?id=' + id + '&returnUrl=' + encodeURIComponent(location.pathname + location.search);
@@ -1054,6 +1103,7 @@
         const params = new URLSearchParams();
         params.set('category', this.selectedCategory);
         if (this.keyword) params.set('keyword', this.keyword);
+        if (this.stageFilter) params.set('stageFilter', this.stageFilter);
         if (this.sortBy && this.sortBy !== 'composite') params.set('sortBy', this.sortBy);
         history.replaceState(null, '', '/index.html?' + params.toString());
       },
@@ -1063,6 +1113,7 @@
         this.selectedCategory = category;
         this.categorySelected = true;
         this.keyword = util.getUrlParam('keyword') || '';
+        this.stageFilter = util.getUrlParam('stageFilter') || '';
         this.sortBy = util.getUrlParam('sortBy') || 'composite';
         this.current = 1;
         this.queryActivities(false);

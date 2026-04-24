@@ -15,6 +15,7 @@ public interface IActivityService extends IService<Activity> {
                                  Integer status,
                                  String location,
                                  String organizerName,
+                                 String stageFilter,
                                  String sortBy,
                                  LocalDateTime startTimeFrom,
                                  LocalDateTime startTimeTo,

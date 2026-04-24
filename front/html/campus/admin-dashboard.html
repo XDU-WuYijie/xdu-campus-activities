@@ -663,6 +663,7 @@
       publishedKeyword: '',
       publishedCurrent: 1,
       publishedPageSize: 20,
+      publishedLoadingMore: false,
       organizerApplications: [],
       reviewHistory: [],
       aiReviewDialogVisible: false,
@@ -686,6 +687,16 @@
       this.queryCurrentUser();
       this.initNotifications();
       this.normalizeTab();
+    },
+    mounted() {
+      this.handleScroll = this.onWindowScroll.bind(this);
+      window.addEventListener('scroll', this.handleScroll, { passive: true });
+      this.$nextTick(() => this.tryAutoLoadMorePublishedActivities());
+    },
+    beforeDestroy() {
+      if (this.handleScroll) {
+        window.removeEventListener('scroll', this.handleScroll);
+      }
     },
     methods: {
       queryCurrentUser() {
@@ -733,6 +744,7 @@
         this.queryActivities();
       },
       queryPublishedActivities(append) {
+        this.publishedLoadingMore = true;
         axios.get('/activity/admin/published-list', {
           params: {
             current: this.publishedCurrent,
@@ -745,15 +757,39 @@
             this.publishedActivities = append ? this.publishedActivities.concat(rows) : rows;
             this.publishedTotal = total === undefined || total === null ? this.publishedActivities.length : total;
           })
-          .catch(err => this.$message.error(err));
+          .catch(err => this.$message.error(err))
+          .finally(() => {
+            this.publishedLoadingMore = false;
+            this.$nextTick(() => this.tryAutoLoadMorePublishedActivities());
+          });
       },
       refreshPublishedActivities() {
         this.publishedCurrent = 1;
         this.queryPublishedActivities(false);
       },
       loadMorePublishedActivities() {
+        if (!this.canLoadMorePublishedActivities()) return;
         this.publishedCurrent += 1;
         this.queryPublishedActivities(true);
+      },
+      canLoadMorePublishedActivities() {
+        return this.tab === 'published'
+          && !this.publishedLoadingMore
+          && this.publishedActivities.length < this.publishedTotal;
+      },
+      onWindowScroll() {
+        if (!this.canLoadMorePublishedActivities()) return;
+        const viewportBottom = window.innerHeight + window.scrollY;
+        const threshold = document.documentElement.scrollHeight - 120;
+        if (viewportBottom >= threshold) {
+          this.loadMorePublishedActivities();
+        }
+      },
+      tryAutoLoadMorePublishedActivities() {
+        if (!this.canLoadMorePublishedActivities()) return;
+        if (document.documentElement.scrollHeight <= window.innerHeight + 120) {
+          this.loadMorePublishedActivities();
+        }
       },
       queryOrganizerApplications() {
         axios.get('/user/admin/organizer-applications', { params: { status: 'PENDING' } })

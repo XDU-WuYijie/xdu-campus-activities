@@ -193,12 +193,39 @@ window.notificationClient = {
   reconnectDelay: 3000,
   listeners: [],
   unreadCount: 0,
+  storageKey: 'campus_notification_unread_count',
+  normalizeUnread(count) {
+    const value = Number(count);
+    return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+  },
+  persistUnread(count) {
+    try {
+      window.localStorage.setItem(this.storageKey, String(this.normalizeUnread(count)));
+    } catch (e) {}
+  },
+  restoreUnread() {
+    try {
+      return this.normalizeUnread(window.localStorage.getItem(this.storageKey));
+    } catch (e) {
+      return 0;
+    }
+  },
+  setUnreadCount(count, silent) {
+    this.unreadCount = this.normalizeUnread(count);
+    this.persistUnread(this.unreadCount);
+    if (!silent) {
+      this.emitUnread(this.unreadCount);
+    }
+    return this.unreadCount;
+  },
+  syncUnreadFromStorage() {
+    return this.setUnreadCount(this.restoreUnread());
+  },
   fetchUnread() {
     if (!window.auth.getToken()) return Promise.resolve(0);
     return axios.get('/notification/unread-count')
       .then(({data}) => {
-        this.unreadCount = data || 0;
-        return this.unreadCount;
+        return this.setUnreadCount(data, true);
       })
       .catch(() => 0);
   },
@@ -225,8 +252,7 @@ window.notificationClient = {
           return;
         }
         if (typeof message.unreadCount === 'number') {
-          this.unreadCount = message.unreadCount;
-          this.emitUnread(this.unreadCount);
+          this.setUnreadCount(message.unreadCount);
         }
         this.emitMessage(message);
       };
@@ -310,6 +336,12 @@ window.notificationClient = {
   }
 };
 
+window.addEventListener('storage', event => {
+  if (event.key === window.notificationClient.storageKey) {
+    window.notificationClient.syncUnreadFromStorage();
+  }
+});
+window.addEventListener('pageshow', () => window.notificationClient.syncUnreadFromStorage());
 window.addEventListener('online', () => window.notificationClient.connect());
 window.addEventListener('focus', () => window.notificationClient.connect());
 document.addEventListener('visibilitychange', () => {

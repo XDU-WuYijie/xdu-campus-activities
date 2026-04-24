@@ -162,7 +162,7 @@
     }
     .registration-proto .registration-filter-row {
       display:grid;
-      grid-template-columns:minmax(0,1fr) 72px;
+      grid-template-columns:repeat(2, minmax(0,1fr));
       align-items:center;
       gap:10px;
       margin-bottom:12px;
@@ -198,9 +198,11 @@
       color:#9aacbf;
       font-size:14px;
     }
+    .registration-proto .registration-sort-pill,
     .registration-proto .registration-status-pill {
       width:100%;
     }
+    .registration-proto .registration-sort-pill .el-input__inner,
     .registration-proto .registration-status-pill .el-input__inner {
       height:34px;
       border-radius:18px;
@@ -211,6 +213,7 @@
       font-weight:800;
       box-shadow:0 6px 16px rgba(32,94,156,.05);
     }
+    .registration-proto .registration-sort-pill .el-input__suffix,
     .registration-proto .registration-status-pill .el-input__suffix {
       right:8px;
     }
@@ -389,14 +392,14 @@
       box-shadow:0 10px 22px rgba(35,136,255,.24);
     }
     .created-filter-row {
-      display:flex;
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
       align-items:center;
-      justify-content:space-between;
-      gap:12px;
+      gap:10px;
       margin:0 0 12px;
     }
-    .created-status-pill,
-    .created-filter-btn {
+    .created-sort-pill,
+    .created-status-pill {
       height:32px;
       border:1px solid #eef3fa;
       background:#fff;
@@ -406,9 +409,11 @@
       font-weight:800;
       box-shadow:0 6px 16px rgba(32,94,156,.05);
     }
+    .created-sort-pill,
     .created-status-pill {
-      width:112px;
+      width:100%;
     }
+    .created-sort-pill .el-input__inner,
     .created-status-pill .el-input__inner {
       height:32px;
       border:1px solid #eef3fa;
@@ -419,16 +424,9 @@
       font-weight:800;
       box-shadow:0 6px 16px rgba(32,94,156,.05);
     }
+    .created-sort-pill .el-input__suffix,
     .created-status-pill .el-input__suffix {
       right:8px;
-    }
-    .created-filter-btn {
-      display:inline-flex;
-      align-items:center;
-      gap:5px;
-      padding:0 10px;
-      border:0;
-      box-shadow:none;
     }
     .created-proto .count-text { display:none; }
     .created-activity-card {
@@ -602,20 +600,22 @@
           <el-button class="create-btn" size="mini" @click="queryRegistrations">搜索</el-button>
         </div>
         <div class="registration-filter-row">
-          <el-select v-model="registrationFilter" class="registration-status-pill" @change="queryRegistrations">
+          <el-select v-model="registrationSort" class="registration-sort-pill">
+            <el-option label="按报名时间排序" value="registrationTimeDesc"></el-option>
+            <el-option label="按活动时间排序" value="eventStartAsc"></el-option>
+            <el-option label="按报名人数排序" value="signupCountDesc"></el-option>
+            <el-option label="按活动时间倒序" value="eventStartDesc"></el-option>
+          </el-select>
+          <el-select v-model="registrationFilter" class="registration-status-pill">
             <el-option label="全部活动" value="ALL"></el-option>
             <el-option label="待签到" value="PENDING_CHECK_IN"></el-option>
             <el-option label="已签到" value="CHECKED_IN"></el-option>
             <el-option label="已结束" value="FINISHED"></el-option>
             <el-option label="已取消" value="CANCELED"></el-option>
           </el-select>
-          <button class="created-filter-btn" type="button" @click="queryRegistrations">
-            <i class="el-icon-s-operation"></i>
-            <span>筛选</span>
-          </button>
         </div>
-        <div class="registration-count">共 {{registrationTotal}} 条报名记录，当前显示 {{registrations.length}} 条</div>
-        <div class="card registration-activity-card" v-for="item in registrations" :key="item.id">
+        <div class="registration-count">共 {{registrationTotal}} 条报名记录，当前显示 {{filteredRegistrations.length}} 条</div>
+        <div class="card registration-activity-card" v-for="item in filteredRegistrations" :key="item.id">
           <div class="registration-card-main">
             <img class="registration-thumb" :src="item.coverImage || '/imgs/blogs/blog1.jpg'" alt="">
             <div class="registration-card-content">
@@ -637,7 +637,7 @@
             <el-button size="mini" plain @click="viewDetail(item.activityId)">查看</el-button>
           </div>
         </div>
-        <div class="card registration-empty" v-if="!registrations.length">还没有报名任何活动。</div>
+        <div class="card registration-empty" v-if="!filteredRegistrations.length">{{registrations.length ? '当前筛选条件下暂无报名记录。' : '还没有报名任何活动。'}}</div>
       </div>
     </el-tab-pane>
 
@@ -675,6 +675,12 @@
           <el-button class="create-btn" size="mini" @click="refreshCreatedActivities">搜索</el-button>
         </div>
         <div class="created-filter-row">
+          <el-select v-model="createdSort" class="created-sort-pill" size="mini">
+            <el-option label="按创建时间排序" value="createTimeDesc"></el-option>
+            <el-option label="按活动时间排序" value="eventStartAsc"></el-option>
+            <el-option label="按报名人数排序" value="signupCountDesc"></el-option>
+            <el-option label="按更新时间排序" value="updateTimeDesc"></el-option>
+          </el-select>
           <el-select v-model="createdStatusFilter" class="created-status-pill" size="mini" @change="applyCreatedFilter">
             <el-option label="全部状态" value="ALL"></el-option>
             <el-option label="审核通过" value="2"></el-option>
@@ -683,10 +689,6 @@
             <el-option label="已下架" value="4"></el-option>
             <el-option label="下架审核" value="5"></el-option>
           </el-select>
-          <button class="created-filter-btn" type="button" @click="refreshCreatedActivities">
-            <i class="el-icon-s-operation"></i>
-            <span>筛选</span>
-          </button>
         </div>
         <div class="count-text">共 {{createdActivityTotal}} 条活动，当前显示 {{filteredCreatedActivities.length}} 条</div>
         <div class="card created-activity-card" v-for="item in filteredCreatedActivities" :key="item.id">
@@ -774,6 +776,7 @@
       user: window.auth.getUser() || {},
       profile: {},
       registrationFilter: 'ALL',
+      registrationSort: 'registrationTimeDesc',
       registrationKeyword: '',
       registrations: [],
       registrationTotal: 0,
@@ -782,9 +785,11 @@
       createdActivities: [],
       createdActivityTotal: 0,
       createdKeyword: '',
+      createdSort: 'createTimeDesc',
       createdStatusFilter: 'ALL',
       createdCurrent: 1,
       createdPageSize: 20,
+      createdLoadingMore: false,
       reviewHistory: [],
       reviewHistoryTotal: 0,
       unreadCount: 0
@@ -792,6 +797,16 @@
     created() {
       this.queryUser();
       this.initNotifications();
+    },
+    mounted() {
+      this.handleScroll = this.onWindowScroll.bind(this);
+      window.addEventListener('scroll', this.handleScroll, { passive: true });
+      this.$nextTick(() => this.tryAutoLoadMoreCreatedActivities());
+    },
+    beforeDestroy() {
+      if (this.handleScroll) {
+        window.removeEventListener('scroll', this.handleScroll);
+      }
     },
     computed: {
       canManageActivities() {
@@ -816,10 +831,19 @@
         if (this.currentView === 'reviewHistory') return '审核历史';
         return '个人主页';
       },
+      filteredRegistrations() {
+        const list = this.registrations.slice();
+        const statusFiltered = this.registrationFilter === 'ALL'
+          ? list
+          : list.filter(item => this.registrationMatchesFilter(item, this.registrationFilter));
+        return statusFiltered.sort((a, b) => this.compareRegistrations(a, b));
+      },
       filteredCreatedActivities() {
-        if (this.createdStatusFilter === 'ALL') return this.createdActivities;
-        const status = Number(this.createdStatusFilter);
-        return this.createdActivities.filter(item => Number(item.status) === status);
+        const list = this.createdActivities.slice();
+        const statusFiltered = this.createdStatusFilter === 'ALL'
+          ? list
+          : list.filter(item => Number(item.status) === Number(this.createdStatusFilter));
+        return statusFiltered.sort((a, b) => this.compareCreatedActivities(a, b));
       }
     },
     methods: {
@@ -858,7 +882,7 @@
       queryRegistrations() {
         axios.get('/activity/registration/mine', {
           params: {
-            filter: this.registrationFilter,
+            filter: 'ALL',
             keyword: this.registrationKeyword
           }
         })
@@ -870,6 +894,7 @@
       },
       queryCreatedActivities(append) {
         if (!this.canManageActivities) return;
+        this.createdLoadingMore = true;
         axios.get('/activity/manage/mine', {
           params: {
             current: this.createdCurrent,
@@ -882,7 +907,11 @@
             this.createdActivities = append ? this.createdActivities.concat(rows) : rows;
             this.createdActivityTotal = total === undefined || total === null ? this.createdActivities.length : total;
           })
-          .catch(err => this.$message.error(err));
+          .catch(err => this.$message.error(err))
+          .finally(() => {
+            this.createdLoadingMore = false;
+            this.$nextTick(() => this.tryAutoLoadMoreCreatedActivities());
+          });
       },
       refreshCreatedActivities() {
         this.createdCurrent = 1;
@@ -893,8 +922,29 @@
         this.loadMoreCreatedActivities();
       },
       loadMoreCreatedActivities() {
+        if (!this.canLoadMoreCreatedActivities()) return;
         this.createdCurrent += 1;
         this.queryCreatedActivities(true);
+      },
+      canLoadMoreCreatedActivities() {
+        return this.canManageActivities
+          && this.tab === 'created'
+          && !this.createdLoadingMore
+          && this.createdActivities.length < this.createdActivityTotal;
+      },
+      onWindowScroll() {
+        if (!this.canLoadMoreCreatedActivities()) return;
+        const viewportBottom = window.innerHeight + window.scrollY;
+        const threshold = document.documentElement.scrollHeight - 120;
+        if (viewportBottom >= threshold) {
+          this.loadMoreCreatedActivities();
+        }
+      },
+      tryAutoLoadMoreCreatedActivities() {
+        if (!this.canLoadMoreCreatedActivities()) return;
+        if (document.documentElement.scrollHeight <= window.innerHeight + 120) {
+          this.loadMoreCreatedActivities();
+        }
       },
       queryPendingReviews() {
         if (!this.canManageActivities) return;
@@ -1062,6 +1112,89 @@
       },
       refreshRegistrations() {
         this.queryRegistrations();
+      },
+      registrationMatchesFilter(item, filter) {
+        if (!item || filter === 'ALL') return true;
+        const status = Number(item.status);
+        const checkedIn = !!item.checkInStatus;
+        const eventEndTime = this.toTimestamp(item.eventEndTime);
+        const now = Date.now();
+        if (filter === 'PENDING_CHECK_IN') {
+          return status === 1 && !checkedIn && (!eventEndTime || eventEndTime >= now);
+        }
+        if (filter === 'CHECKED_IN') {
+          return status === 1 && checkedIn;
+        }
+        if (filter === 'FINISHED') {
+          return !!eventEndTime && eventEndTime < now;
+        }
+        if (filter === 'CANCELED') {
+          return status === 2 || status === 3;
+        }
+        return true;
+      },
+      compareRegistrations(a, b) {
+        if (this.registrationSort === 'eventStartAsc') {
+          return this.compareNullableTimeAsc(a.eventStartTime, b.eventStartTime)
+            || this.compareNullableTimeDesc(a.createTime, b.createTime)
+            || this.compareNumberDesc(a.id, b.id);
+        }
+        if (this.registrationSort === 'signupCountDesc') {
+          return this.compareNumberDesc(a.registeredCount, b.registeredCount)
+            || this.compareNullableTimeDesc(a.createTime, b.createTime)
+            || this.compareNumberDesc(a.id, b.id);
+        }
+        if (this.registrationSort === 'eventStartDesc') {
+          return this.compareNullableTimeDesc(a.eventStartTime, b.eventStartTime)
+            || this.compareNullableTimeDesc(a.createTime, b.createTime)
+            || this.compareNumberDesc(a.id, b.id);
+        }
+        return this.compareNullableTimeDesc(a.createTime, b.createTime)
+          || this.compareNullableTimeDesc(a.eventStartTime, b.eventStartTime)
+          || this.compareNumberDesc(a.id, b.id);
+      },
+      compareCreatedActivities(a, b) {
+        if (this.createdSort === 'eventStartAsc') {
+          return this.compareNullableTimeAsc(a.eventStartTime, b.eventStartTime)
+            || this.compareNullableTimeDesc(a.createTime, b.createTime)
+            || this.compareNumberDesc(a.id, b.id);
+        }
+        if (this.createdSort === 'signupCountDesc') {
+          return this.compareNumberDesc(a.registeredCount, b.registeredCount)
+            || this.compareNullableTimeDesc(a.createTime, b.createTime)
+            || this.compareNumberDesc(a.id, b.id);
+        }
+        if (this.createdSort === 'updateTimeDesc') {
+          return this.compareNullableTimeDesc(a.updateTime, b.updateTime)
+            || this.compareNullableTimeDesc(a.createTime, b.createTime)
+            || this.compareNumberDesc(a.id, b.id);
+        }
+        return this.compareNullableTimeDesc(a.createTime, b.createTime)
+          || this.compareNullableTimeDesc(a.updateTime, b.updateTime)
+          || this.compareNumberDesc(a.id, b.id);
+      },
+      compareNullableTimeDesc(left, right) {
+        return this.compareNumberDesc(this.toTimestamp(left), this.toTimestamp(right));
+      },
+      compareNullableTimeAsc(left, right) {
+        return this.compareNumberAsc(this.toTimestamp(left), this.toTimestamp(right));
+      },
+      compareNumberDesc(left, right) {
+        const normalizedLeft = left === null || left === undefined || Number.isNaN(Number(left)) ? Number.NEGATIVE_INFINITY : Number(left);
+        const normalizedRight = right === null || right === undefined || Number.isNaN(Number(right)) ? Number.NEGATIVE_INFINITY : Number(right);
+        if (normalizedLeft === normalizedRight) return 0;
+        return normalizedLeft > normalizedRight ? -1 : 1;
+      },
+      compareNumberAsc(left, right) {
+        const normalizedLeft = left === null || left === undefined || Number.isNaN(Number(left)) ? Number.POSITIVE_INFINITY : Number(left);
+        const normalizedRight = right === null || right === undefined || Number.isNaN(Number(right)) ? Number.POSITIVE_INFINITY : Number(right);
+        if (normalizedLeft === normalizedRight) return 0;
+        return normalizedLeft > normalizedRight ? 1 : -1;
+      },
+      toTimestamp(value) {
+        if (!value) return null;
+        const time = new Date(String(value).replace(/-/g, '/')).getTime();
+        return Number.isNaN(time) ? null : time;
       },
       deleteReviewRecord(id) {
         axios.delete('/review-records/' + id)

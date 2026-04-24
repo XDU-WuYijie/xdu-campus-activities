@@ -103,6 +103,10 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     private static final int STATUS_REJECTED = 3;
     private static final int STATUS_OFFLINE = 4;
     private static final int STATUS_OFFLINE_PENDING_REVIEW = 5;
+    private static final String STAGE_FILTER_REGISTRATION_OPEN = "REGISTRATION_OPEN";
+    private static final String STAGE_FILTER_REGISTRATION_NOT_OPEN = "REGISTRATION_NOT_OPEN";
+    private static final String STAGE_FILTER_IN_PROGRESS = "IN_PROGRESS";
+    private static final String STAGE_FILTER_FINISHED = "FINISHED";
     private static final List<String> ACTIVITY_CATEGORY_OPTIONS = Arrays.asList(
             "公益活动",
             "创新实践",
@@ -211,6 +215,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                                         Integer status,
                                         String location,
                                         String organizerName,
+                                        String stageFilter,
                                         String sortBy,
                                         LocalDateTime startTimeFrom,
                                         LocalDateTime startTimeTo,
@@ -219,7 +224,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         List<Activity> records;
         Long total;
         try {
-            if (activitySearchService.isAvailable()) {
+            if (activitySearchService.isAvailable() && StrUtil.isBlank(stageFilter)) {
                 ActivitySearchPageDTO searchPage = activitySearchService.searchActivities(
                         keyword, category, status, location, organizerName, sortBy,
                         startTimeFrom, startTimeTo, current, pageSize);
@@ -227,15 +232,18 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                 total = searchPage.getTotal();
             } else {
                 CachedActivityPage cachedPage = queryCachedActivityPage(keyword, category, status, location,
-                        organizerName, sortBy, startTimeFrom, startTimeTo, current, pageSize);
+                        organizerName, stageFilter, sortBy, startTimeFrom, startTimeTo, current, pageSize);
                 records = cachedPage.getRecords();
                 total = cachedPage.getTotal();
             }
         } catch (Exception e) {
-            log.warn("活动列表 ES 查询失败，降级 MySQL keyword={}, category={}, sortBy={}",
-                    keyword, category, sortBy, e);
+            log.warn("活动列表 ES 查询失败，降级 MySQL keyword=" + keyword
+                    + ", category=" + category
+                    + ", stageFilter=" + stageFilter
+                    + ", sortBy=" + sortBy
+                    + ", cause=" + e.getMessage());
             CachedActivityPage cachedPage = queryCachedActivityPage(keyword, category, status, location,
-                    organizerName, sortBy, startTimeFrom, startTimeTo, current, pageSize);
+                    organizerName, stageFilter, sortBy, startTimeFrom, startTimeTo, current, pageSize);
             records = cachedPage.getRecords();
             total = cachedPage.getTotal();
         }
@@ -251,7 +259,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                 return Result.ok(activitySearchService.queryCategories(STATUS_PUBLISHED));
             }
         } catch (Exception e) {
-            log.warn("活动分类 ES 聚合失败，降级 MySQL", e);
+            log.warn("活动分类 ES 聚合失败，降级 MySQL: " + e.getMessage());
         }
         return Result.ok(queryCachedCategories());
     }
@@ -266,6 +274,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         CachedActivityPage cachedPage = queryCachedActivityPage(
                 null,
                 category,
+                null,
                 null,
                 null,
                 null,
@@ -1774,6 +1783,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                                                        Integer status,
                                                        String location,
                                                        String organizerName,
+                                                       String stageFilter,
                                                        String sortBy,
                                                        LocalDateTime startTimeFrom,
                                                        LocalDateTime startTimeTo,
@@ -1782,12 +1792,14 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         int normalizedPageSize = normalizePageSize(pageSize);
         int currentPage = current == null || current < 1 ? 1 : current;
         Integer targetStatus = status == null ? null : status;
+        String normalizedStageFilter = normalizeStageFilter(stageFilter);
         String params = StrUtil.join("|",
                 "status=" + (targetStatus == null ? "PUBLIC" : targetStatus),
                 "category=" + StrUtil.blankToDefault(category, ""),
                 "keyword=" + StrUtil.blankToDefault(keyword, ""),
                 "location=" + StrUtil.blankToDefault(location, ""),
                 "organizerName=" + StrUtil.blankToDefault(organizerName, ""),
+                "stageFilter=" + StrUtil.blankToDefault(normalizedStageFilter, ""),
                 "sortBy=" + StrUtil.blankToDefault(sortBy, ""),
                 "startTimeFrom=" + (startTimeFrom == null ? "" : startTimeFrom),
                 "startTimeTo=" + (startTimeTo == null ? "" : startTimeTo),
@@ -1811,6 +1823,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                 .like(StrUtil.isNotBlank(organizerName), "organizer_name", organizerName)
                 .ge(startTimeFrom != null, "event_start_time", startTimeFrom)
                 .le(startTimeTo != null, "event_start_time", startTimeTo);
+        applyMysqlStageFilter(wrapper, normalizedStageFilter, LocalDateTime.now());
         applyMysqlFallbackSort(wrapper, sortBy);
         Page<Activity> page = page(new Page<>(currentPage, normalizedPageSize), wrapper);
 
@@ -1819,6 +1832,53 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         cacheValue.put("records", page.getRecords());
         stringRedisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(cacheValue), CACHE_ACTIVITY_LIST_TTL, TimeUnit.MINUTES);
         return new CachedActivityPage(page.getRecords(), page.getTotal());
+    }
+
+    private String normalizeStageFilter(String stageFilter) {
+        String normalized = StrUtil.trimToEmpty(stageFilter).toUpperCase();
+        if (STAGE_FILTER_REGISTRATION_OPEN.equals(normalized)
+                || STAGE_FILTER_REGISTRATION_NOT_OPEN.equals(normalized)
+                || STAGE_FILTER_IN_PROGRESS.equals(normalized)
+                || STAGE_FILTER_FINISHED.equals(normalized)) {
+            return normalized;
+        }
+        return null;
+    }
+
+    private void applyMysqlStageFilter(QueryWrapper<Activity> wrapper, String stageFilter, LocalDateTime now) {
+        if (wrapper == null || StrUtil.isBlank(stageFilter) || now == null) {
+            return;
+        }
+        switch (stageFilter) {
+            case STAGE_FILTER_REGISTRATION_OPEN:
+                wrapper.and(query -> query
+                        .and(part -> part.isNull("registration_start_time").or().le("registration_start_time", now))
+                        .and(part -> part.isNull("registration_end_time").or().ge("registration_end_time", now))
+                        .apply("(max_participants is null or registered_count is null or registered_count < max_participants)"));
+                return;
+            case STAGE_FILTER_REGISTRATION_NOT_OPEN:
+                wrapper.and(query -> query
+                        .and(part -> part.isNull("event_start_time").or().gt("event_start_time", now))
+                        .and(part -> part
+                                .gt("registration_start_time", now)
+                                .or(inner -> inner
+                                        .and(x -> x.isNull("registration_start_time").or().le("registration_start_time", now))
+                                        .and(x -> x.lt("registration_end_time", now)
+                                                .or()
+                                                .apply("(max_participants is not null and registered_count is not null and registered_count >= max_participants)")))));
+                return;
+            case STAGE_FILTER_IN_PROGRESS:
+                wrapper.and(query -> query
+                        .isNotNull("event_start_time")
+                        .le("event_start_time", now)
+                        .and(part -> part.isNull("event_end_time").or().gt("event_end_time", now)));
+                return;
+            case STAGE_FILTER_FINISHED:
+                wrapper.isNotNull("event_end_time").le("event_end_time", now);
+                return;
+            default:
+                return;
+        }
     }
 
     private List<ActivityRegistration> filterMyRegistrations(List<ActivityRegistration> records, String filter) {

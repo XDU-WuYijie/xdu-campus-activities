@@ -122,6 +122,7 @@
       total: 0,
       current: 1,
       pageSize: 10,
+      loadingMore: false,
       readFilter: '',
       typeFilter: '',
       typeOptions: [
@@ -159,12 +160,23 @@
         }
       });
     },
+    mounted() {
+      this.handleScroll = this.onWindowScroll.bind(this);
+      window.addEventListener('scroll', this.handleScroll, { passive: true });
+      this.$nextTick(() => this.tryAutoLoadMore());
+    },
+    beforeDestroy() {
+      if (this.handleScroll) {
+        window.removeEventListener('scroll', this.handleScroll);
+      }
+    },
     methods: {
       refresh() {
         this.current = 1;
         this.queryNotifications(false);
       },
       queryNotifications(append) {
+        this.loadingMore = true;
         axios.get('/notification/list', {
           params: {
             current: this.current,
@@ -175,11 +187,33 @@
         }).then(({data, total}) => {
           this.total = total || 0;
           this.notifications = append ? this.notifications.concat(data || []) : (data || []);
-        }).catch(err => this.$message.error(err));
+        }).catch(err => this.$message.error(err))
+          .finally(() => {
+            this.loadingMore = false;
+            this.$nextTick(() => this.tryAutoLoadMore());
+          });
       },
       loadMore() {
+        if (!this.canLoadMore()) return;
         this.current += 1;
         this.queryNotifications(true);
+      },
+      canLoadMore() {
+        return !this.loadingMore && this.notifications.length < this.total;
+      },
+      onWindowScroll() {
+        if (!this.canLoadMore()) return;
+        const viewportBottom = window.innerHeight + window.scrollY;
+        const threshold = document.documentElement.scrollHeight - 120;
+        if (viewportBottom >= threshold) {
+          this.loadMore();
+        }
+      },
+      tryAutoLoadMore() {
+        if (!this.canLoadMore()) return;
+        if (document.documentElement.scrollHeight <= window.innerHeight + 120) {
+          this.loadMore();
+        }
       },
       loadUnread() {
         window.notificationClient.fetchUnread().then(count => this.unreadCount = count || 0);
@@ -241,6 +275,7 @@
         axios.put('/notification/' + item.id + '/read')
           .then(() => {
             item.isRead = true;
+            this.unreadCount = window.notificationClient.setUnreadCount(Math.max(0, Number(this.unreadCount || 0) - 1));
             this.loadUnread();
             if (showMessage !== false) this.$message.success('已标为已读');
           })
@@ -250,7 +285,7 @@
         axios.put('/notification/read-all')
           .then(() => {
             this.notifications.forEach(item => item.isRead = true);
-            this.unreadCount = 0;
+            this.unreadCount = window.notificationClient.setUnreadCount(0);
             this.$message.success('已全部标为已读');
           })
           .catch(err => this.$message.error(err));
@@ -265,7 +300,7 @@
             .then(() => {
               this.notifications = [];
               this.total = 0;
-              this.unreadCount = 0;
+              this.unreadCount = window.notificationClient.setUnreadCount(0);
               this.$message.success('信箱已清空');
             })
             .catch(err => this.$message.error(err));

@@ -36,13 +36,14 @@ public class ActivityController {
             @RequestParam(value = "status", required = false) Integer status,
             @RequestParam(value = "location", required = false) String location,
             @RequestParam(value = "organizerName", required = false) String organizerName,
+            @RequestParam(value = "stageFilter", required = false) String stageFilter,
             @RequestParam(value = "sortBy", required = false) String sortBy,
             @RequestParam(value = "startTimeFrom", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTimeFrom,
             @RequestParam(value = "startTimeTo", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTimeTo,
             @RequestParam(value = "current", defaultValue = "1") Integer current,
             @RequestParam(value = "pageSize", defaultValue = "" + SystemConstants.MAX_PAGE_SIZE) Integer pageSize) {
         return activityService.queryPublicActivities(keyword, category, status, location, organizerName,
-                sortBy, startTimeFrom, startTimeTo, current, pageSize);
+                stageFilter, sortBy, startTimeFrom, startTimeTo, current, pageSize);
     }
 
     @GetMapping("/public/categories")
