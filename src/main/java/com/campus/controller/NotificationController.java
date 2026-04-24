@@ -1,6 +1,7 @@
 package com.campus.controller;
 
 import com.campus.dto.Result;
+import com.campus.ratelimit.RateLimit;
 import com.campus.service.INotificationService;
 import com.campus.utils.SystemConstants;
 import org.springframework.web.bind.annotation.*;
@@ -15,11 +16,13 @@ public class NotificationController {
     private INotificationService notificationService;
 
     @GetMapping("/unread-count")
+    @RateLimit(scene = "notification-unread")
     public Result queryUnreadCount() {
         return notificationService.queryUnreadCount();
     }
 
     @GetMapping("/list")
+    @RateLimit(scene = "notification-list")
     public Result queryNotifications(@RequestParam(value = "type", required = false) String type,
                                      @RequestParam(value = "isRead", required = false) Boolean isRead,
                                      @RequestParam(value = "current", defaultValue = "1") Integer current,

@@ -433,6 +433,7 @@
         </div>
         <div class="tag-row">
           <span class="tag">{{activity.category || '未分类'}}</span>
+          <span class="tag">{{registrationModeText}}</span>
           <span class="tag">{{activity.registrationOpen ? '报名中' : '报名未开放'}}</span>
           <span class="tag" v-if="activity.registered">已报名</span>
           <span class="tag" v-if="activity.registrationStatus && activity.registrationStatus !== 'NOT_REGISTERED'">{{registrationStatusText}}</span>
@@ -615,6 +616,7 @@
       },
       registrationStatusText() {
         if (this.activity.registrationStatus === 'PENDING_CONFIRM') return '报名确认中';
+        if (this.activity.registrationStatus === 'PENDING_REVIEW') return '报名待审核';
         if (this.activity.registrationStatus === 'CANCEL_PENDING') return '退出申请待审核';
         if (this.activity.registrationStatus === 'SUCCESS') return '报名成功';
         if (this.activity.registrationStatus === 'FAILED') return '报名失败';
@@ -622,27 +624,37 @@
         return '';
       },
       registrationPanelTitle() {
-        if (this.activity.registrationStatus === 'PENDING_CONFIRM') return '报名待审核';
+        if (this.activity.registrationStatus === 'PENDING_CONFIRM') return '报名确认中';
+        if (this.activity.registrationStatus === 'PENDING_REVIEW') return '报名待审核';
         if (this.activity.registrationStatus === 'CANCEL_PENDING') return '退出申请待审核';
         if (this.activity.registrationStatus === 'FAILED') return '报名失败';
         if (this.activity.registrationStatus === 'CANCELED') return '已退出活动';
         return '报名活动';
       },
       registrationPanelDesc() {
-        if (this.activity.registrationStatus === 'PENDING_CONFIRM') return this.activity.registrationMessage || '报名申请已提交，等待主办方审核。';
+        if (this.activity.registrationStatus === 'PENDING_CONFIRM') return this.activity.registrationMessage || '系统正在确认名额，请稍候查看结果。';
+        if (this.activity.registrationStatus === 'PENDING_REVIEW') return this.activity.registrationMessage || '报名申请已提交，等待主办方审核。';
         if (this.activity.registrationStatus === 'CANCEL_PENDING') return this.activity.registrationMessage || '退出申请已提交，等待主办方审核。';
         if (this.activity.registrationStatus === 'FAILED') return this.activity.registrationMessage || '本次报名未成功，可刷新状态后重新尝试。';
         if (this.activity.registrationStatus === 'CANCELED') return '你已退出该活动，如仍有名额可再次报名。';
-        return '报名成功后，系统会自动生成唯一签到凭证号，签到时出示给工作人员即可。';
+        return this.activity.registrationMode === 'FIRST_COME_FIRST_SERVED'
+          ? '该活动采用先到先得报名。提交后系统会异步确认名额，成功后自动生成签到凭证。'
+          : '该活动采用审核制报名。提交后需要等待主办方审核，通过后才会生成签到凭证。';
       },
       registerButtonText() {
-        if (this.activity.registrationStatus === 'PENDING_CONFIRM') return '报名待审核';
+        if (this.activity.registrationStatus === 'PENDING_CONFIRM') return '报名确认中';
+        if (this.activity.registrationStatus === 'PENDING_REVIEW') return '报名待审核';
         if (this.activity.registrationStatus === 'FAILED') return '重新报名';
         if (this.activity.registrationStatus === 'CANCELED') return '再次报名';
         return '立即报名';
       },
       registerButtonDisabled() {
-        return !this.activity.registrationOpen || this.activity.registrationStatus === 'PENDING_CONFIRM';
+        return !this.activity.registrationOpen
+          || this.activity.registrationStatus === 'PENDING_CONFIRM'
+          || this.activity.registrationStatus === 'PENDING_REVIEW';
+      },
+      registrationModeText() {
+        return this.activity.registrationMode === 'FIRST_COME_FIRST_SERVED' ? '先到先得' : '审核制';
       }
     },
     created() {
@@ -698,7 +710,7 @@
         this.activity.registrationMessage = status.message || '';
         this.activity.registrationRequestId = status.requestId || '';
         this.activity.registrationFailReason = status.failReason || '';
-        this.activity.registered = status.status === 'SUCCESS';
+        this.activity.registered = status.status === 'SUCCESS' || status.status === 'CANCEL_PENDING';
         this.activity.voucherId = status.voucherId || null;
         this.activity.voucherDisplayCode = status.voucherDisplayCode || '';
         this.activity.voucherStatus = status.voucherStatus || '';
@@ -851,14 +863,20 @@
           .finally(() => this.registerSubmitting = false);
       },
       cancelRegistration() {
-        this.$confirm('退出活动需要主办方审核，通过后才会释放名额并删除签到凭证。', '申请退出活动', {
-          confirmButtonText: '提交申请',
+        const firstComeFirstServed = this.activity.registrationMode === 'FIRST_COME_FIRST_SERVED';
+        this.$confirm(
+          firstComeFirstServed
+            ? '退出后会立即释放名额并作废签到凭证，确认继续吗？'
+            : '退出活动需要主办方审核，通过后才会释放名额并删除签到凭证。',
+          firstComeFirstServed ? '退出活动' : '申请退出活动',
+          {
+          confirmButtonText: firstComeFirstServed ? '确认退出' : '提交申请',
           cancelButtonText: '再想想',
           type: 'warning'
         }).then(() => {
           axios.delete('/activity/' + this.activity.id + '/register')
             .then(() => {
-              this.$message.success('退出申请已提交');
+              this.$message.success(firstComeFirstServed ? '已退出活动' : '退出申请已提交');
               this.queryDetail();
               this.queryRegistrationStatus(true);
             })

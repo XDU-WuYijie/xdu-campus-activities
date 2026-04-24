@@ -27,6 +27,51 @@ rocketmq:
     group: campus-activity-register-producer
 
 campus:
+  rate-limit:
+    enabled: true
+    scenes:
+      register:
+        enabled: true
+        capacity: 80
+        refill-tokens: 40
+        refill-seconds: 1
+        message: 当前报名人数较多，请稍后重试
+        fallback-mode: FAIL
+      search:
+        enabled: true
+        capacity: 50
+        refill-tokens: 25
+        refill-seconds: 1
+        message: 当前查询人数较多，请稍后重试
+        fallback-mode: SEARCH_SIMPLIFIED
+      activity-detail-hot:
+        enabled: true
+        capacity: 80
+        refill-tokens: 40
+        refill-seconds: 1
+        message: 当前活动访问人数较多，请稍后刷新
+        fallback-mode: ACTIVITY_DETAIL_CACHE
+      review-list:
+        enabled: true
+        capacity: 10
+        refill-tokens: 5
+        refill-seconds: 1
+        message: 待审核列表刷新过于频繁，请稍后重试
+        fallback-mode: FAIL
+      notification-list:
+        enabled: true
+        capacity: 20
+        refill-tokens: 10
+        refill-seconds: 1
+        message: 通知加载过于频繁，请稍后重试
+        fallback-mode: FAIL
+      notification-unread:
+        enabled: true
+        capacity: 20
+        refill-tokens: 10
+        refill-seconds: 1
+        message: 未读数刷新过于频繁，请稍后重试
+        fallback-mode: FAIL
   notification:
     topic: campus-notification-topic
     consumer-group: campus-notification-consumer-group

@@ -4,6 +4,7 @@ import com.campus.dto.ActivityCheckInVerifyDTO;
 import com.campus.dto.ReviewActionDTO;
 import com.campus.dto.Result;
 import com.campus.entity.Activity;
+import com.campus.ratelimit.RateLimit;
 import com.campus.service.IActivityService;
 import com.campus.service.OssService;
 import com.campus.utils.AuthorizationUtils;
@@ -28,6 +29,7 @@ public class ActivityController {
     private OssService ossService;
 
     @GetMapping("/public/list")
+    @RateLimit(scene = "search")
     public Result queryPublicActivities(
             @RequestParam(value = "keyword", required = false) String keyword,
             @RequestParam(value = "category", required = false) String category,
@@ -49,6 +51,7 @@ public class ActivityController {
     }
 
     @GetMapping("/public/{id}")
+    @RateLimit(scene = "activity-detail-hot")
     public Result queryActivityDetail(@PathVariable("id") Long id) {
         return activityService.queryActivityDetail(id);
     }
@@ -77,6 +80,7 @@ public class ActivityController {
     }
 
     @PostMapping("/{id}/register")
+    @RateLimit(scene = "register")
     public Result register(@PathVariable("id") Long activityId) {
         return activityService.register(activityId);
     }
@@ -159,11 +163,12 @@ public class ActivityController {
     }
 
     @GetMapping("/admin/review-list")
-    public Result queryPendingReviewActivities() {
+    @RateLimit(scene = "review-list")
+    public Result queryPendingReviewActivities(@RequestParam(value = "keyword", required = false) String keyword) {
         if (!AuthorizationUtils.hasPermission(UserHolder.getUser(), RbacConstants.PERM_ACTIVITY_APPROVE)) {
             return Result.fail("无权查看待审核活动");
         }
-        return activityService.queryPendingReviewActivities();
+        return activityService.queryPendingReviewActivities(keyword);
     }
 
     @GetMapping("/admin/published-list")

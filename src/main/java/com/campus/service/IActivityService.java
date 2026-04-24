@@ -25,6 +25,12 @@ public interface IActivityService extends IService<Activity> {
 
     Result queryActivityDetail(Long id);
 
+    Result rateLimitFallbackPublicActivities(String category, Integer current, Integer pageSize);
+
+    Result rateLimitFallbackActivityDetail(Long id);
+
+    boolean shouldApplyRegisterRateLimit(Long activityId);
+
     Result createActivity(Activity activity);
 
     Result updateActivity(Activity activity);
@@ -55,7 +61,7 @@ public interface IActivityService extends IService<Activity> {
 
     Result queryCheckInRecords(Long activityId, Integer current, Integer pageSize);
 
-    Result queryPendingReviewActivities();
+    Result queryPendingReviewActivities(String keyword);
 
     Result queryPublishedActivitiesForAdmin(String keyword, Integer current, Integer pageSize);
 

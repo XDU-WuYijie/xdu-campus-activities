@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS `tb_activity` (
   `summary` varchar(512) DEFAULT NULL,
   `content` text,
   `category` varchar(64) NOT NULL,
+  `registration_mode` varchar(64) NOT NULL DEFAULT 'AUDIT_REQUIRED' COMMENT '报名模式：AUDIT_REQUIRED/FIRST_COME_FIRST_SERVED',
   `location` varchar(255) NOT NULL,
   `max_participants` int NOT NULL,
   `registered_count` int NOT NULL DEFAULT 0,
@@ -347,67 +348,67 @@ FROM `tb_user` u
 JOIN `sys_role` r ON r.`role_code` = 'USER'
 WHERE u.`username` IN ('test');
 
-INSERT INTO `tb_activity` (`creator_id`, `organizer_name`, `title`, `cover_image`, `images`, `summary`, `content`, `category`, `location`, `max_participants`, `registered_count`, `registration_start_time`, `registration_end_time`, `event_start_time`, `event_end_time`, `check_in_enabled`, `status`)
+INSERT INTO `tb_activity` (`creator_id`, `organizer_name`, `title`, `cover_image`, `images`, `summary`, `content`, `category`, `registration_mode`, `location`, `max_participants`, `registered_count`, `registration_start_time`, `registration_end_time`, `event_start_time`, `event_end_time`, `check_in_enabled`, `status`)
 SELECT u.`id`, '西电活动中心', '星火创新实践开放日',
        'https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=1200&q=80',
        'https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80',
        '面向全校同学开放的创新实践展示与体验活动。',
        '开放日设置项目路演、创客工坊体验、实验室参观和社团交流环节。参与同学可近距离了解校园创新团队的项目成果，也可以现场咨询后续加入方式。',
-       '创新实践', '南校区大学生活动中心一楼大厅', 180, 0,
+       '创新实践', 'AUDIT_REQUIRED', '南校区大学生活动中心一楼大厅', 180, 0,
        '2026-05-01 09:00:00', '2026-05-10 18:00:00', '2026-05-12 14:00:00', '2026-05-12 18:00:00', 1, 2
 FROM `tb_user` u
 WHERE u.`username` = 'test'
   AND NOT EXISTS (SELECT 1 FROM `tb_activity` WHERE `title` = '星火创新实践开放日');
 
-INSERT INTO `tb_activity` (`creator_id`, `organizer_name`, `title`, `cover_image`, `images`, `summary`, `content`, `category`, `location`, `max_participants`, `registered_count`, `registration_start_time`, `registration_end_time`, `event_start_time`, `event_end_time`, `check_in_enabled`, `status`)
+INSERT INTO `tb_activity` (`creator_id`, `organizer_name`, `title`, `cover_image`, `images`, `summary`, `content`, `category`, `registration_mode`, `location`, `max_participants`, `registered_count`, `registration_start_time`, `registration_end_time`, `event_start_time`, `event_end_time`, `check_in_enabled`, `status`)
 SELECT u.`id`, '西电活动中心', '毕业季草坪音乐会',
        'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80',
        'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&w=1200&q=80',
        '毕业季校园音乐会，开放报名并凭签到凭证入场。',
        '活动邀请校园乐队、合唱团和毕业生代表参与演出。现场按报名签到入场，请同学们提前完成报名并保留签到凭证。',
-       '文艺活动', '北校区中心草坪', 300, 0,
+       '文艺活动', 'FIRST_COME_FIRST_SERVED', '北校区中心草坪', 300, 0,
        '2026-05-05 08:00:00', '2026-05-25 20:00:00', '2026-05-30 19:00:00', '2026-05-30 21:30:00', 1, 2
 FROM `tb_user` u
 WHERE u.`username` = 'test'
   AND NOT EXISTS (SELECT 1 FROM `tb_activity` WHERE `title` = '毕业季草坪音乐会');
 
-INSERT INTO `tb_activity` (`creator_id`, `organizer_name`, `title`, `cover_image`, `images`, `summary`, `content`, `category`, `location`, `max_participants`, `registered_count`, `registration_start_time`, `registration_end_time`, `event_start_time`, `event_end_time`, `check_in_enabled`, `status`)
+INSERT INTO `tb_activity` (`creator_id`, `organizer_name`, `title`, `cover_image`, `images`, `summary`, `content`, `category`, `registration_mode`, `location`, `max_participants`, `registered_count`, `registration_start_time`, `registration_end_time`, `event_start_time`, `event_end_time`, `check_in_enabled`, `status`)
 SELECT u.`id`, '西电活动中心', '校园招聘会志愿者集训',
        'https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=1200&q=80',
        'https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=80',
        '为大型校园招聘会招募并培训现场志愿者。',
        '集训内容包括签到引导、会场分流、企业接待、突发情况上报流程。完成培训并签到的同学将进入招聘会志愿者排班名单。',
-       '志愿服务', '南校区体育馆会议室', 90, 0,
+       '志愿服务', 'AUDIT_REQUIRED', '南校区体育馆会议室', 90, 0,
        '2026-04-28 09:00:00', '2026-05-06 18:00:00', '2026-05-09 09:00:00', '2026-05-09 12:00:00', 1, 2
 FROM `tb_user` u
 WHERE u.`username` = 'test'
   AND NOT EXISTS (SELECT 1 FROM `tb_activity` WHERE `title` = '校园招聘会志愿者集训');
 
-INSERT INTO `tb_activity` (`creator_id`, `organizer_name`, `title`, `cover_image`, `images`, `summary`, `content`, `category`, `location`, `max_participants`, `registered_count`, `registration_start_time`, `registration_end_time`, `event_start_time`, `event_end_time`, `check_in_enabled`, `status`)
+INSERT INTO `tb_activity` (`creator_id`, `organizer_name`, `title`, `cover_image`, `images`, `summary`, `content`, `category`, `registration_mode`, `location`, `max_participants`, `registered_count`, `registration_start_time`, `registration_end_time`, `event_start_time`, `event_end_time`, `check_in_enabled`, `status`)
 SELECT u.`id`, '西电活动中心', '网络安全攻防体验营',
        'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80',
        'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80',
        '零基础可参加的网络安全攻防体验活动。',
        '体验营包含基础安全讲解、靶场演示、分组任务和导师答疑。活动适合对网络安全方向感兴趣、希望了解竞赛训练路径的同学。',
-       '竞赛训练', '网安大楼 C305 实训室', 60, 0,
+       '竞赛训练', 'FIRST_COME_FIRST_SERVED', '网安大楼 C305 实训室', 60, 0,
        '2026-05-10 09:00:00', '2026-05-18 18:00:00', '2026-05-21 14:00:00', '2026-05-21 17:30:00', 1, 1
 FROM `tb_user` u
 WHERE u.`username` = 'test'
   AND NOT EXISTS (SELECT 1 FROM `tb_activity` WHERE `title` = '网络安全攻防体验营');
 
-INSERT INTO `tb_activity` (`creator_id`, `organizer_name`, `title`, `cover_image`, `images`, `summary`, `content`, `category`, `location`, `max_participants`, `registered_count`, `registration_start_time`, `registration_end_time`, `event_start_time`, `event_end_time`, `check_in_enabled`, `status`)
+INSERT INTO `tb_activity` (`creator_id`, `organizer_name`, `title`, `cover_image`, `images`, `summary`, `content`, `category`, `registration_mode`, `location`, `max_participants`, `registered_count`, `registration_start_time`, `registration_end_time`, `event_start_time`, `event_end_time`, `check_in_enabled`, `status`)
 SELECT u.`id`, '西电活动中心', '秦岭环保公益行',
        'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1200&q=80',
        'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
        '面向学生志愿者的户外环保公益活动。',
        '活动计划开展环保宣讲、步道垃圾清理和自然观察记录。因出行安排调整，主办方已提交下架申请，等待平台管理员审核。',
-       '公益活动', '秦岭生态保护实践基地', 45, 0,
+       '公益活动', 'AUDIT_REQUIRED', '秦岭生态保护实践基地', 45, 0,
        '2026-05-12 09:00:00', '2026-05-22 18:00:00', '2026-05-26 08:00:00', '2026-05-26 17:00:00', 1, 5
 FROM `tb_user` u
 WHERE u.`username` = 'test'
   AND NOT EXISTS (SELECT 1 FROM `tb_activity` WHERE `title` = '秦岭环保公益行');
 
-INSERT INTO `tb_activity` (`creator_id`, `organizer_name`, `title`, `cover_image`, `images`, `summary`, `content`, `category`, `location`, `max_participants`, `registered_count`, `registration_start_time`, `registration_end_time`, `event_start_time`, `event_end_time`, `check_in_enabled`, `status`)
+INSERT INTO `tb_activity` (`creator_id`, `organizer_name`, `title`, `cover_image`, `images`, `summary`, `content`, `category`, `registration_mode`, `location`, `max_participants`, `registered_count`, `registration_start_time`, `registration_end_time`, `event_start_time`, `event_end_time`, `check_in_enabled`, `status`)
 WITH RECURSIVE seq(n) AS (
   SELECT 1
   UNION ALL
@@ -468,6 +469,10 @@ SELECT u.`id`,
          WHEN 2 THEN '志愿服务'
          WHEN 3 THEN '文艺活动'
          ELSE '竞赛训练'
+       END,
+       CASE MOD(n, 3)
+         WHEN 0 THEN 'FIRST_COME_FIRST_SERVED'
+         ELSE 'AUDIT_REQUIRED'
        END,
        CASE MOD(n, 8)
          WHEN 0 THEN '南校区大学生活动中心一楼大厅'

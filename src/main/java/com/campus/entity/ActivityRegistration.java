@@ -68,6 +68,9 @@ public class ActivityRegistration implements Serializable {
     private String organizerName;
 
     @TableField(exist = false)
+    private String registrationMode;
+
+    @TableField(exist = false)
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime eventStartTime;
 

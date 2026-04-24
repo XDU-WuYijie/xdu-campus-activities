@@ -378,6 +378,7 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
         appendTextField(builder, "organizerName");
         appendTextField(builder, "location");
         appendKeywordField(builder, "category");
+        appendKeywordField(builder, "registrationMode");
         appendIntegerField(builder, "status");
         appendKeywordField(builder, "stageStatus");
         appendDateField(builder, "registrationStartTime");
@@ -539,6 +540,7 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
         document.put("content", StrUtil.blankToDefault(activity.getContent(), ""));
         document.put("organizerName", StrUtil.blankToDefault(activity.getOrganizerName(), ""));
         document.put("category", StrUtil.blankToDefault(activity.getCategory(), ""));
+        document.put("registrationMode", StrUtil.blankToDefault(activity.getRegistrationMode(), "AUDIT_REQUIRED"));
         document.put("location", StrUtil.blankToDefault(activity.getLocation(), ""));
         document.put("status", activity.getStatus());
         document.put("stageStatus", resolveStageStatus(activity));

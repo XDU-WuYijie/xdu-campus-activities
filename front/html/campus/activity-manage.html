@@ -492,6 +492,24 @@
           <div class="fact-row">
             <div class="fact-icon"><i class="el-icon-office-building"></i></div>
             <div class="fact-content">
+              <div class="fact-label">报名模式</div>
+              <el-form-item>
+                <el-radio-group v-model="form.registrationMode">
+                  <el-radio label="AUDIT_REQUIRED">审核制</el-radio>
+                  <el-radio label="FIRST_COME_FIRST_SERVED">先到先得</el-radio>
+                </el-radio-group>
+                <div style="margin-top:8px;color:#718096;font-size:12px;line-height:1.6;">
+                  {{ form.registrationMode === 'FIRST_COME_FIRST_SERVED'
+                    ? '用户报名后进入系统异步确认，按名额先到先得，不进入主办方审核。'
+                    : '用户提交报名申请后，需要主办方审核通过才算报名成功。' }}
+                </div>
+              </el-form-item>
+            </div>
+          </div>
+
+          <div class="fact-row">
+            <div class="fact-icon"><i class="el-icon-office-building"></i></div>
+            <div class="fact-content">
               <div class="fact-label">主办方名称</div>
               <el-form-item>
                 <el-input v-model="form.organizerName" placeholder="默认使用当前昵称"></el-input>
@@ -562,6 +580,7 @@
       form: {
         title: '',
         category: '',
+        registrationMode: 'AUDIT_REQUIRED',
         organizerName: '',
         location: '',
         summary: '',
@@ -661,6 +680,7 @@
           id: this.form.id,
           title: this.form.title,
           category: this.form.category,
+          registrationMode: this.form.registrationMode,
           organizerName: this.form.organizerName,
           location: this.form.location,
           summary: this.form.summary,
@@ -692,6 +712,7 @@
               id: data.id,
               title: data.title || '',
               category: data.category || '',
+              registrationMode: data.registrationMode || 'AUDIT_REQUIRED',
               organizerName: data.organizerName || '',
               location: data.location || '',
               summary: data.summary || '',
@@ -713,6 +734,7 @@
         this.form = {
           title: '',
           category: '',
+          registrationMode: 'AUDIT_REQUIRED',
           organizerName: '',
           location: '',
           summary: '',

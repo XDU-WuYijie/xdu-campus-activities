@@ -41,6 +41,11 @@
 
   <el-tabs v-model="tab">
     <el-tab-pane label="活动审核" name="activities">
+      <div class="inline-search">
+        <el-input size="mini" v-model="activityKeyword" clearable placeholder="搜索待审核活动" @keyup.enter.native="queryActivities"></el-input>
+        <el-button size="mini" type="primary" plain @click="queryActivities">搜索</el-button>
+        <el-button size="mini" plain @click="resetActivitySearch">刷新</el-button>
+      </div>
       <div class="count-text">共 {{activities.length}} 条待审核活动</div>
       <div class="card" v-for="item in activities" :key="item.id">
         <div class="item-title">{{ item.title }}</div>
@@ -136,6 +141,7 @@
     data: {
       tab: 'activities',
       activities: [],
+      activityKeyword: '',
       publishedActivities: [],
       publishedTotal: 0,
       publishedKeyword: '',
@@ -168,9 +174,17 @@
           .catch(() => location.replace('/login.html'));
       },
       queryActivities() {
-        axios.get('/activity/admin/review-list')
+        axios.get('/activity/admin/review-list', {
+          params: {
+            keyword: this.activityKeyword
+          }
+        })
           .then(({data}) => this.activities = data || [])
           .catch(err => this.$message.error(err));
+      },
+      resetActivitySearch() {
+        this.activityKeyword = '';
+        this.queryActivities();
       },
       queryPublishedActivities(append) {
         axios.get('/activity/admin/published-list', {
