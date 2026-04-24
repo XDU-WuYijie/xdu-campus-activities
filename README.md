@@ -44,6 +44,16 @@
 - `功能模块设计.md`：模块设计说明
 - `工程进展.md`：项目进展记录
 
+## 跨平台开发说明
+
+当前默认采用“宿主机运行 Spring Boot + Docker Compose 启动基础设施”的本地开发模式。
+
+- Spring Boot 从宿主机直连 RocketMQ NameServer：`127.0.0.1:9876`
+- RocketMQ Broker 对外注册地址固定为 `127.0.0.1`
+- 该配置适用于 Windows 和 macOS 本机开发，避免 `host.docker.internal` 在不同系统上的解析和回环行为不一致，导致客户端能连 NameServer 但无法继续连接 Broker
+
+如果后续改为“Spring Boot 也运行在 Docker 内”，则不能继续使用当前配置，需要把 Broker 对外注册地址改为容器网络内可达地址。
+
 ## 环境要求
 
 - JDK 17
@@ -93,6 +103,12 @@ docker compose down
 - Elasticsearch：`127.0.0.1:9200`
 - Spring Boot：`127.0.0.1:8081`
 - Nginx：`http://127.0.0.1:8080`
+
+RocketMQ 本地开发额外约束：
+
+- `docker/rocketmq/RocketMQ.conf` 中 `brokerIP1` 默认固定为 `127.0.0.1`
+- 修改该值后需要重启 `campus-rmq-broker` 容器才能重新注册 Broker 地址
+- 如果日志里出现 `send request to <host.docker.internal:10911> failed`，说明 Broker 仍在对外广播不可达地址
 
 对应配置见 `src/main/resources/application.yaml`。
 
