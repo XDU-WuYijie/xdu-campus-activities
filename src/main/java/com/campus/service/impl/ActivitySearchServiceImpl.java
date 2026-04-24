@@ -375,6 +375,7 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
         appendTextField(builder, "title");
         appendTextField(builder, "summary");
         appendTextField(builder, "content");
+        appendTextField(builder, "customCategory");
         appendTextField(builder, "organizerName");
         appendTextField(builder, "location");
         appendKeywordField(builder, "category");
@@ -446,6 +447,7 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
             String normalizedKeyword = keyword.trim();
             MultiMatchQueryBuilder multiMatchQuery = QueryBuilders.multiMatchQuery(normalizedKeyword)
                     .field("title", 4.0f)
+                    .field("customCategory", 3.0f)
                     .field("summary", 2.0f)
                     .field("organizerName", 2.0f)
                     .field("location")
@@ -538,6 +540,7 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
         document.put("title", StrUtil.blankToDefault(activity.getTitle(), ""));
         document.put("summary", StrUtil.blankToDefault(activity.getSummary(), ""));
         document.put("content", StrUtil.blankToDefault(activity.getContent(), ""));
+        document.put("customCategory", StrUtil.blankToDefault(activity.getCustomCategory(), ""));
         document.put("organizerName", StrUtil.blankToDefault(activity.getOrganizerName(), ""));
         document.put("category", StrUtil.blankToDefault(activity.getCategory(), ""));
         document.put("registrationMode", StrUtil.blankToDefault(activity.getRegistrationMode(), "AUDIT_REQUIRED"));

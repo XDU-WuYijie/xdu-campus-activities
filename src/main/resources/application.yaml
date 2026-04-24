@@ -3,6 +3,22 @@ server:
 spring:
   application:
     name: campus
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration
+      - org.springframework.ai.model.chat.client.autoconfigure.ChatClientAutoConfiguration
+  ai:
+    openai:
+      base-url: ${QWEN_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode}
+      api-key: ${QWEN_API_KEY:}
+      chat:
+        options:
+          model: ${QWEN_MODEL:qwen-plus}
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://127.0.0.1:3307/campus?useSSL=false&serverTimezone=UTC
@@ -79,6 +95,15 @@ campus:
     register:
       topic: activity-register-topic
       consumer-group: activity-register-consumer-group
+    ai-review:
+      enabled: true
+      prompt-version: v1
+      connect-timeout-millis: 2000
+      read-timeout-millis: 5000
+      max-retries: 1
+      topic: activity-ai-review-topic
+      consumer-group: activity-ai-review-consumer-group
+      compensation-cron: 0 */3 * * * ?
     search:
       sync:
         topic: activity-search-sync-topic

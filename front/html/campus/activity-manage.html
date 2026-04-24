@@ -447,6 +447,7 @@
                 action="#"
                 list-type="text"
                 multiple
+                accept="image/*"
                 :show-file-list="false"
                 :http-request="uploadImage"
                 :before-upload="beforeImageUpload">
@@ -489,6 +490,16 @@
             </div>
           </div>
 
+          <div class="fact-row" v-if="form.category === '其他'">
+            <div class="fact-icon"><i class="el-icon-edit-outline"></i></div>
+            <div class="fact-content">
+              <div class="fact-label">具体活动类型</div>
+              <el-form-item>
+                <el-input v-model.trim="form.customCategory" maxlength="64" placeholder="例如：粉丝见面会、校友分享会、电影放映"></el-input>
+              </el-form-item>
+            </div>
+          </div>
+
           <div class="fact-row">
             <div class="fact-icon"><i class="el-icon-office-building"></i></div>
             <div class="fact-content">
@@ -513,6 +524,16 @@
               <div class="fact-label">主办方名称</div>
               <el-form-item>
                 <el-input v-model="form.organizerName" placeholder="默认使用当前昵称"></el-input>
+              </el-form-item>
+            </div>
+          </div>
+
+          <div class="fact-row">
+            <div class="fact-icon"><i class="el-icon-phone-outline"></i></div>
+            <div class="fact-content">
+              <div class="fact-label">主办方联系方式</div>
+              <el-form-item>
+                <el-input v-model="form.contactInfo" placeholder="例如：张老师 139****1234 / 微信号 / 邮箱"></el-input>
               </el-form-item>
             </div>
           </div>
@@ -580,8 +601,10 @@
       form: {
         title: '',
         category: '',
+        customCategory: '',
         registrationMode: 'AUDIT_REQUIRED',
         organizerName: '',
+        contactInfo: '',
         location: '',
         summary: '',
         content: '',
@@ -594,7 +617,7 @@
         status: null
       },
       imageList: [],
-      categoryOptions: ['公益活动', '创新实践', '志愿服务', '文艺活动', '竞赛训练'],
+      categoryOptions: ['公益活动', '创新实践', '志愿服务', '文艺活动', '竞赛训练', '其他'],
       user: window.auth.getUser() || {},
       permissionLoaded: false,
       submitting: false
@@ -680,8 +703,10 @@
           id: this.form.id,
           title: this.form.title,
           category: this.form.category,
+          customCategory: this.form.category === '其他' ? this.form.customCategory : '',
           registrationMode: this.form.registrationMode,
           organizerName: this.form.organizerName,
+          contactInfo: this.form.contactInfo,
           location: this.form.location,
           summary: this.form.summary,
           content: this.form.content,
@@ -701,6 +726,9 @@
             this.form.id = data;
           }
           this.form.status = 1;
+          setTimeout(() => {
+            location.href = this.resolveReturnUrl(payload.id ? '/activity-detail.html?id=' + this.form.id : '/info.html?tab=created');
+          }, 250);
         }).catch(err => this.$message.error(err))
           .finally(() => this.submitting = false);
       },
@@ -712,8 +740,10 @@
               id: data.id,
               title: data.title || '',
               category: data.category || '',
+              customCategory: data.customCategory || '',
               registrationMode: data.registrationMode || 'AUDIT_REQUIRED',
               organizerName: data.organizerName || '',
+              contactInfo: data.contactInfo || '',
               location: data.location || '',
               summary: data.summary || '',
               content: data.content || '',
@@ -734,8 +764,10 @@
         this.form = {
           title: '',
           category: '',
+          customCategory: '',
           registrationMode: 'AUDIT_REQUIRED',
           organizerName: '',
+          contactInfo: '',
           location: '',
           summary: '',
           content: '',
@@ -764,7 +796,7 @@
         }).catch(() => {});
       },
       goBack() {
-        history.back();
+        location.href = this.resolveReturnUrl('/info.html?tab=created');
       },
       goHome() {
         location.href = '/index.html';
@@ -785,6 +817,10 @@
       },
       formatTime(value) {
         return value ? value.replace('T', ' ') : '待定';
+      },
+      resolveReturnUrl(fallback) {
+        const returnUrl = util.getUrlParam('returnUrl');
+        return returnUrl ? decodeURIComponent(returnUrl) : fallback;
       }
     }
   })

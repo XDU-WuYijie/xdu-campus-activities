@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS `tb_activity` (
   `summary` varchar(512) DEFAULT NULL,
   `content` text,
   `category` varchar(64) NOT NULL,
+  `custom_category` varchar(64) DEFAULT NULL COMMENT '自定义活动类型，仅 category=其他 时使用',
   `registration_mode` varchar(64) NOT NULL DEFAULT 'AUDIT_REQUIRED' COMMENT '报名模式：AUDIT_REQUIRED/FIRST_COME_FIRST_SERVED',
+  `contact_info` varchar(255) DEFAULT NULL COMMENT '主办方联系方式',
   `location` varchar(255) NOT NULL,
   `max_participants` int NOT NULL,
   `registered_count` int NOT NULL DEFAULT 0,
@@ -23,6 +25,9 @@ CREATE TABLE IF NOT EXISTS `tb_activity` (
   `check_in_code` varchar(64) DEFAULT NULL,
   `check_in_code_expire_time` datetime DEFAULT NULL,
   `status` tinyint(1) NOT NULL DEFAULT 2 COMMENT '状态：1待审核，2已发布，3已驳回，4强制下架，5下架待审核',
+  `reviewer_id` bigint unsigned DEFAULT NULL COMMENT '审核人ID',
+  `review_remark` varchar(512) DEFAULT NULL COMMENT '审核备注/驳回原因',
+  `review_time` datetime DEFAULT NULL COMMENT '审核时间',
   `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -225,6 +230,35 @@ CREATE TABLE IF NOT EXISTS `sys_review_record` (
   PRIMARY KEY (`id`),
   KEY `idx_review_record_reviewer` (`reviewer_user_id`,`review_type`,`created_at`),
   KEY `idx_review_record_biz` (`biz_type`,`biz_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `tb_ai_review_record` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `activity_id` bigint unsigned NOT NULL,
+  `task_status` varchar(32) NOT NULL DEFAULT 'PENDING',
+  `suggestion` varchar(32) NOT NULL DEFAULT 'UNKNOWN',
+  `risk_level` varchar(32) NOT NULL DEFAULT 'UNKNOWN',
+  `score` int DEFAULT NULL,
+  `problems_json` text,
+  `missing_fields_json` text,
+  `similar_activities_json` text,
+  `similarity_analysis` varchar(1024) DEFAULT NULL,
+  `review_comment` varchar(2048) DEFAULT NULL,
+  `model_name` varchar(128) DEFAULT NULL,
+  `prompt_version` varchar(64) NOT NULL DEFAULT 'v1',
+  `raw_response` text,
+  `parse_status` varchar(32) NOT NULL DEFAULT 'PARSED',
+  `error_message` varchar(1024) DEFAULT NULL,
+  `manual_review_result` varchar(32) DEFAULT NULL,
+  `manual_review_remark` varchar(512) DEFAULT NULL,
+  `manual_reviewed_at` datetime DEFAULT NULL,
+  `is_ai_adopted` tinyint(1) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_ai_review_activity_prompt` (`activity_id`,`prompt_version`),
+  KEY `idx_ai_review_status` (`task_status`,`updated_at`),
+  KEY `idx_ai_review_activity` (`activity_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT INTO `sys_role` (`role_code`, `role_name`, `description`, `status`) VALUES

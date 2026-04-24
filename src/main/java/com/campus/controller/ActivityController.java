@@ -171,6 +171,14 @@ public class ActivityController {
         return activityService.queryPendingReviewActivities(keyword);
     }
 
+    @GetMapping("/admin/{id}/ai-review")
+    public Result queryActivityAiReview(@PathVariable("id") Long activityId) {
+        if (!AuthorizationUtils.hasPermission(UserHolder.getUser(), RbacConstants.PERM_ACTIVITY_APPROVE)) {
+            return Result.fail("无权查看 AI 审核建议");
+        }
+        return activityService.queryActivityAiReview(activityId);
+    }
+
     @GetMapping("/admin/published-list")
     public Result queryPublishedActivitiesForAdmin(
             @RequestParam(value = "keyword", required = false) String keyword,

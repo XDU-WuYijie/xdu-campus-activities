@@ -58,6 +58,7 @@
         <div class="item-actions">
           <el-button size="mini" type="success" @click="reviewActivity(item, true)">{{ item.status === 5 ? '同意下架' : '通过' }}</el-button>
           <el-button size="mini" type="danger" plain @click="reviewActivity(item, false)">{{ item.status === 5 ? '拒绝下架' : '驳回' }}</el-button>
+          <el-button size="mini" plain @click="viewAiReview(item)">AI审核建议</el-button>
           <el-button size="mini" plain @click="viewDetail(item.id)">查看详情</el-button>
         </div>
       </div>
@@ -221,16 +222,78 @@
       },
       reviewActivity(item, approved) {
         const id = item.id;
+        if (!approved) {
+          this.$prompt(item.status === 5 ? '请输入拒绝下架原因' : '请输入驳回原因', item.status === 5 ? '拒绝下架申请' : '驳回活动申请', {
+            confirmButtonText: '确认提交',
+            cancelButtonText: '取消',
+            inputType: 'textarea',
+            inputPlaceholder: item.status === 5 ? '请填写拒绝下架的具体原因' : '请填写驳回活动申请的具体原因',
+            inputValidator: value => {
+              if (!value || !String(value).trim()) {
+                return item.status === 5 ? '拒绝下架原因不能为空' : '驳回原因不能为空';
+              }
+              return true;
+            }
+          }).then(({ value }) => {
+            axios.post('/activity/admin/' + id + '/review', { approved: approved, reviewRemark: String(value).trim() })
+              .then(() => {
+                if (item.status === 5) {
+                  this.$message.success('下架申请已驳回');
+                } else {
+                  this.$message.success('活动已驳回');
+                }
+                this.queryActivities();
+                this.refreshPublishedActivities();
+                this.queryReviewHistory();
+              })
+              .catch(err => this.$message.error(err));
+          }).catch(() => {});
+          return;
+        }
         axios.post('/activity/admin/' + id + '/review', { approved: approved })
           .then(() => {
             if (item.status === 5) {
-              this.$message.success(approved ? '活动已下架' : '下架申请已驳回');
+              this.$message.success('活动已下架');
             } else {
-              this.$message.success(approved ? '活动已通过' : '活动已驳回');
+              this.$message.success('活动已通过');
             }
             this.queryActivities();
             this.refreshPublishedActivities();
             this.queryReviewHistory();
+          })
+          .catch(err => this.$message.error(err));
+      },
+      viewAiReview(item) {
+        axios.get('/activity/admin/' + item.id + '/ai-review')
+          .then(({data}) => {
+            const report = data || {};
+            const statusText = this.aiTaskStatusText(report.taskStatus);
+            const suggestionText = this.aiSuggestionText(report.suggestion);
+            const riskText = this.aiRiskText(report.riskLevel);
+            const problems = this.renderAiList(report.problems);
+            const missingFields = this.renderAiList(report.missingFields);
+            const similarActivities = this.renderSimilarActivities(report.similarActivities);
+            const html = [
+              '<div style="line-height:1.9;color:#44566c;">',
+              '<div><strong>活动：</strong>' + this.escapeHtml(item.title || ('活动' + item.id)) + '</div>',
+              '<div><strong>报告状态：</strong>' + this.escapeHtml(statusText) + '</div>',
+              '<div><strong>AI建议：</strong>' + this.escapeHtml(suggestionText) + '</div>',
+              '<div><strong>风险等级：</strong>' + this.escapeHtml(riskText) + '</div>',
+              '<div><strong>评分：</strong>' + this.escapeHtml(report.score === undefined || report.score === null ? '暂无' : String(report.score)) + '</div>',
+              '<div><strong>问题列表：</strong><br>' + problems + '</div>',
+              '<div><strong>缺失字段：</strong><br>' + missingFields + '</div>',
+              '<div><strong>相似活动：</strong><br>' + similarActivities + '</div>',
+              '<div><strong>相似分析：</strong>' + this.escapeHtml(report.similarityAnalysis || '暂无') + '</div>',
+              '<div><strong>审核意见：</strong>' + this.escapeHtml(report.reviewComment || '暂无') + '</div>',
+              (report.errorMessage ? '<div style="color:#c45656;"><strong>异常信息：</strong>' + this.escapeHtml(report.errorMessage) + '</div>' : ''),
+              '<div><strong>模型：</strong>' + this.escapeHtml(report.modelName || '未返回') + '</div>',
+              '<div><strong>Prompt版本：</strong>' + this.escapeHtml(report.promptVersion || '未返回') + '</div>',
+              '</div>'
+            ].join('');
+            this.$alert(html, 'AI 审核建议', {
+              dangerouslyUseHTMLString: true,
+              confirmButtonText: '关闭'
+            });
           })
           .catch(err => this.$message.error(err));
       },
@@ -260,7 +323,7 @@
         }).catch(() => {});
       },
       viewDetail(id) {
-        location.href = '/activity-detail.html?id=' + id;
+        location.href = '/activity-detail.html?id=' + id + '&returnUrl=' + encodeURIComponent(location.pathname + location.search + '#activities');
       },
       goNotifications() {
         location.href = '/notification.html';
@@ -300,6 +363,49 @@
         if (action === 'REJECTED') return '驳回';
         if (action === 'OFFLINE') return '下架';
         return action || '未知';
+      },
+      aiTaskStatusText(status) {
+        if (status === 'PENDING' || status === 'RUNNING') return 'AI 审核报告生成中，请稍候';
+        if (status === 'SUCCESS') return '已生成';
+        if (status === 'FAILED') return '生成失败，请人工审核';
+        if (status === 'TIMEOUT') return '生成超时，请人工审核';
+        if (status === 'NOT_FOUND') return '暂无报告';
+        return status || '暂无报告';
+      },
+      aiSuggestionText(suggestion) {
+        if (suggestion === 'PASS') return '建议通过';
+        if (suggestion === 'REJECT') return '建议驳回';
+        if (suggestion === 'MANUAL_REVIEW') return '建议人工复核';
+        return '未知';
+      },
+      aiRiskText(level) {
+        if (level === 'LOW') return '低';
+        if (level === 'MEDIUM') return '中';
+        if (level === 'HIGH') return '高';
+        return '未知';
+      },
+      renderAiList(items) {
+        if (!items || !items.length) return '暂无';
+        return items.map(item => '• ' + this.escapeHtml(item)).join('<br>');
+      },
+      renderSimilarActivities(items) {
+        if (!items || !items.length) return '暂无';
+        return items.map(item => {
+          const title = this.escapeHtml(item.title || '未命名活动');
+          const category = this.escapeHtml(item.category || '未分类');
+          const organizer = this.escapeHtml(item.organizerName || '未填写');
+          const location = this.escapeHtml(item.location || '未填写');
+          const time = this.escapeHtml(item.eventStartTime || '未填写');
+          return '• ' + title + ' ｜ ' + category + ' ｜ ' + organizer + ' ｜ ' + location + ' ｜ ' + time;
+        }).join('<br>');
+      },
+      escapeHtml(value) {
+        return String(value === undefined || value === null ? '' : value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
       },
       deleteReviewRecord(id) {
         axios.delete('/review-records/' + id)

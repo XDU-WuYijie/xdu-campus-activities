@@ -37,7 +37,28 @@
       padding: 12px;
       backdrop-filter: blur(10px);
     }
-    .search-bar { display:grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 10px; align-items: center; }
+    .toolbar-head {
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+    .icon-btn {
+      width: 44px;
+      height: 44px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(255,255,255,.92);
+      color: var(--brand);
+      box-shadow: 0 10px 24px rgba(16,35,61,.08);
+      cursor: pointer;
+      flex:none;
+    }
+    .toolbar-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+    .search-bar { display:grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; }
     .search-bar .el-input__inner {
       height: 46px;
       border-radius: 16px;
@@ -253,12 +274,15 @@
   </section>
 
   <div class="toolbar" v-if="categorySelected">
+    <div class="toolbar-head">
+      <button class="icon-btn" @click="backToCategories"><i class="el-icon-arrow-left"></i></button>
+      <div class="toolbar-title">{{selectedCategory}}活动</div>
+    </div>
     <div class="search-bar">
       <el-input v-model="keyword" clearable placeholder="搜索活动标题" @keyup.enter.native="refreshActivities">
         <i slot="prefix" class="el-input__icon el-icon-search"></i>
       </el-input>
       <el-button type="primary" plain @click="refreshActivities">搜索</el-button>
-      <el-button v-if="categorySelected" plain @click="backToCategories">返回分类</el-button>
     </div>
     <div class="filter-row" v-if="categorySelected">
       <el-select v-model="sortBy" class="sort-box" @change="refreshActivities">
@@ -281,7 +305,7 @@
       <img class="activity-cover" :src="item.coverImage || defaultCover" alt="">
       <div class="activity-body">
         <div class="meta-row">
-          <span class="tag">{{item.category}}</span>
+          <span class="tag">{{displayCategory(item)}}</span>
           <span class="tag open" v-if="item.registrationOpen">报名中</span>
           <span class="tag" v-else>未开放</span>
           <span class="tag" v-if="item.registered">已报名</span>
@@ -337,6 +361,7 @@
     created() {
       this.queryUser();
       this.initNotifications();
+      this.restoreCategoryState();
     },
     methods: {
       queryUser() {
@@ -371,6 +396,7 @@
       },
       refreshActivities() {
         this.current = 1;
+        this.syncCategoryState();
         this.queryActivities(false);
       },
       openCategory(category) {
@@ -378,6 +404,7 @@
         this.categorySelected = true;
         this.keyword = '';
         this.current = 1;
+        this.syncCategoryState();
         this.queryActivities(false);
       },
       backToCategories() {
@@ -387,13 +414,14 @@
         this.current = 1;
         this.total = 0;
         this.activities = [];
+        history.replaceState(null, '', '/index.html');
       },
       loadMore() {
         this.current += 1;
         this.queryActivities(true);
       },
       openDetail(id) {
-        location.href = '/activity-detail.html?id=' + id;
+        location.href = '/activity-detail.html?id=' + id + '&returnUrl=' + encodeURIComponent(location.pathname + location.search);
       },
       goProfile() {
         const user = window.auth.getUser();
@@ -427,6 +455,34 @@
       formatTime(value) {
         if (!value) return '待定';
         return value.replace('T', ' ');
+      },
+      displayCategory(item) {
+        if (!item) return '未分类';
+        if (item.category === '其他' && item.customCategory) {
+          return item.customCategory;
+        }
+        return item.category || '未分类';
+      },
+      syncCategoryState() {
+        if (!this.categorySelected || !this.selectedCategory) {
+          history.replaceState(null, '', '/index.html');
+          return;
+        }
+        const params = new URLSearchParams();
+        params.set('category', this.selectedCategory);
+        if (this.keyword) params.set('keyword', this.keyword);
+        if (this.sortBy && this.sortBy !== 'composite') params.set('sortBy', this.sortBy);
+        history.replaceState(null, '', '/index.html?' + params.toString());
+      },
+      restoreCategoryState() {
+        const category = util.getUrlParam('category');
+        if (!category) return;
+        this.selectedCategory = category;
+        this.categorySelected = true;
+        this.keyword = util.getUrlParam('keyword') || '';
+        this.sortBy = util.getUrlParam('sortBy') || 'composite';
+        this.current = 1;
+        this.queryActivities(false);
       }
     }
   })

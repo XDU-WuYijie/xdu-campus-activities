@@ -126,8 +126,9 @@
         <div class="item-line">分类：{{item.category}}</div>
         <div class="item-line">地点：{{item.location}}</div>
         <div class="item-line">审核状态：{{activityAuditStatusText(item.status)}}</div>
-        <div class="item-line">报名人数：{{item.registeredCount || 0}} / {{item.maxParticipants}}</div>
-        <div class="item-line">签到：{{item.checkInEnabled ? '已开启' : '未开启'}}</div>
+        <div class="item-line" v-if="item.status === 3">驳回原因：{{item.reviewRemark || '平台暂未填写驳回原因'}}</div>
+        <div class="item-line" v-else>报名人数：{{item.registeredCount || 0}} / {{item.maxParticipants}}</div>
+        <div class="item-line" v-if="item.status !== 3">签到：{{item.checkInEnabled ? '已开启' : '未开启'}}</div>
         <div class="item-actions">
           <el-button size="mini" type="primary" @click="editActivity(item.id)">编辑/管理</el-button>
           <el-button size="mini" plain @click="viewDetail(item.id)">查看详情</el-button>
@@ -304,7 +305,7 @@
         location.href = '/index.html';
       },
       goEditProfile() {
-        location.href = '/info-edit.html';
+        location.href = '/info-edit.html?returnUrl=' + encodeURIComponent(location.pathname + location.search);
       },
       goNotifications() {
         location.href = '/notification.html';
@@ -328,13 +329,13 @@
         });
       },
       editActivity(id) {
-        location.href = '/activity-manage.html?id=' + id;
+        location.href = '/activity-manage.html?id=' + id + '&returnUrl=' + encodeURIComponent(location.pathname + location.search);
       },
       createActivity() {
-        location.href = '/activity-manage.html';
+        location.href = '/activity-manage.html?returnUrl=' + encodeURIComponent(location.pathname + location.search);
       },
       viewDetail(id) {
-        location.href = '/activity-detail.html?id=' + id;
+        location.href = '/activity-detail.html?id=' + id + '&returnUrl=' + encodeURIComponent(location.pathname + location.search);
       },
       logout() {
         axios.post('/user/logout')

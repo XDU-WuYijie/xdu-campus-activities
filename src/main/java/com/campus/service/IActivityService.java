@@ -63,6 +63,8 @@ public interface IActivityService extends IService<Activity> {
 
     Result queryPendingReviewActivities(String keyword);
 
+    Result queryActivityAiReview(Long activityId);
+
     Result queryPublishedActivitiesForAdmin(String keyword, Integer current, Integer pageSize);
 
     Result reviewActivity(Long activityId, ReviewActionDTO dto);

@@ -431,15 +431,6 @@
             <button v-if="canOfflineActivity" class="manage-btn danger" @click="offlineActivity">强制下架</button>
           </div>
         </div>
-        <div class="tag-row">
-          <span class="tag">{{activity.category || '未分类'}}</span>
-          <span class="tag">{{registrationModeText}}</span>
-          <span class="tag">{{activity.registrationOpen ? '报名中' : '报名未开放'}}</span>
-          <span class="tag" v-if="activity.registered">已报名</span>
-          <span class="tag" v-if="activity.registrationStatus && activity.registrationStatus !== 'NOT_REGISTERED'">{{registrationStatusText}}</span>
-          <span class="tag" v-if="activity.checkedIn">已签到</span>
-          <span class="tag" v-if="isOrganizerUser && !activity.canManage">主办方账号</span>
-        </div>
       </div>
     </div>
 
@@ -456,8 +447,16 @@
           <div class="section-title">活动信息</div>
           <div class="info-grid">
             <div class="info-item">
+              <div class="info-label">活动类型</div>
+              <div class="info-value">{{displayCategory(activity)}}</div>
+            </div>
+            <div class="info-item">
               <div class="info-label">主办方</div>
               <div class="info-value">{{activity.organizerName || '待补充'}}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">联系方式</div>
+              <div class="info-value">{{activity.contactInfo || '待补充'}}</div>
             </div>
             <div class="info-item">
               <div class="info-label">活动地点</div>
@@ -952,14 +951,26 @@
         return 'warning';
       },
       goManage() {
-        location.href = '/activity-manage.html?id=' + this.activity.id;
+        location.href = '/activity-manage.html?id=' + this.activity.id + '&returnUrl=' + encodeURIComponent(location.pathname + location.search);
       },
       goMy() {
         const roleCodes = (this.user && this.user.roleCodes) || [];
         location.href = roleCodes.includes('PLATFORM_ADMIN') ? '/admin-dashboard.html' : '/info.html';
       },
       goBack() {
-        history.back();
+        const returnUrl = util.getUrlParam('returnUrl');
+        if (returnUrl) {
+          location.href = decodeURIComponent(returnUrl);
+          return;
+        }
+        location.href = '/index.html';
+      },
+      displayCategory(item) {
+        if (!item) return '未分类';
+        if (item.category === '其他' && item.customCategory) {
+          return item.customCategory;
+        }
+        return item.category || '未分类';
       },
       formatTime(value) {
         return value ? value.replace('T', ' ') : '待定';

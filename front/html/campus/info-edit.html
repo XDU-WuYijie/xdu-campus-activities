@@ -402,13 +402,19 @@
         axios.put("/user/profile", this.form)
           .then(() => {
             this.$message.success("已保存");
-            history.back();
+            setTimeout(() => {
+              location.href = this.resolveReturnUrl('/info.html');
+            }, 250);
           })
           .catch(err => this.$message.error(err))
           .finally(() => this.saving = false);
       },
       goBack(){
-        history.back();
+        location.href = this.resolveReturnUrl('/info.html');
+      },
+      resolveReturnUrl(fallback) {
+        const returnUrl = util.getUrlParam('returnUrl');
+        return returnUrl ? decodeURIComponent(returnUrl) : fallback;
       }
     },
     computed: {
