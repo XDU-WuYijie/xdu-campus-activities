@@ -46,9 +46,10 @@
   </style>
 </head>
 <body>
-<div id="app" class="page campus-mobile">
-  <div class="campus-status">9:41</div>
-  <div class="topbar">
+<div id="app" class="app-shell">
+  <div class="app-page page campus-mobile">
+    <div class="campus-status">9:41</div>
+    <div class="topbar">
     <button class="back-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
     <div class="top-title">签到管理</div>
     <button class="ghost-btn" @click="goDetail"><i class="el-icon-view"></i></button>
@@ -159,6 +160,7 @@
   <section v-else class="panel">
     <div class="empty">暂无签到管理数据。</div>
   </section>
+  </div>
 </div>
 
 <script src="js/vue.js"></script>

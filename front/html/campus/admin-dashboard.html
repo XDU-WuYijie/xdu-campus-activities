@@ -36,10 +36,16 @@
     }
     .topbar {
       display: grid;
-      grid-template-columns: 44px minmax(0, 1fr) 44px;
+      grid-template-columns: 44px minmax(0, 1fr) auto;
       align-items: center;
       gap: 6px;
       margin-bottom: 12px;
+    }
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
     }
     .topbar-left {
       display: flex;
@@ -515,15 +521,18 @@
   </style>
 </head>
 <body>
-<div id="app" class="page">
-  <div class="admin-status">9:41</div>
-  <div class="topbar">
-    <div class="topbar-left">
-      <button class="back-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
+<div id="app" class="app-shell">
+  <div class="app-page app-page--no-tabbar page">
+    <div class="admin-status">9:41</div>
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="back-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
+      </div>
+      <div class="top-title">平台管理后台</div>
+      <div class="topbar-actions">
+        <el-button type="danger" plain @click="logout">退出登录</el-button>
+      </div>
     </div>
-    <div class="top-title">平台管理后台</div>
-    <div></div>
-  </div>
   <section class="hero">
     <div class="admin-profile">
       <div class="admin-profile-main">
@@ -708,9 +717,6 @@
       </el-collapse>
     </div>
   </el-dialog>
-
-  <div class="card">
-    <el-button style="width:100%;" type="danger" plain @click="logout">退出登录</el-button>
   </div>
 </div>
 
@@ -799,7 +805,7 @@
         }
       },
       goBack() {
-        util.goBack('/login2.html');
+        location.href = '/index.html';
       },
       onPopState() {
         history.pushState({ adminDashboardSentinel: true }, '', location.pathname + location.search);

@@ -41,7 +41,7 @@
 
     .topbar {
       display: grid;
-      grid-template-columns: 44px minmax(0, 1fr) auto;
+      grid-template-columns: 44px minmax(0, 1fr);
       align-items: center;
       margin-bottom: 8px;
     }
@@ -61,16 +61,6 @@
       font-weight: 900;
       text-align: center;
       min-width: 0;
-    }
-
-    .top-save {
-      border: 0;
-      background: transparent;
-      color: #2388ff;
-      font-size: 13px;
-      font-weight: 900;
-      cursor: pointer;
-      white-space: nowrap;
     }
 
     .edit-hero {
@@ -511,12 +501,12 @@
   </style>
 </head>
 <body>
-<div id="app" class="page">
-  <div class="topbar">
-    <button class="icon-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
-    <div class="topbar-title">发布动态</div>
-    <button class="top-save" type="button" @click="submitPost">{{ submitting ? '发布中' : '发布' }}</button>
-  </div>
+<div id="app" class="app-shell">
+  <div class="app-page page">
+    <div class="topbar">
+      <button class="icon-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
+      <div class="topbar-title">发布动态</div>
+    </div>
 
   <section class="edit-hero">
     <div class="edit-hero-title">分享活动现场</div>
@@ -614,6 +604,7 @@
     </div>
     <div v-else class="selector-empty">暂无可选择活动</div>
   </el-dialog>
+  </div>
 </div>
 
 <script src="js/vue.js"></script>

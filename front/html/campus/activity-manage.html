@@ -455,15 +455,6 @@
       white-space:nowrap;
       box-shadow:0 10px 22px rgba(35, 136, 255, .18);
     }
-    .top-save {
-      border:0;
-      background:transparent;
-      color:#2388ff;
-      font-size:13px;
-      font-weight:900;
-      cursor:pointer;
-      white-space:nowrap;
-    }
     .page.campus-mobile .card {
       border:1px solid #eef3fa;
       box-shadow:0 8px 22px rgba(32,94,156,.07);
@@ -596,17 +587,16 @@
   </style>
 </head>
 <body>
-<div id="app" class="page campus-mobile">
-  <div class="campus-status">9:41</div>
-  <div class="topbar">
+<div id="app" class="app-shell">
+  <div class="app-page page campus-mobile">
+    <div class="campus-status">9:41</div>
+    <div class="topbar">
     <div class="topbar-left">
       <button class="icon-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
     </div>
     <div class="topbar-title">编辑活动</div>
     <div class="topbar-actions">
       <el-button v-if="canApplyOffline" type="danger" plain @click="applyOffline">申请下架</el-button>
-      <el-button class="submit-btn" type="primary" :loading="submitting" @click="submitForm">{{form.id ? '保存活动' : '发布活动'}}</el-button>
-      <button class="top-save" type="button" @click="submitForm">保存</button>
     </div>
   </div>
 
@@ -832,6 +822,7 @@
       </el-form>
 
     </div>
+  </div>
   </div>
 </div>
 

@@ -36,7 +36,7 @@
       width: min(390px, 100%);
       margin: 0 auto;
       min-height: 100vh;
-      padding: 10px 14px 18px;
+      padding: 10px 14px 110px;
       position: relative;
       box-sizing: border-box;
       background: linear-gradient(180deg, #f7fbff 0%, #ffffff 100%);
@@ -533,8 +533,6 @@
       color: var(--primary-deep);
     }
 
-    .app-bottom-spacer { height: 72px; }
-
     @media (max-width: 860px) {
 
       .home-title {
@@ -600,7 +598,7 @@
     }
 
     .home-proto {
-      padding: 20px 16px 92px;
+      padding: 20px 16px 110px;
       background:
         radial-gradient(circle at 20% -10%, rgba(35, 136, 255, .13), transparent 34%),
         radial-gradient(circle at 88% 4%, rgba(255, 218, 170, .28), transparent 22%),
@@ -794,18 +792,15 @@
       text-overflow: ellipsis;
     }
 
-    .home-proto .app-bottom-spacer {
-      height: 74px;
-    }
-
     .home-proto .campus-tabbar {
       border-radius: 0;
     }
   </style>
 </head>
 <body>
-<div id="app" class="page campus-mobile home-proto">
-  <div class="home-head">
+<div id="app" class="app-shell">
+  <div class="app-page page campus-mobile home-proto">
+    <div class="home-head">
     <div class="brand-block">
       <div class="brand-mark"><i class="el-icon-s-promotion"></i></div>
       <div>
@@ -907,7 +902,6 @@
     <el-button @click="loadMore">加载更多</el-button>
   </div>
 
-  <div class="app-bottom-spacer"></div>
   <nav class="campus-tabbar">
     <a class="campus-tab-item active" href="/index.html"><i class="el-icon-s-home"></i>首页</a>
     <a v-if="canManageActivities" class="campus-tab-item" href="/organizer-dashboard.html"><i class="el-icon-data-analysis"></i>数据看板</a>
@@ -923,7 +917,7 @@
     </a>
     <a class="campus-tab-item" href="/info.html"><i class="el-icon-user"></i>我的</a>
   </nav>
-
+  </div>
 </div>
 
 <script src="js/vue.js"></script>

@@ -611,9 +611,10 @@
   </style>
 </head>
 <body>
-<div id="app" class="page campus-mobile">
-  <div class="campus-status" style="position:absolute;top:4px;left:14px;right:14px;z-index:4;color:#fff;">9:41</div>
-  <div class="topbar">
+<div id="app" class="app-shell">
+  <div class="app-page page campus-mobile">
+    <div class="campus-status" style="position:absolute;top:4px;left:14px;right:14px;z-index:4;color:#fff;">9:41</div>
+    <div class="topbar">
     <div class="topbar-left">
       <button class="icon-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
       <div class="topbar-title">活动详情</div>
@@ -759,6 +760,7 @@
 
   <div class="empty-card" v-else>
     活动信息加载中
+  </div>
   </div>
 </div>
 

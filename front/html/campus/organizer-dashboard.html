@@ -13,7 +13,7 @@
       font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
       color:#102a43;
     }
-    .page { min-height:100vh; padding:12px 12px 92px; box-sizing:border-box; }
+    .page { min-height:100vh; padding:12px 12px 110px; box-sizing:border-box; }
     .topbar { display:grid; grid-template-columns:44px minmax(0,1fr) 44px; align-items:center; gap:8px; margin-bottom:12px; }
     .back-btn { width:36px; height:36px; border:none; border-radius:12px; background:#fff; color:#425466; box-shadow:0 8px 18px rgba(31,78,121,.08); }
     .top-title { text-align:center; font-size:16px; font-weight:900; color:#102a43; }
@@ -46,13 +46,13 @@
     .card-actions { display:flex; gap:8px; margin-top:10px; }
     .card-actions .el-button { flex:1; border-radius:12px; }
     .empty { text-align:center; color:#8a9bb0; padding:26px 0 12px; font-size:12px; }
-    .spacer { height:76px; }
   </style>
 </head>
 <body>
-<div id="app" class="page campus-mobile">
-  <div class="campus-status">9:41</div>
-  <div class="topbar">
+<div id="app" class="app-shell">
+  <div class="app-page page campus-mobile">
+    <div class="campus-status">9:41</div>
+    <div class="topbar">
     <button class="back-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
     <div class="top-title">数据看板</div>
     <button class="back-btn" @click="refreshBoard"><i class="el-icon-refresh"></i></button>
@@ -132,7 +132,6 @@
     <div v-else class="empty">暂无活动数据。</div>
   </section>
 
-  <div class="spacer"></div>
   <nav class="campus-tabbar">
     <a class="campus-tab-item" href="/index.html"><i class="el-icon-s-home"></i>首页</a>
     <a class="campus-tab-item active" href="/organizer-dashboard.html"><i class="el-icon-data-analysis"></i>数据看板</a>
@@ -146,6 +145,7 @@
     </a>
     <a class="campus-tab-item" href="/info.html"><i class="el-icon-user"></i>我的</a>
   </nav>
+  </div>
 </div>
 
 <script src="js/vue.js"></script>

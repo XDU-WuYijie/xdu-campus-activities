@@ -4,6 +4,8 @@ html {
 }
 body{
     margin: 0;
+    width: 100%;
+    min-height: 100vh;
 }
 /* 让页面使用自然文档流滚动（避免内部滚动容器导致底部导航“看起来固定”） */
 html,body{
@@ -15,6 +17,9 @@ html,body{
 }
 
 :root {
+    --campus-app-width: 390px;
+    --campus-tabbar-height: 68px;
+    --campus-tabbar-safe-bottom: env(safe-area-inset-bottom);
     --btn-ink: #17324d;
     --btn-muted: #607086;
     --btn-line: rgba(23, 50, 77, 0.10);
@@ -259,7 +264,7 @@ html,body{
 }
 
 .campus-mobile {
-    width: min(100%, 390px);
+    width: min(100%, var(--campus-app-width));
     margin: 0 auto;
     min-height: 100vh;
     background:
@@ -267,6 +272,36 @@ html,body{
         radial-gradient(circle at 90% 10%, rgba(32, 201, 143, .14), transparent 26%),
         linear-gradient(180deg, #f8fcff 0%, #eef8ff 52%, #f7fbff 100%);
     color: var(--campus-ink);
+    box-sizing: border-box;
+}
+
+.app-shell {
+    min-height: 100vh;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.app-shell .app-page {
+    width: min(100%, var(--campus-app-width));
+    min-height: calc(100vh - var(--campus-tabbar-height) - var(--campus-tabbar-safe-bottom));
+    margin: 0 auto;
+    padding-bottom: calc(var(--campus-tabbar-height) + var(--campus-tabbar-safe-bottom));
+    box-sizing: border-box;
+}
+
+.app-shell .app-page--wide {
+    width: min(100%, 1120px);
+    min-height: 100vh;
+    margin: 0 auto;
+    padding-bottom: 48px;
+    box-sizing: border-box;
+}
+
+.app-shell .app-page--no-tabbar {
+    width: min(100%, var(--campus-app-width));
+    min-height: 100vh;
+    margin: 0 auto;
+    padding-bottom: 88px;
     box-sizing: border-box;
 }
 
@@ -369,13 +404,15 @@ html,body{
     bottom: 0;
     z-index: 12;
     display: grid;
-    width: min(100%, 390px);
+    width: min(100%, var(--campus-app-width));
+    min-height: var(--campus-tabbar-height);
     transform: translateX(-50%);
     grid-template-columns: repeat(5, minmax(0, 1fr));
     align-items: end;
     gap: 4px;
     margin: 0;
-    padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+    padding: 8px 10px calc(8px + var(--campus-tabbar-safe-bottom));
+    box-sizing: border-box;
     background: rgba(255, 255, 255, .96);
     border-top: 1px solid var(--campus-line);
     box-shadow: 0 -8px 26px rgba(32, 94, 156, .08);

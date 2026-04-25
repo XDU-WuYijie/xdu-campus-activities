@@ -8,7 +8,7 @@
   <link href="./css/main.css" rel="stylesheet">
   <style>
     body { margin:0; background: #eef6ff; color:#102a43; font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; }
-    .page { width:min(390px, 100%); min-height:100vh; margin:0 auto; padding: 8px 14px 18px; box-sizing:border-box; background:#fff; }
+    .page { width:min(390px, 100%); min-height:100vh; margin:0 auto; padding: 8px 14px 110px; box-sizing:border-box; background:#fff; }
     .topbar { display:grid; grid-template-columns:44px minmax(0,1fr) 44px; align-items:center; gap:6px; margin-bottom:12px; }
     .topbar-left { display:flex; align-items:center; gap:12px; }
     .back-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: transparent; color:#102a43; cursor:pointer; font-size:18px; }
@@ -604,7 +604,6 @@
     .item-title { font-size:14px; font-weight:900; color:#102a43; margin-bottom:6px; }
     .item-line { color:#617188; font-size:11px; line-height:1.65; }
     .item-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
-    .logout-fixed { margin-top: 18px; }
     .count-text { color:#7a8da6; font-size:12px; font-weight:600; margin-bottom:12px; }
     .title-with-badge {
       display:inline-flex;
@@ -653,7 +652,6 @@
     .compact-row { display:flex; align-items:center; gap:10px; }
     .thumb { width:58px; height:58px; border-radius:8px; object-fit:cover; background:#eaf3fb; flex:none; }
     .status-badge { margin-left:auto; border-radius:999px; padding:4px 8px; font-size:11px; font-weight:800; background:#e4f9ee; color:#0aa36d; white-space:nowrap; }
-    .info-bottom-spacer { height:76px; }
     .organizer-tabs .el-tabs__header { margin: 0 0 12px; }
     .organizer-tabs .el-tabs__nav-wrap:after { display:none; }
     .organizer-tabs .el-tabs__item {
@@ -834,9 +832,10 @@
   </style>
 </head>
 <body>
-<div id="app" class="page campus-mobile">
-  <div class="campus-status">9:41</div>
-  <div class="topbar">
+<div id="app" class="app-shell">
+  <div class="app-page page campus-mobile">
+    <div class="campus-status">9:41</div>
+    <div class="topbar">
     <div class="topbar-left">
       <button class="back-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
     </div>
@@ -1307,10 +1306,6 @@
     </div>
   </el-dialog>
 
-  <div class="logout-fixed">
-    <el-button style="width:100%;" type="danger" plain @click="logout">退出登录</el-button>
-  </div>
-  <div class="info-bottom-spacer"></div>
   <nav class="campus-tabbar">
     <a class="campus-tab-item" href="/index.html"><i class="el-icon-s-home"></i>首页</a>
     <a v-if="canManageActivities" class="campus-tab-item" href="/organizer-dashboard.html"><i class="el-icon-data-analysis"></i>数据看板</a>
@@ -1326,7 +1321,7 @@
     </a>
     <a class="campus-tab-item active" href="/info.html"><i class="el-icon-user"></i>我的</a>
   </nav>
-
+  </div>
 </div>
 
 <script src="js/vue.js"></script>

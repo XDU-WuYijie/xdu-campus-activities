@@ -37,7 +37,7 @@
 
     .topbar {
       display: grid;
-      grid-template-columns: 44px minmax(0, 1fr) 52px;
+      grid-template-columns: 44px minmax(0, 1fr);
       align-items: center;
       justify-content: space-between;
       gap: 12px;
@@ -182,6 +182,10 @@
       flex-wrap: wrap;
     }
 
+    .logout-fixed {
+      margin-top: 16px;
+    }
+
     .apply-card {
       padding: 14px;
       margin-top: 14px;
@@ -212,15 +216,15 @@
   </style>
 </head>
 <body>
-<div id="app" class="page campus-mobile">
-  <div class="campus-status">9:41</div>
-  <div class="topbar">
-    <div class="topbar-left">
-      <button class="icon-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
+<div id="app" class="app-shell">
+  <div class="app-page page campus-mobile">
+    <div class="campus-status">9:41</div>
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="icon-btn" @click="goBack"><i class="el-icon-arrow-left"></i></button>
+      </div>
+      <div class="topbar-title">编辑资料</div>
     </div>
-    <div class="topbar-title">编辑资料</div>
-    <el-button type="text" :loading="saving" @click="save">保存</el-button>
-  </div>
 
   <div class="shell">
     <div class="card profile-card">
@@ -310,10 +314,14 @@
 
         <div class="action-bar">
           <el-button type="primary" :loading="saving" @click="save">保存资料</el-button>
-          <el-button @click="goBack">返回</el-button>
         </div>
       </el-form>
     </div>
+  </div>
+
+  <div class="logout-fixed">
+    <el-button style="width:100%;" type="danger" plain @click="logout">退出登录</el-button>
+  </div>
   </div>
 </div>
 <script src="js/vue.js"></script>
@@ -437,6 +445,15 @@
       },
       goBack(){
         util.goBack('/info.html');
+      },
+      logout() {
+        axios.post('/user/logout')
+          .then(() => {
+            window.auth.clearUser();
+            window.auth.clearToken();
+            location.href = '/login.html';
+          })
+          .catch(err => this.$message.error(err));
       },
       resolveReturnUrl(fallback) {
         const returnUrl = util.getUrlParam('returnUrl');
