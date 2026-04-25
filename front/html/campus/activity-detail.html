@@ -751,7 +751,7 @@
       <button type="button" :class="['bottom-like', {favorited: activity.favorited}]" @click="toggleFavorite" :disabled="favoriteSubmitting">
         <i :class="activity.favorited ? 'el-icon-star-on' : 'el-icon-star-off'"></i>{{activity.favorited ? '已收藏' : '收藏'}}
       </button>
-      <el-button plain @click="goMy">分享</el-button>
+      <el-button plain @click="shareToDiscover">分享</el-button>
       <el-button v-if="!activity.registered" class="primary-cta" type="primary" :disabled="registerButtonDisabled" :loading="registerSubmitting" @click="registerActivity">{{registerButtonText}}</el-button>
       <el-button v-else class="primary-cta" type="primary" plain @click="goMy">查看我的报名</el-button>
     </div>
@@ -961,7 +961,7 @@
               return;
             }
             const payload = message && message.payload ? message.payload : null;
-            if (!payload || !this.activity || Number(payload.activityId) !== Number(this.activity.id)) return;
+            if (!payload || !this.activity || String(payload.activityId) !== String(this.activity.id)) return;
             this.applyRegistrationStatus(payload);
             if (payload.status === 'SUCCESS') {
               this.$message.success(payload.message || '报名成功');
@@ -1110,6 +1110,10 @@
       },
       goManage() {
         location.href = '/activity-manage.html?id=' + this.activity.id + '&returnUrl=' + encodeURIComponent(location.pathname + location.search);
+      },
+      shareToDiscover() {
+        const returnUrl = encodeURIComponent(location.pathname + location.search);
+        location.href = '/discover-post-create.html?activityId=' + this.activity.id + '&returnUrl=' + returnUrl;
       },
       goMy() {
         const roleCodes = (this.user && this.user.roleCodes) || [];

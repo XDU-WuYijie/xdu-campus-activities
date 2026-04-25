@@ -20,6 +20,11 @@ public class RedisConstants {
     public static final Long CACHE_ACTIVITY_CHECK_IN_STATS_TTL = 5L;
     public static final String CACHE_ACTIVITY_CHECK_IN_RECORDS_KEY = "cache:activity:check-in:records:";
     public static final Long CACHE_ACTIVITY_CHECK_IN_RECORDS_TTL = 3L;
+    public static final String CACHE_DISCOVER_POST_PAGE_KEY = "cache:discover:posts:";
+    public static final Long CACHE_DISCOVER_POST_PAGE_TTL = 1L;
+    public static final String CACHE_DISCOVER_POST_DETAIL_KEY = "cache:discover:post:";
+    public static final String DISCOVER_POST_LIKED_KEY = "discover:post:liked:";
+    public static final String DISCOVER_POST_LIKE_COUNT_KEY = "discover:post:like-count:";
     public static final String ACTIVITY_META_KEY = "activity:meta:";
     public static final String ACTIVITY_STOCK_KEY = "activity:stock:";
     public static final String ACTIVITY_FROZEN_KEY = "activity:frozen:";

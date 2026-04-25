@@ -136,3 +136,4 @@ aliyun:
     accessKeySecret: ${OSS_ACCESS_KEY_SECRET}
     avatarPrefix: avatars/
     activityPrefix: activities/
+    discoverPrefix: discover/

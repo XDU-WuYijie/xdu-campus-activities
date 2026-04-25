@@ -23,5 +23,9 @@ public class OssProperties {
      * 活动图片 Object key 前缀，例如 activities/
      */
     private String activityPrefix = "activities/";
-}
 
+    /**
+     * 校园圈图片 Object key 前缀，例如 discover/
+     */
+    private String discoverPrefix = "discover/";
+}

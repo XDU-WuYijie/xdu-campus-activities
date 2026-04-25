@@ -30,6 +30,10 @@ public class OssService {
         return uploadImage(userId, file, properties.getActivityPrefix(), "活动图片");
     }
 
+    public String uploadDiscoverImage(Long userId, MultipartFile file) {
+        return uploadImage(userId, file, properties.getDiscoverPrefix(), "校园圈图片");
+    }
+
     private String uploadImage(Long userId, MultipartFile file, String prefixSetting, String bizName) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("请选择要上传的" + bizName + "文件");
@@ -89,4 +93,3 @@ public class OssService {
         return "https://" + bucket + "." + ep + "/" + k;
     }
 }
-

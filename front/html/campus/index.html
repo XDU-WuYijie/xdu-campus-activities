@@ -911,8 +911,9 @@
   <nav class="campus-tabbar">
     <a class="campus-tab-item active" href="/index.html"><i class="el-icon-s-home"></i>首页</a>
     <a v-if="canManageActivities" class="campus-tab-item" href="/organizer-dashboard.html"><i class="el-icon-data-analysis"></i>数据看板</a>
-    <a v-else class="campus-tab-item" href="/index.html"><i class="el-icon-discover"></i>发现</a>
-    <a class="campus-tab-item" href="/activity-manage.html"><span class="campus-tab-plus">+</span>发布</a>
+    <a v-else class="campus-tab-item" href="/discover.html"><i class="el-icon-discover"></i>发现</a>
+    <a v-if="canManageActivities" class="campus-tab-item" href="/activity-manage.html"><span class="campus-tab-plus">+</span>发布</a>
+    <a v-else class="campus-tab-item" href="/discover-post-create.html"><span class="campus-tab-plus">+</span>发布</a>
     <a class="campus-tab-item" href="/notification.html">
       <span class="campus-tab-icon">
         <i class="el-icon-chat-dot-round"></i>

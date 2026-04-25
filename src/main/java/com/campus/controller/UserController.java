@@ -86,6 +86,7 @@ public class UserController {
     public Result me(){
         // 获取当前登录的用户并返回
         UserDTO user = UserHolder.getUser();
+        syncUserProfileFromLoginState(user);
         return Result.ok(user);
     }
 
@@ -203,5 +204,28 @@ public class UserController {
         String key = LOGIN_USER_KEY + token;
         stringRedisTemplate.opsForHash().put(key, field, value);
         stringRedisTemplate.expire(key, LOGIN_USER_TTL, TimeUnit.MINUTES);
+    }
+
+    private void syncUserProfileFromLoginState(UserDTO user) {
+        if (user == null || user.getId() == null) {
+            return;
+        }
+        User persisted = userService.getById(user.getId());
+        if (persisted == null) {
+            return;
+        }
+        User update = new User().setId(user.getId());
+        boolean changed = false;
+        if (StrUtil.isNotBlank(user.getIcon()) && !StrUtil.equals(user.getIcon(), persisted.getIcon())) {
+            update.setIcon(user.getIcon());
+            changed = true;
+        }
+        if (StrUtil.isNotBlank(user.getNickName()) && !StrUtil.equals(user.getNickName(), persisted.getNickName())) {
+            update.setNickName(user.getNickName());
+            changed = true;
+        }
+        if (changed) {
+            userService.updateById(update);
+        }
     }
 }

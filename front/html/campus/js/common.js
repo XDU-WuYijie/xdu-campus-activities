@@ -282,9 +282,14 @@ window.notificationClient = {
     }
   },
   addListener(options) {
+    if (!options) return;
     const exists = this.listeners.some(item => item && item.owner === options.owner);
     if (options.owner && exists) return;
     this.listeners.push(options);
+  },
+  removeListener(owner) {
+    if (!owner) return;
+    this.listeners = this.listeners.filter(item => !item || item.owner !== owner);
   },
   emitMessage(message) {
     this.listeners.forEach(item => {
@@ -294,6 +299,7 @@ window.notificationClient = {
   emitUnread(count) {
     this.listeners.forEach(item => {
       if (item && item.onUnread) item.onUnread(count);
+      if (item && item.onUnreadChange) item.onUnreadChange(count);
     });
   },
   startHeartbeat() {

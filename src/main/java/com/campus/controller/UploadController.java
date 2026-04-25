@@ -22,4 +22,9 @@ public class UploadController {
     public Result uploadActivityImage(@RequestParam("file") MultipartFile image) {
         return Result.ok(ossService.uploadActivityImage(UserHolder.getUser().getId(), image));
     }
+
+    @PostMapping("discover-image")
+    public Result uploadDiscoverImage(@RequestParam("file") MultipartFile image) {
+        return Result.ok(ossService.uploadDiscoverImage(UserHolder.getUser().getId(), image));
+    }
 }

@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <title>发现</title>
+  <link rel="stylesheet" href="./css/element.css">
+  <link href="./css/main.css" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #102a43;
+      --muted: #6b7d93;
+      --primary: #2388ff;
+      --primary-deep: #1769e0;
+      --mint: #20c98f;
+      --orange: #ff805d;
+      --line: rgba(35, 136, 255, .12);
+      --card: rgba(255, 255, 255, .94);
+      --shadow: 0 18px 46px rgba(39, 101, 170, .13);
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 0%, rgba(72, 185, 255, .2), transparent 26%),
+        radial-gradient(circle at 92% 8%, rgba(32, 201, 143, .15), transparent 24%),
+        linear-gradient(180deg, #f8fcff 0%, #eef8ff 48%, #f7fbff 100%);
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    .page {
+      width: min(390px, 100%);
+      margin: 0 auto;
+      min-height: 100vh;
+      padding: 14px 14px 110px;
+      box-sizing: border-box;
+    }
+
+    .page:before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(35, 136, 255, .045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(35, 136, 255, .045) 1px, transparent 1px);
+      background-size: 38px 38px;
+      mask-image: linear-gradient(180deg, rgba(0, 0, 0, .5), transparent 58%);
+    }
+
+    .hero, .tab-switch, .post-card, .empty-card, .recommend-box {
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero {
+      min-height: 104px;
+      padding: 16px 16px 14px;
+      border-radius: 20px;
+      color: #fff;
+      background:
+        linear-gradient(180deg, rgba(15, 60, 126, .28), rgba(15, 60, 126, .52)),
+        url("/imgs/discover-hero.png") center top/cover no-repeat;
+      box-shadow: 0 16px 34px rgba(39, 101, 170, .16);
+      overflow: hidden;
+    }
+
+    .hero-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .hero-title {
+      font-size: 22px;
+      font-weight: 900;
+      line-height: 1.2;
+      text-shadow: 0 2px 8px rgba(15, 52, 98, .2);
+    }
+
+    .hero-btn {
+      border: none;
+      height: 36px;
+      padding: 0 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .24);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 800;
+      backdrop-filter: blur(10px);
+      flex: none;
+    }
+
+    .tab-switch {
+      margin: 12px 0 14px;
+      padding: 4px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, .9);
+      box-shadow: 0 12px 28px rgba(39, 101, 170, .08);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+    }
+
+    .tab-btn {
+      border: none;
+      height: 38px;
+      border-radius: 12px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .tab-btn.active {
+      background: linear-gradient(135deg, rgba(35, 136, 255, .12), rgba(32, 201, 143, .1));
+      color: var(--primary-deep);
+    }
+
+    .post-card, .empty-card, .recommend-box {
+      margin-bottom: 14px;
+      padding: 16px;
+      border-radius: 20px;
+      background: var(--card);
+      border: 1px solid rgba(255, 255, 255, .76);
+      box-shadow: var(--shadow);
+    }
+
+    .post-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .author-box {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #dbe9ff;
+      flex: none;
+    }
+
+    .author-name {
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .author-time {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .ghost-btn {
+      border: none;
+      background: transparent;
+      color: #d84f67;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 4px 0;
+    }
+
+    .post-content {
+      margin-top: 14px;
+      font-size: 14px;
+      line-height: 1.9;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .image-grid {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .image-grid img {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 14px;
+      object-fit: cover;
+      display: block;
+      background: #edf6ff;
+    }
+
+    .activity-link {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(35, 136, 255, .06), rgba(32, 201, 143, .06));
+      cursor: pointer;
+      border: 1px solid rgba(35, 136, 255, .08);
+    }
+
+    .activity-link img {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+      background: #dbe9ff;
+      flex: none;
+    }
+
+    .activity-info {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .activity-title {
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.35;
+      color: var(--ink);
+    }
+
+    .activity-meta {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.4;
+    }
+
+    .activity-status {
+      min-width: 52px;
+      height: 22px;
+      padding: 0 8px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(35, 136, 255, .1);
+      color: var(--primary-deep);
+      font-size: 10px;
+      font-weight: 800;
+      flex: none;
+      align-self: flex-start;
+      margin-top: 1px;
+    }
+
+    .action-row {
+      margin-top: 12px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .action-btn {
+      flex: 1;
+      height: 40px;
+      border-radius: 999px;
+      border: 1px solid rgba(35, 136, 255, .12);
+      background: #fff;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .action-btn.liked {
+      color: var(--primary-deep);
+      background: rgba(35, 136, 255, .08);
+      border-color: rgba(35, 136, 255, .2);
+    }
+
+    .section-title {
+      margin: 4px 0 12px;
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .quick-comment {
+      margin-top: 10px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .quick-comment-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #dbe9ff;
+      flex: none;
+    }
+
+    .quick-comment-input {
+      flex: 1;
+      min-width: 0;
+      height: 36px;
+      border-radius: 999px;
+      border: 1px solid rgba(35, 136, 255, .12);
+      background: #f9fbff;
+      padding: 0 14px;
+      box-sizing: border-box;
+      font: inherit;
+      font-size: 12px;
+      color: var(--ink);
+      outline: none;
+    }
+
+    .quick-comment-btn {
+      height: 36px;
+      padding: 0 14px;
+      border: none;
+      border-radius: 999px;
+      background: rgba(35, 136, 255, .12);
+      color: var(--primary-deep);
+      font-size: 12px;
+      font-weight: 800;
+      flex: none;
+    }
+
+    .comment-dialog {
+      width: calc(100vw - 72px);
+      max-width: 318px;
+      margin-top: 11vh !important;
+      border-radius: 20px;
+      overflow: hidden;
+    }
+
+    .comment-dialog .el-dialog__header {
+      padding: 18px 18px 10px;
+      color: #102a43;
+      border-bottom: 1px solid #eef3fa;
+    }
+
+    .comment-dialog .el-dialog__title {
+      font-size: 16px;
+      font-weight: 900;
+      color: #102a43;
+    }
+
+    .comment-dialog .el-dialog__body {
+      padding: 0 14px 14px;
+      background: #f8fbff;
+    }
+
+    .comment-item {
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid #eef3fa;
+      background: #fff;
+      box-shadow: 0 8px 20px rgba(32, 94, 156, .05);
+      margin-bottom: 10px;
+    }
+
+    .comment-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .comment-author {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .comment-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #dbe9ff;
+    }
+
+    .comment-name {
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .comment-time {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .comment-text {
+      margin-top: 10px;
+      font-size: 14px;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .comment-dialog-body {
+      padding-top: 14px;
+    }
+
+    .comment-dialog-body .section-title {
+      margin-top: 0;
+      margin-bottom: 10px;
+      font-size: 14px;
+      font-weight: 900;
+      color: #102a43;
+    }
+
+    .comment-dialog-scroll {
+      max-height: min(56vh, 420px);
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+
+    .empty-card {
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.8;
+      padding: 28px 18px;
+    }
+
+    .load-more {
+      margin-top: 10px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+<div id="app" class="page">
+  <section class="hero">
+    <div class="hero-head">
+      <div class="hero-title">校园圈</div>
+      <button class="hero-btn" @click="goCreate">发布动态</button>
+    </div>
+  </section>
+
+  <div class="tab-switch">
+    <button class="tab-btn" :class="{active: tab === 'circle'}" @click="tab = 'circle'">校园圈</button>
+    <button class="tab-btn" :class="{active: tab === 'recommend'}" @click="switchRecommend">为你推荐</button>
+  </div>
+
+  <template v-if="tab === 'circle'">
+    <article class="post-card" v-for="item in posts" :key="item.id">
+      <div class="post-top">
+        <div class="author-box">
+          <img class="avatar" :src="postAvatarSrc(item)" @error="handleImageError" alt="">
+          <div>
+            <div class="author-name">{{ item.nickName || '校园同学' }}</div>
+            <div class="author-time">{{ formatTime(item.createdAt) }}</div>
+          </div>
+        </div>
+        <button v-if="isMine(item)" class="ghost-btn" @click="removePost(item)">删除</button>
+      </div>
+      <div class="post-content">{{ item.content }}</div>
+      <div class="image-grid" v-if="item.imageUrls && item.imageUrls.length">
+        <img v-for="(url, idx) in item.imageUrls" :key="idx" :src="url" alt="">
+      </div>
+      <div class="activity-link" @click="openActivity(item)">
+        <img :src="item.activityCoverImage || defaultCover" alt="">
+        <div class="activity-info">
+          <div class="activity-title">{{ item.activityTitle || '活动已不可见' }}</div>
+          <div class="activity-meta">{{ item.activityCategory || '校园活动' }}</div>
+          <div class="activity-meta">{{ formatActivityStartTime(item) }}</div>
+        </div>
+        <div class="activity-status">{{ item.activityStatusText || '未开放报名' }}</div>
+      </div>
+      <div class="action-row">
+        <button class="action-btn" :class="{liked: item.liked}" @click="toggleLike(item)">
+          {{ item.liked ? '已点赞' : '点赞' }} · {{ item.likeCount || 0 }}
+        </button>
+        <button class="action-btn" @click="openComments(item)">
+          评论 · {{ item.commentCount || 0 }}
+        </button>
+      </div>
+      <div class="quick-comment">
+        <img class="quick-comment-avatar" :src="avatarSrc(user.icon)" @error="handleImageError" alt="">
+        <input
+          class="quick-comment-input"
+          v-model.trim="item.quickCommentDraft"
+          maxlength="200"
+          placeholder="写评论..."
+          @keyup.enter="submitQuickComment(item)">
+        <button class="quick-comment-btn" @click="submitQuickComment(item)">发送</button>
+      </div>
+    </article>
+
+    <div class="empty-card" v-if="!posts.length && !loadingPosts">当前还没有校园圈动态，去参与一个活动后来发第一条吧。</div>
+
+    <div class="load-more" v-if="posts.length && posts.length < total">
+      <el-button :loading="loadingMore" @click="loadPosts(false)">加载更多</el-button>
+    </div>
+  </template>
+
+  <template v-else>
+    <div class="empty-card" v-if="!recommendations.length">暂未推荐内容</div>
+  </template>
+
+  <nav class="campus-tabbar">
+    <a class="campus-tab-item" href="/index.html"><i class="el-icon-s-home"></i>首页</a>
+    <a v-if="canManageActivities" class="campus-tab-item" href="/organizer-dashboard.html"><i class="el-icon-data-analysis"></i>数据看板</a>
+    <a v-else class="campus-tab-item active" href="/discover.html"><i class="el-icon-discover"></i>发现</a>
+    <a v-if="canManageActivities" class="campus-tab-item" href="/activity-manage.html"><span class="campus-tab-plus">+</span>发布</a>
+    <a v-else class="campus-tab-item" href="/discover-post-create.html"><span class="campus-tab-plus">+</span>发布</a>
+    <a class="campus-tab-item" href="/notification.html">
+      <span class="campus-tab-icon">
+        <i class="el-icon-chat-dot-round"></i>
+        <span v-if="unreadCount" class="campus-tab-unread">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
+      </span>
+      消息
+    </a>
+    <a class="campus-tab-item" href="/info.html"><i class="el-icon-user"></i>我的</a>
+  </nav>
+
+  <el-dialog
+    title="评论"
+    custom-class="comment-dialog"
+    width="318px"
+    :visible.sync="commentDrawerVisible"
+    append-to-body>
+    <div v-if="activePost" class="comment-dialog-body">
+      <div class="section-title">共 {{ activePost.commentCount || 0 }} 条评论</div>
+      <div class="comment-dialog-scroll">
+        <div class="comment-item" v-for="item in comments" :key="item.id">
+          <div class="comment-head">
+            <div class="comment-author">
+              <img class="comment-avatar" :src="commentAvatarSrc(item)" @error="handleImageError" alt="">
+              <div>
+                <div class="comment-name">{{ item.nickName || '校园同学' }}</div>
+                <div class="comment-time">{{ formatTime(item.createdAt) }}</div>
+              </div>
+            </div>
+          <button v-if="sameId(item.userId, user.id)" class="ghost-btn" @click="removeComment(item)">删除</button>
+          </div>
+          <div class="comment-text">{{ item.content }}</div>
+        </div>
+        <div class="empty-card" v-if="!comments.length && !commentLoading">还没有评论，来抢个前排。</div>
+        <div class="load-more" v-if="comments.length && comments.length < commentTotal">
+          <el-button @click="loadComments(false)">加载更多</el-button>
+        </div>
+      </div>
+    </div>
+  </el-dialog>
+</div>
+
+<script src="js/vue.js"></script>
+<script src="js/axios.min.js"></script>
+<script src="js/element.js"></script>
+<script src="js/common.js"></script>
+<script>
+  new Vue({
+    el: '#app',
+    data: {
+      tab: 'circle',
+      user: window.auth.getUser() || {},
+      posts: [],
+      total: 0,
+      current: 1,
+      pageSize: 10,
+      loadingPosts: false,
+      loadingMore: false,
+      recommendations: [],
+      recommendLoaded: false,
+      canManageActivities: false,
+      unreadCount: 0,
+      commentDrawerVisible: false,
+      activePost: null,
+      comments: [],
+      commentCurrent: 1,
+      commentTotal: 0,
+      commentLoading: false,
+      commentSubmitting: false,
+      commentDraft: '',
+      defaultAvatar: '/imgs/icons/default-icon.png',
+      defaultCover: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=1200&q=80'
+    },
+    created() {
+      this.queryUser();
+      this.initNotifications();
+      this.loadPosts(true);
+    },
+    mounted() {
+      this.handlePageShow = event => {
+        if (event && event.persisted) {
+          this.refreshAfterReturn();
+          return;
+        }
+        const navEntries = performance && typeof performance.getEntriesByType === 'function'
+          ? performance.getEntriesByType('navigation') : [];
+        const navType = navEntries && navEntries[0] ? navEntries[0].type : '';
+        if (navType === 'back_forward') {
+          this.refreshAfterReturn();
+        }
+      };
+      window.addEventListener('pageshow', this.handlePageShow);
+    },
+    beforeDestroy() {
+      if (this.handlePageShow) {
+        window.removeEventListener('pageshow', this.handlePageShow);
+      }
+      window.notificationClient.removeListener('discover-page');
+    },
+    methods: {
+      refreshAfterReturn() {
+        this.queryUser();
+        this.loadPosts(true);
+      },
+      queryUser() {
+        axios.get('/user/me').then(({data}) => {
+          this.user = data || {};
+          window.auth.setUser(this.user);
+          const permissions = (this.user && this.user.permissions) || [];
+          const roles = (this.user && this.user.roleCodes) || [];
+          this.canManageActivities = permissions.includes('activity:create') && !roles.includes('PLATFORM_ADMIN');
+        }).catch(() => {});
+      },
+      initNotifications() {
+        this.unreadCount = window.notificationClient.syncUnreadFromStorage();
+        window.notificationClient.connect({
+          owner: 'discover-page',
+          onUnread: count => {
+            this.unreadCount = count || 0;
+          },
+          onMessage: message => {
+            if (message && message.payload) {
+              window.notifyToast(message.payload.title, 'info');
+            }
+          }
+        });
+      },
+      loadPosts(reset) {
+        if (this.loadingPosts || this.loadingMore) return;
+        if (reset) {
+          this.current = 1;
+          this.loadingPosts = true;
+        } else {
+          this.loadingMore = true;
+        }
+        axios.get('/discover/posts', {
+          params: {
+            current: this.current,
+            pageSize: this.pageSize,
+            userId: this.user && this.user.id
+          }
+        }).then(({data, total}) => {
+          const list = data || [];
+          this.total = total || 0;
+          this.posts = reset ? list : this.posts.concat(list);
+          this.current += 1;
+        }).catch(err => {
+          notifyToast(err || '加载动态失败', 'error');
+        }).finally(() => {
+          this.loadingPosts = false;
+          this.loadingMore = false;
+        });
+      },
+      switchRecommend() {
+        this.tab = 'recommend';
+        if (this.recommendLoaded) return;
+        axios.get('/discover/recommendations').then(({data}) => {
+          this.recommendations = data || [];
+          this.recommendLoaded = true;
+        }).catch(() => {
+          this.recommendLoaded = true;
+        });
+      },
+      toggleLike(item) {
+        const nextLiked = !item.liked;
+        item.liked = nextLiked;
+        item.likeCount = Math.max(0, (item.likeCount || 0) + (nextLiked ? 1 : -1));
+        const request = nextLiked ? axios.post('/discover/posts/' + item.id + '/like') : axios.delete('/discover/posts/' + item.id + '/like');
+        request.catch(err => {
+          item.liked = !nextLiked;
+          item.likeCount = Math.max(0, (item.likeCount || 0) + (nextLiked ? -1 : 1));
+          notifyToast(err || '点赞操作失败', 'error');
+        });
+      },
+      openComments(item) {
+        this.activePost = item;
+        this.comments = [];
+        this.commentCurrent = 1;
+        this.commentTotal = 0;
+        this.commentDraft = '';
+        this.commentDrawerVisible = true;
+        this.loadComments(true);
+      },
+      loadComments(reset) {
+        if (!this.activePost || this.commentLoading) return;
+        if (reset) {
+          this.commentCurrent = 1;
+        }
+        this.commentLoading = true;
+        axios.get('/discover/posts/' + this.activePost.id + '/comments', {
+          params: {
+            current: this.commentCurrent,
+            pageSize: 10
+          }
+        }).then(({data, total}) => {
+          const list = data || [];
+          this.commentTotal = total || 0;
+          this.comments = reset ? list : this.comments.concat(list);
+          this.commentCurrent += 1;
+        }).catch(err => {
+          notifyToast(err || '评论加载失败', 'error');
+        }).finally(() => {
+          this.commentLoading = false;
+        });
+      },
+      submitComment() {
+        if (!this.activePost || this.commentSubmitting) return;
+        this.commentSubmitting = true;
+        axios.post('/discover/posts/' + this.activePost.id + '/comments', {
+          content: this.commentDraft
+        }).then(() => {
+          notifyToast('评论已发布', 'success');
+          this.activePost.commentCount = (this.activePost.commentCount || 0) + 1;
+          this.commentDraft = '';
+          this.loadComments(true);
+        }).catch(err => {
+          notifyToast(err || '评论发布失败', 'error');
+        }).finally(() => {
+          this.commentSubmitting = false;
+        });
+      },
+      submitQuickComment(item) {
+        if (!item || !item.id) return;
+        const content = (item.quickCommentDraft || '').trim();
+        if (!content) {
+          notifyToast('请输入评论内容', 'warning');
+          return;
+        }
+        axios.post('/discover/posts/' + item.id + '/comments', {
+          content: content
+        }).then(() => {
+          notifyToast('评论已发布', 'success');
+          item.commentCount = (item.commentCount || 0) + 1;
+          item.quickCommentDraft = '';
+          if (this.activePost && this.sameId(this.activePost.id, item.id) && this.commentDrawerVisible) {
+            this.loadComments(true);
+          }
+        }).catch(err => {
+          notifyToast(err || '评论发布失败', 'error');
+        });
+      },
+      removeComment(item) {
+        this.$confirm('确认删除这条评论吗？', '提示', { type: 'warning' }).then(() => {
+          axios.delete('/discover/comments/' + item.id).then(() => {
+            notifyToast('评论已删除', 'success');
+            this.activePost.commentCount = Math.max(0, (this.activePost.commentCount || 0) - 1);
+            this.loadComments(true);
+          });
+        }).catch(() => {});
+      },
+      removePost(item) {
+        this.$confirm('确认删除这条动态吗？删除后不可恢复。', '提示', { type: 'warning' }).then(() => {
+          axios.delete('/discover/posts/' + item.id).then(() => {
+            notifyToast('动态已删除', 'success');
+            this.loadPosts(true);
+          });
+        }).catch(() => {});
+      },
+      openActivity(item) {
+        const returnUrl = encodeURIComponent(location.pathname + location.search);
+        location.href = '/activity-detail.html?id=' + item.activityId + '&returnUrl=' + returnUrl;
+      },
+      goCreate() {
+        const returnUrl = encodeURIComponent(location.pathname + location.search);
+        location.href = '/discover-post-create.html?returnUrl=' + returnUrl;
+      },
+      isMine(item) {
+        return !!this.user && this.sameId(item.userId, this.user.id);
+      },
+      avatarSrc(url) {
+        if (!url) return this.defaultAvatar;
+        const value = String(url).trim();
+        if (!value || value === 'null' || value === 'undefined') {
+          return this.defaultAvatar;
+        }
+        if (/^(https?:)?\/\//.test(value) || value.startsWith('/') || value.startsWith('./') || value.startsWith('../')) {
+          return value;
+        }
+        return '/' + value.replace(/^\/+/, '');
+      },
+      postAvatarSrc(item) {
+        if (item && this.sameId(item.userId, this.user && this.user.id) && this.user && this.user.icon) {
+          return this.avatarSrc(this.user.icon);
+        }
+        return this.avatarSrc(item && item.icon);
+      },
+      commentAvatarSrc(item) {
+        if (item && this.sameId(item.userId, this.user && this.user.id) && this.user && this.user.icon) {
+          return this.avatarSrc(this.user.icon);
+        }
+        return this.avatarSrc(item && item.icon);
+      },
+      sameId(left, right) {
+        if (left === null || left === undefined || right === null || right === undefined) {
+          return false;
+        }
+        return String(left) === String(right);
+      },
+      handleImageError(event) {
+        if (event && event.target) {
+          event.target.src = this.defaultAvatar;
+        }
+      },
+      formatTime(value) {
+        if (!value) return '刚刚';
+        return String(value).replace('T', ' ').slice(0, 16);
+      },
+      formatActivityStartTime(item) {
+        if (!item) return '时间待定';
+        if (item.activityStartTimeText) return item.activityStartTimeText;
+        const raw = item.activityStartTime || item.eventStartTime || item.startTime;
+        if (!raw) return '时间待定';
+        return '开始时间 ' + String(raw).replace('T', ' ').slice(0, 16);
+      }
+    }
+  });
+</script>
+</body>
+</html>

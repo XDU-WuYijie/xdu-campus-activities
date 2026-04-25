@@ -157,6 +157,8 @@
         { value: 'ACTIVITY_OFFLINE_APPLY_APPROVED', label: '下架申请通过' },
         { value: 'ACTIVITY_OFFLINE_APPLY_REJECTED', label: '下架申请驳回' },
         { value: 'ACTIVITY_LOCATION_CHANGED', label: '地点变更' },
+        { value: 'DISCOVER_POST_LIKED', label: '动态点赞' },
+        { value: 'DISCOVER_POST_COMMENTED', label: '动态评论' },
         { value: 'ORGANIZER_APPLY_PENDING', label: '主办方申请' },
         { value: 'ORGANIZER_APPLY_APPROVED', label: '申请通过' },
         { value: 'ORGANIZER_APPLY_REJECTED', label: '申请驳回' }
@@ -166,11 +168,11 @@
       this.refresh();
       this.loadUnread();
       window.notificationClient.connect({
+        owner: 'notification-page',
         onUnread: count => this.unreadCount = count,
         onMessage: message => {
           if (message && message.payload) {
-            this.notifications.unshift(message.payload);
-            this.total += 1;
+            this.refresh();
           }
         }
       });
@@ -184,6 +186,7 @@
       if (this.handleScroll) {
         window.removeEventListener('scroll', this.handleScroll);
       }
+      window.notificationClient.removeListener('notification-page');
     },
     methods: {
       refresh() {
@@ -264,6 +267,9 @@
           case 'ACTIVITY_OFFLINE_APPLY_REJECTED':
           case 'ACTIVITY_LOCATION_CHANGED':
             return activityId ? '/activity-detail.html?id=' + activityId : '';
+          case 'DISCOVER_POST_LIKED':
+          case 'DISCOVER_POST_COMMENTED':
+            return '/discover.html';
           case 'ACTIVITY_REVIEW_PENDING':
           case 'ACTIVITY_OFFLINE_REVIEW_PENDING':
             return '/admin-dashboard.html?tab=activities#activities';
@@ -280,6 +286,9 @@
         }
         if (item.bizType === 'ACTIVITY' && activityId) {
           return '/activity-detail.html?id=' + activityId;
+        }
+        if (item.bizType === 'DISCOVER_POST') {
+          return '/discover.html';
         }
         if (item.bizType === 'ORGANIZER_APPLICATION' && organizerApplicationId) {
           return '/info-edit.html?tab=organizer';
@@ -322,6 +331,8 @@
         }).catch(() => {});
       },
       typeText(type) {
+        if (type === 'DISCOVER_POST_LIKED') return '动态点赞';
+        if (type === 'DISCOVER_POST_COMMENTED') return '动态评论';
         const hit = this.typeOptions.find(item => item.value === type);
         return hit ? hit.label : (type || '通知');
       },
