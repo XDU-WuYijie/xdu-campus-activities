@@ -33,6 +33,19 @@
 - 活动 AI 辅助审核，提供结构化建议与人工复核记录
 - 头像与活动图片上传到阿里云 OSS，URL 回写用户/活动数据
 
+## 页面展示
+
+- [首页](doc/assets/home.png)
+- [活动详情页](doc/assets/activity_information.png)
+- [活动发布页](doc/assets/activity_post.png)
+- [签到管理页](doc/assets/activity_sign.png)
+- [通知中心](doc/assets/notification.png)
+- [校园圈](doc/assets/social_media_feed.png)
+- [推荐页](doc/assets/recommand.png)
+- [个人中心](doc/assets/personnal_information.png)
+- [管理员后台](doc/assets/admin.png)
+- [AI 审核建议](doc/assets/ai_review.png)
+
 ## 目录说明
 
 - `src/main/java`：后端 Java 代码
