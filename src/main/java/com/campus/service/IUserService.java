@@ -31,8 +31,4 @@ public interface IUserService extends IService<User> {
 
     Result reviewOrganizerApplication(Long id, ReviewActionDTO dto);
 
-    Result sign();
-
-    Result signCount();
-
 }

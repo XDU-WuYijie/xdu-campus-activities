@@ -13,11 +13,21 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class OssService {
+
+    private static final Map<String, String> CONTENT_TYPE_SUFFIX_MAP = Map.of(
+            "image/jpeg", "jpg",
+            "image/jpg", "jpg",
+            "image/png", "png",
+            "image/webp", "webp",
+            "image/gif", "gif"
+    );
 
     private final OSS oss;
     private final OssProperties properties;
@@ -38,11 +48,7 @@ public class OssService {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("请选择要上传的" + bizName + "文件");
         }
-        String originalFilename = file.getOriginalFilename();
-        String suffix = StrUtil.subAfter(originalFilename, ".", true);
-        if (StrUtil.isBlank(suffix)) {
-            suffix = "jpg";
-        }
+        String suffix = resolveImageSuffix(file);
 
         String prefix = normalizePrefix(prefixSetting);
         String datePart = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
@@ -63,6 +69,27 @@ public class OssService {
         }
 
         return buildPublicUrl(properties.getBucket(), properties.getEndpoint(), key);
+    }
+
+    private String resolveImageSuffix(MultipartFile file) {
+        String contentType = StrUtil.blankToDefault(file.getContentType(), "").trim().toLowerCase(Locale.ROOT);
+        String suffixByContentType = CONTENT_TYPE_SUFFIX_MAP.get(contentType);
+        if (StrUtil.isNotBlank(suffixByContentType)) {
+            return suffixByContentType;
+        }
+        String originalFilename = StrUtil.blankToDefault(file.getOriginalFilename(), "");
+        String suffix = StrUtil.subAfter(originalFilename, ".", true);
+        if (StrUtil.isBlank(suffix)) {
+            throw new IllegalArgumentException("仅支持 JPG、PNG、WEBP、GIF 图片上传");
+        }
+        String normalizedSuffix = suffix.trim().toLowerCase(Locale.ROOT);
+        if ("jpeg".equals(normalizedSuffix)) {
+            return "jpg";
+        }
+        if (CONTENT_TYPE_SUFFIX_MAP.containsValue(normalizedSuffix)) {
+            return normalizedSuffix;
+        }
+        throw new IllegalArgumentException("仅支持 JPG、PNG、WEBP、GIF 图片上传");
     }
 
     private static String normalizePrefix(String prefix) {

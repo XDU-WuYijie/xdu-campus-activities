@@ -45,5 +45,4 @@ public class RedisConstants {
     public static final Long RECOMMENDATION_USER_TTL_MINUTES = 10L;
 
     public static final String LOCK_CACHE_KEY = "lock:cache:";
-    public static final String USER_SIGN_KEY = "sign:";
 }

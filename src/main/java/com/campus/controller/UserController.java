@@ -164,11 +164,6 @@ public class UserController {
         return Result.ok(userDTO);
     }
 
-    @PostMapping("/sign")
-    public Result sign(){
-        return userService.sign();
-    }
-
     @PostMapping("/organizer/apply")
     public Result applyOrganizer(@RequestBody OrganizerApplyDTO dto) {
         return userService.applyOrganizer(dto);
@@ -195,11 +190,6 @@ public class UserController {
             return Result.fail("无权审核主办方申请");
         }
         return userService.reviewOrganizerApplication(id, dto);
-    }
-
-    @GetMapping("/sign/count")
-    public Result signCount(){
-        return userService.signCount();
     }
 
     @GetMapping("/preferences/activity-tags")

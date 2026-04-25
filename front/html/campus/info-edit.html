@@ -416,11 +416,19 @@
       onPickAvatar(e) {
         const file = e.target.files && e.target.files[0];
         if (!file) return;
+        if (!file.type || file.type.indexOf('image/') !== 0) {
+          this.$message.error('请上传 JPG、PNG、WEBP 或 GIF 图片');
+          e.target.value = '';
+          return;
+        }
 
         const formData = new FormData();
         formData.append("file", file);
         this.uploading = true;
-        axios.post("/user/avatar", formData, { headers: { "Content-Type": "multipart/form-data" } })
+        axios.post("/user/avatar", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+          timeout: 30000
+        })
           .then(({data}) => {
             this.user.icon = data;
             this.$message.success("头像已更新");

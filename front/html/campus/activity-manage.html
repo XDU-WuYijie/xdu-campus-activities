@@ -332,6 +332,50 @@
       margin-bottom: 18px;
     }
 
+    .time-panel {
+      padding: 16px 18px 6px;
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(74, 185, 255, .10), rgba(255, 255, 255, 0)), var(--soft);
+      border: 1px solid rgba(72, 185, 255, .18);
+      margin-bottom: 18px;
+    }
+
+    .time-panel-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .time-panel-title {
+      font-size: 16px;
+      font-weight: 900;
+      color: var(--ink);
+      margin-bottom: 4px;
+    }
+
+    .time-panel-desc {
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--muted);
+      max-width: 480px;
+    }
+
+    .time-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .time-actions .el-button {
+      border-radius: 999px;
+      border-color: rgba(72, 185, 255, .25);
+      color: #1f5f8b;
+      background: rgba(255, 255, 255, .82);
+    }
+
     .mini-card {
       padding: 16px 18px 10px;
       border-radius: 22px;
@@ -515,6 +559,28 @@
     .page.campus-mobile .meta-grid {
       grid-template-columns:1fr;
       gap:12px;
+    }
+    .page.campus-mobile .time-panel {
+      padding: 12px 12px 4px;
+      border-radius: 14px;
+      margin-bottom: 14px;
+    }
+    .page.campus-mobile .time-panel-head {
+      margin-bottom: 10px;
+    }
+    .page.campus-mobile .time-panel-title {
+      font-size: 15px;
+    }
+    .page.campus-mobile .time-panel-desc {
+      font-size: 11px;
+    }
+    .page.campus-mobile .time-actions {
+      gap: 6px;
+    }
+    .page.campus-mobile .time-actions .el-button {
+      height: 28px;
+      padding: 0 10px;
+      font-size: 11px;
     }
     .page.campus-mobile .mini-card {
       padding:0;
@@ -785,30 +851,72 @@
           </div>
         </div>
 
-        <div class="time-grid">
-          <div class="mini-card">
-            <div class="fact-label">报名开始时间</div>
-            <el-form-item>
-              <el-input v-model="form.registrationStartTime" type="datetime-local"></el-input>
-            </el-form-item>
+        <div class="time-panel">
+          <div class="time-panel-head">
+            <div>
+              <div class="time-panel-title">活动时间</div>
+              <div class="time-panel-desc">先套用模板，再按需微调。日期和时刻都可以直接点选，不用手敲一长串数字。</div>
+            </div>
+            <div class="time-actions">
+              <el-button size="mini" round @click="applyTimePreset('lecture')">讲座模板</el-button>
+              <el-button size="mini" round @click="applyTimePreset('competition')">比赛模板</el-button>
+              <el-button size="mini" round @click="applyTimePreset('volunteer')">公益模板</el-button>
+              <el-button size="mini" round @click="applyTimePreset('halfday')">半天活动</el-button>
+            </div>
           </div>
-          <div class="mini-card">
-            <div class="fact-label">报名结束时间</div>
-            <el-form-item>
-              <el-input v-model="form.registrationEndTime" type="datetime-local"></el-input>
-            </el-form-item>
-          </div>
-          <div class="mini-card">
-            <div class="fact-label">活动开始时间</div>
-            <el-form-item>
-              <el-input v-model="form.eventStartTime" type="datetime-local"></el-input>
-            </el-form-item>
-          </div>
-          <div class="mini-card">
-            <div class="fact-label">活动结束时间</div>
-            <el-form-item>
-              <el-input v-model="form.eventEndTime" type="datetime-local"></el-input>
-            </el-form-item>
+          <div class="time-grid">
+            <div class="mini-card">
+              <div class="fact-label">报名开始时间</div>
+              <el-form-item>
+                <el-date-picker
+                  v-model="form.registrationStartTime"
+                  type="datetime"
+                  format="yyyy-MM-dd HH:mm"
+                  value-format="yyyy-MM-dd HH:mm"
+                  placeholder="请选择报名开始时间"
+                  style="width:100%;">
+                </el-date-picker>
+              </el-form-item>
+            </div>
+            <div class="mini-card">
+              <div class="fact-label">报名结束时间</div>
+              <el-form-item>
+                <el-date-picker
+                  v-model="form.registrationEndTime"
+                  type="datetime"
+                  format="yyyy-MM-dd HH:mm"
+                  value-format="yyyy-MM-dd HH:mm"
+                  placeholder="请选择报名结束时间"
+                  style="width:100%;">
+                </el-date-picker>
+              </el-form-item>
+            </div>
+            <div class="mini-card">
+              <div class="fact-label">活动开始时间</div>
+              <el-form-item>
+                <el-date-picker
+                  v-model="form.eventStartTime"
+                  type="datetime"
+                  format="yyyy-MM-dd HH:mm"
+                  value-format="yyyy-MM-dd HH:mm"
+                  placeholder="请选择活动开始时间"
+                  style="width:100%;">
+                </el-date-picker>
+              </el-form-item>
+            </div>
+            <div class="mini-card">
+              <div class="fact-label">活动结束时间</div>
+              <el-form-item>
+                <el-date-picker
+                  v-model="form.eventEndTime"
+                  type="datetime"
+                  format="yyyy-MM-dd HH:mm"
+                  value-format="yyyy-MM-dd HH:mm"
+                  placeholder="请选择活动结束时间"
+                  style="width:100%;">
+                </el-date-picker>
+              </el-form-item>
+            </div>
           </div>
         </div>
 
@@ -929,10 +1037,38 @@
         const validIds = new Set(this.currentTagOptions.map(item => item.id));
         this.form.tagIds = (this.form.tagIds || []).filter(id => validIds.has(id));
       },
+      applyTimePreset(preset) {
+        const base = this.parseDateTime(this.form.registrationStartTime) || this.roundUpToNextHour(new Date());
+        let registrationStart = new Date(base.getTime());
+        let registrationEnd;
+        let eventStart;
+        let eventEnd;
+        if (preset === 'lecture') {
+          registrationEnd = this.addDays(registrationStart, 3);
+          eventStart = this.setTime(this.addDays(registrationStart, 5), 14, 0);
+          eventEnd = this.addHours(eventStart, 2);
+        } else if (preset === 'competition') {
+          registrationEnd = this.addDays(registrationStart, 7);
+          eventStart = this.setTime(this.addDays(registrationStart, 10), 9, 0);
+          eventEnd = this.addHours(eventStart, 4);
+        } else if (preset === 'volunteer') {
+          registrationEnd = this.addDays(registrationStart, 5);
+          eventStart = this.setTime(this.addDays(registrationStart, 8), 8, 30);
+          eventEnd = this.addHours(eventStart, 6);
+        } else {
+          registrationEnd = this.addDays(registrationStart, 2);
+          eventStart = this.setTime(this.addDays(registrationStart, 4), 9, 0);
+          eventEnd = this.addHours(eventStart, 4);
+        }
+        this.form.registrationStartTime = this.formatDateTime(registrationStart);
+        this.form.registrationEndTime = this.formatDateTime(registrationEnd);
+        this.form.eventStartTime = this.formatDateTime(eventStart);
+        this.form.eventEndTime = this.formatDateTime(eventEnd);
+      },
       beforeImageUpload(file) {
         const isImage = file.type && file.type.indexOf('image/') === 0;
         if (!isImage) {
-          this.$message.error('请上传图片文件');
+          this.$message.error('请上传 JPG、PNG、WEBP 或 GIF 图片');
         }
         return isImage;
       },
@@ -942,7 +1078,8 @@
         axios.post('/upload/activity', formData, {
           headers: {
             'Content-Type': 'multipart/form-data'
-          }
+          },
+          timeout: 30000
         }).then(({data}) => {
           this.imageList.push(data);
           this.syncImages();
@@ -950,7 +1087,7 @@
           this.$message.success('图片上传成功');
         }).catch(err => {
           option.onError(err);
-          this.$message.error(err);
+          this.$message.error(err || '图片上传失败，请稍后重试');
         });
       },
       removeImage(index) {
@@ -1089,14 +1226,57 @@
       },
       toInputDate(value) {
         if (!value) return '';
-        return value.replace(' ', 'T').slice(0, 16);
+        const normalized = String(value).replace('T', ' ').trim();
+        return normalized.slice(0, 16);
       },
       normalizeDate(value) {
         if (!value) return null;
-        return value.replace('T', ' ') + ':00';
+        const normalized = String(value).replace('T', ' ').trim();
+        if (/:\d{2}:\d{2}$/.test(normalized)) {
+          return normalized;
+        }
+        if (/:\d{2}$/.test(normalized)) {
+          return normalized + ':00';
+        }
+        return normalized + ' 00:00:00';
       },
       formatTime(value) {
         return value ? value.replace('T', ' ') : '待定';
+      },
+      parseDateTime(value) {
+        if (!value) return null;
+        const text = String(value).replace('T', ' ').trim();
+        const date = new Date(text.replace(/-/g, '/'));
+        return Number.isNaN(date.getTime()) ? null : date;
+      },
+      roundUpToNextHour(date) {
+        const next = new Date(date.getTime());
+        next.setMinutes(0, 0, 0);
+        if (date.getMinutes() > 0 || date.getSeconds() > 0 || date.getMilliseconds() > 0) {
+          next.setHours(next.getHours() + 1);
+        }
+        return next;
+      },
+      addDays(date, days) {
+        const next = new Date(date.getTime());
+        next.setDate(next.getDate() + days);
+        return next;
+      },
+      addHours(date, hours) {
+        return new Date(date.getTime() + hours * 60 * 60 * 1000);
+      },
+      setTime(date, hours, minutes) {
+        const next = new Date(date.getTime());
+        next.setHours(hours, minutes, 0, 0);
+        return next;
+      },
+      formatDateTime(date) {
+        const pad = num => String(num).padStart(2, '0');
+        return [
+          date.getFullYear(),
+          pad(date.getMonth() + 1),
+          pad(date.getDate())
+        ].join('-') + ' ' + pad(date.getHours()) + ':' + pad(date.getMinutes());
       },
       resolveReturnUrl(fallback) {
         const returnUrl = util.getUrlParam('returnUrl');

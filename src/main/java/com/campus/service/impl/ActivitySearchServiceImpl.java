@@ -5,6 +5,7 @@ import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.campus.config.ActivitySearchProperties;
+import com.campus.config.EmbeddingProperties;
 import com.campus.dto.ActivitySearchPageDTO;
 import com.campus.entity.Activity;
 import com.campus.entity.ActivityTag;
@@ -85,6 +86,9 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
 
     @Resource
     private ActivityTagRelationMapper activityTagRelationMapper;
+
+    @Resource
+    private EmbeddingProperties embeddingProperties;
 
     private final RestHighLevelClient restHighLevelClient;
 
@@ -451,6 +455,13 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
         appendIntegerField(builder, "maxParticipants");
         appendLongField(builder, "heatScore");
         builder.startObject("isHot").field("type", "boolean").endObject();
+        builder.startObject("embeddingText").field("type", "text").field("index", false).endObject();
+        builder.startObject("embeddingVector")
+                .field("type", "dense_vector")
+                .field("dims", Math.max(1, embeddingProperties.getDimensions()))
+                .endObject();
+        builder.startObject("embeddingModel").field("type", "keyword").endObject();
+        appendDateField(builder, "embeddingUpdatedAt");
         builder.endObject();
         builder.endObject();
         return builder;

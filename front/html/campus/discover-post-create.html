@@ -691,6 +691,11 @@
       uploadImage(event) {
         const file = event.target.files && event.target.files[0];
         if (!file) return;
+        if (!file.type || file.type.indexOf('image/') !== 0) {
+          notifyToast('请上传 JPG、PNG、WEBP 或 GIF 图片', 'error');
+          event.target.value = '';
+          return;
+        }
         if (this.form.imageUrls.length >= 9) {
           notifyToast('最多上传 9 张图片', 'warning');
           event.target.value = '';
@@ -699,7 +704,8 @@
         const formData = new FormData();
         formData.append('file', file);
         axios.post('/upload/discover-image', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
+          headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 30000
         }).then(({data}) => {
           if (data) {
             this.form.imageUrls.push(data);

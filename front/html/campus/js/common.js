@@ -87,6 +87,24 @@ axios.interceptors.response.use(function (response) {
     }, 200);
     return Promise.reject("请先登录");
   }
+  if (error.response && error.response.data) {
+    const payload = error.response.data;
+    if (typeof payload === 'string' && payload) {
+      return Promise.reject(payload);
+    }
+    if (payload.errorMsg) {
+      return Promise.reject(payload.errorMsg);
+    }
+    if (payload.message) {
+      return Promise.reject(payload.message);
+    }
+  }
+  if (error.code === 'ECONNABORTED' || (error.message && error.message.indexOf('timeout') >= 0)) {
+    return Promise.reject("请求超时，请稍后重试");
+  }
+  if (error.message === 'Network Error') {
+    return Promise.reject("网络异常，请检查服务是否可用");
+  }
   return Promise.reject("服务器异常");
 });
 axios.defaults.paramsSerializer = function(params) {

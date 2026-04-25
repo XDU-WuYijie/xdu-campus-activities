@@ -12,17 +12,20 @@ import com.campus.entity.ActivityTagRelation;
 import com.campus.mapper.ActivityMapper;
 import com.campus.mapper.ActivityTagMapper;
 import com.campus.mapper.ActivityTagRelationMapper;
+import com.campus.service.ActivitySearchService;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.DocWriteResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.indices.GetMappingsRequest;
+import org.elasticsearch.client.indices.GetMappingsResponse;
 import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.GetIndexRequest;
 import org.elasticsearch.client.indices.PutMappingRequest;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.cluster.metadata.MappingMetadata;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
@@ -68,6 +71,9 @@ public class EmbeddingSearchService {
 
     @Resource
     private ActivityTagMapper activityTagMapper;
+
+    @Resource
+    private ActivitySearchService activitySearchService;
 
     private final RestHighLevelClient restHighLevelClient;
     private volatile boolean embeddingMappingReady;
@@ -191,13 +197,48 @@ public class EmbeddingSearchService {
     }
 
     private void ensureEmbeddingMapping() throws IOException {
-        if (embeddingMappingReady) {
+        if (embeddingMappingReady && hasDenseVectorMapping()) {
             return;
+        }
+        if (hasIncompatibleEmbeddingVectorMapping()) {
+            log.warn("检测到 activity_index_dev 的 embeddingVector 映射不是 dense_vector，开始重建索引");
+            activitySearchService.rebuildIndexFromMysql();
         }
         PutMappingRequest request = new PutMappingRequest(indexName());
         request.source(buildEmbeddingMapping());
         restHighLevelClient.indices().putMapping(request, RequestOptions.DEFAULT);
+        if (!hasDenseVectorMapping()) {
+            throw new IllegalStateException("embeddingVector 字段映射不是 dense_vector");
+        }
         embeddingMappingReady = true;
+    }
+
+    private boolean hasDenseVectorMapping() throws IOException {
+        return "dense_vector".equals(readEmbeddingVectorFieldType());
+    }
+
+    private boolean hasIncompatibleEmbeddingVectorMapping() throws IOException {
+        String fieldType = readEmbeddingVectorFieldType();
+        return StrUtil.isNotBlank(fieldType) && !"dense_vector".equals(fieldType);
+    }
+
+    private String readEmbeddingVectorFieldType() throws IOException {
+        GetMappingsRequest request = new GetMappingsRequest().indices(indexName());
+        GetMappingsResponse response = restHighLevelClient.indices().getMapping(request, RequestOptions.DEFAULT);
+        MappingMetadata metadata = response.mappings().get(indexName());
+        if (metadata == null || metadata.getSourceAsMap() == null) {
+            return null;
+        }
+        Object properties = metadata.getSourceAsMap().get("properties");
+        if (!(properties instanceof Map<?, ?> propertiesMap)) {
+            return null;
+        }
+        Object embeddingVector = propertiesMap.get("embeddingVector");
+        if (!(embeddingVector instanceof Map<?, ?> embeddingVectorMap)) {
+            return null;
+        }
+        Object fieldType = embeddingVectorMap.get("type");
+        return fieldType == null ? null : String.valueOf(fieldType);
     }
 
     private XContentBuilder buildBaseMapping() throws IOException {

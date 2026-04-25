@@ -91,12 +91,4 @@ CREATE TABLE IF NOT EXISTS `tb_activity_check_in_record` (
   KEY `idx_check_in_record_voucher` (`voucher_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='活动签到核销记录表';
 
-INSERT INTO `tb_activity` (`creator_id`, `organizer_name`, `title`, `cover_image`, `summary`, `content`, `category`, `registration_mode`, `location`, `max_participants`, `registered_count`, `registration_start_time`, `registration_end_time`, `event_start_time`, `event_end_time`, `check_in_enabled`, `status`)
-SELECT 1, '西电校园活动中心', '2026 春季校园创客开放日', 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=1200&q=80', '面向全校开放的创客体验日，包含项目展示、社团互动与报名咨询。', '欢迎各学院同学参与创客开放日，现场可体验社团作品、了解大型活动组织流程，并领取后续活动报名指引。', '开放日', 'AUDIT_REQUIRED', '大学生活动中心一楼大厅', 200, 0, '2026-04-18 09:00:00', '2026-04-27 18:00:00', '2026-04-28 14:00:00', '2026-04-28 18:00:00', 0, 2
-WHERE NOT EXISTS (SELECT 1 FROM `tb_activity` WHERE `title` = '2026 春季校园创客开放日');
-
-INSERT INTO `tb_activity` (`creator_id`, `organizer_name`, `title`, `cover_image`, `summary`, `content`, `category`, `registration_mode`, `location`, `max_participants`, `registered_count`, `registration_start_time`, `registration_end_time`, `event_start_time`, `event_end_time`, `check_in_enabled`, `status`)
-SELECT 1, '就业与实践服务站', '大型招聘会志愿者招募', 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80', '面向校园大型招聘会招募现场志愿者，支持报名与现场签到。', '志愿者将协助签到引导、秩序维护和咨询答疑，适合希望参与大型活动组织的同学报名。', '志愿服务', 'FIRST_COME_FIRST_SERVED', '南校区体育馆', 80, 0, '2026-04-20 08:00:00', '2026-04-25 20:00:00', '2026-04-30 08:30:00', '2026-04-30 18:00:00', 1, 2
-WHERE NOT EXISTS (SELECT 1 FROM `tb_activity` WHERE `title` = '大型招聘会志愿者招募');
-
 SET FOREIGN_KEY_CHECKS = 1;

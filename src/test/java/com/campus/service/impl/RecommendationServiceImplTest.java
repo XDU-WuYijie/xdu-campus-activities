@@ -17,6 +17,8 @@ import com.campus.mapper.ActivityRegistrationMapper;
 import com.campus.mapper.ActivityTagMapper;
 import com.campus.mapper.ActivityTagRelationMapper;
 import com.campus.mapper.UserPreferenceTagMapper;
+import com.campus.mapper.UserProfileEmbeddingMapper;
+import com.campus.service.EmbeddingTaskService;
 import com.campus.utils.UserHolder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +42,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
@@ -60,9 +64,15 @@ class RecommendationServiceImplTest {
     @Mock
     private UserPreferenceTagMapper userPreferenceTagMapper;
     @Mock
+    private UserProfileEmbeddingMapper userProfileEmbeddingMapper;
+    @Mock
     private ActivityRegistrationMapper activityRegistrationMapper;
     @Mock
     private ActivityPostMapper activityPostMapper;
+    @Mock
+    private EmbeddingTaskService embeddingTaskService;
+    @Mock
+    private EmbeddingSearchService embeddingSearchService;
     @Mock
     private StringRedisTemplate stringRedisTemplate;
     @Mock
@@ -78,16 +88,23 @@ class RecommendationServiceImplTest {
         ReflectionTestUtils.setField(service, "activityTagMapper", activityTagMapper);
         ReflectionTestUtils.setField(service, "activityCategoryMapper", activityCategoryMapper);
         ReflectionTestUtils.setField(service, "userPreferenceTagMapper", userPreferenceTagMapper);
+        ReflectionTestUtils.setField(service, "userProfileEmbeddingMapper", userProfileEmbeddingMapper);
         ReflectionTestUtils.setField(service, "activityRegistrationMapper", activityRegistrationMapper);
         ReflectionTestUtils.setField(service, "activityPostMapper", activityPostMapper);
         ReflectionTestUtils.setField(service, "stringRedisTemplate", stringRedisTemplate);
         ReflectionTestUtils.setField(service, "scoreCalculator", new RecommendationScoreCalculator());
         ReflectionTestUtils.setField(service, "reasonBuilder", new RecommendationReasonBuilder());
+        ReflectionTestUtils.setField(service, "embeddingTaskService", embeddingTaskService);
+        ReflectionTestUtils.setField(service, "embeddingSearchService", embeddingSearchService);
 
         lenient().when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
         lenient().when(valueOperations.get(anyString())).thenReturn(null);
         lenient().doNothing().when(valueOperations).set(anyString(), anyString(), anyLong(), any());
+        lenient().doNothing().when(embeddingTaskService).ensureUserProfileEmbedding(anyLong());
+        lenient().when(embeddingSearchService.searchSimilarActivities(any(), anyInt(), anyDouble()))
+                .thenReturn(Collections.emptyList());
         lenient().when(userPreferenceTagMapper.selectList(any())).thenReturn(Collections.emptyList());
+        lenient().when(userProfileEmbeddingMapper.selectOne(any())).thenReturn(null);
         lenient().when(activityRegistrationMapper.selectList(any())).thenReturn(Collections.emptyList());
         lenient().when(activityMapper.selectList(any())).thenReturn(Collections.emptyList());
         lenient().when(activityMapper.selectBatchIds(anyCollection())).thenReturn(Collections.emptyList());
