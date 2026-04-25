@@ -123,6 +123,11 @@ public class ActivityController {
         return activityService.queryMyRegistrations(filter, keyword, current, pageSize);
     }
 
+    @DeleteMapping("/registration/mine/{registrationId}")
+    public Result deleteMyRegistration(@PathVariable("registrationId") Long registrationId) {
+        return activityService.deleteMyRegistration(registrationId);
+    }
+
     @GetMapping("/manage/{id}/registrations")
     public Result queryActivityRegistrations(
             @PathVariable("id") Long activityId,

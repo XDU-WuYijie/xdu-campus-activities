@@ -18,6 +18,8 @@ public class RedisConstants {
     public static final Long CACHE_ACTIVITY_USER_STATE_TTL = 5L;
     public static final String CACHE_ACTIVITY_CHECK_IN_STATS_KEY = "cache:activity:check-in:stats:";
     public static final Long CACHE_ACTIVITY_CHECK_IN_STATS_TTL = 5L;
+    public static final String CACHE_ACTIVITY_CHECK_IN_DASHBOARD_KEY = "cache:activity:check-in:dashboard:";
+    public static final Long CACHE_ACTIVITY_CHECK_IN_DASHBOARD_TTL = 10L;
     public static final String CACHE_ACTIVITY_CHECK_IN_RECORDS_KEY = "cache:activity:check-in:records:";
     public static final Long CACHE_ACTIVITY_CHECK_IN_RECORDS_TTL = 3L;
     public static final String CACHE_DISCOVER_POST_PAGE_KEY = "cache:discover:posts:";

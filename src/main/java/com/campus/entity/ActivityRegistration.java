@@ -59,6 +59,9 @@ public class ActivityRegistration implements Serializable {
     private String activityCoverImage;
 
     @TableField(exist = false)
+    private String coverImage;
+
+    @TableField(exist = false)
     private String category;
 
     @TableField(exist = false)

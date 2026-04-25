@@ -157,6 +157,293 @@
     .registration-status.pending { color:#ff7a28; background:#fff3e8; }
     .registration-status.done { color:#7a8da6; background:#eef3fa; }
     .registration-status.cancel { color:#f0445f; background:#fff0f3; }
+    .checkin-code-dialog .el-dialog__body {
+      padding: 0 14px 14px;
+      background: #f8fbff;
+    }
+    .checkin-code-dialog {
+      width: 318px;
+      margin-top: 11vh !important;
+      border-radius: 20px;
+      overflow: hidden;
+    }
+    .checkin-code-dialog .el-dialog__header {
+      padding: 18px 18px 10px;
+      color: #102a43;
+      border-bottom: 1px solid #eef3fa;
+    }
+    .checkin-code-dialog .el-dialog__title {
+      font-size: 16px;
+      font-weight: 900;
+      color: #102a43;
+    }
+    .my-dynamic-dialog .el-dialog__body,
+    .my-dynamic-comment-dialog .el-dialog__body {
+      padding: 0 14px 14px;
+      background: #f8fbff;
+    }
+    .my-dynamic-dialog,
+    .my-dynamic-comment-dialog {
+      width: 318px;
+      margin-top: 11vh !important;
+      border-radius: 20px;
+      overflow: hidden;
+    }
+    .my-dynamic-dialog .el-dialog__header,
+    .my-dynamic-comment-dialog .el-dialog__header {
+      padding: 18px 18px 10px;
+      color: #102a43;
+      border-bottom: 1px solid #eef3fa;
+    }
+    .my-dynamic-dialog .el-dialog__title,
+    .my-dynamic-comment-dialog .el-dialog__title {
+      font-size: 16px;
+      font-weight: 900;
+      color: #102a43;
+    }
+    .my-dynamic-summary {
+      margin-bottom: 10px;
+      color: #6b7c93;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .my-dynamic-scroll,
+    .mine-comment-scroll {
+      max-height: 64vh;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+    .mine-post-card {
+      margin-bottom: 12px;
+      padding: 14px;
+      border-radius: 18px;
+      background: #fff;
+      border: 1px solid #dceaf7;
+      box-shadow: 0 8px 20px rgba(32, 94, 156, .05);
+    }
+    .mine-post-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .mine-author-box {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      min-width: 0;
+    }
+    .mine-post-avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #dbe9ff;
+      flex: none;
+    }
+    .mine-author-name {
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1.25;
+    }
+    .mine-author-time {
+      margin-top: 4px;
+      color: #6b7c93;
+      font-size: 11px;
+    }
+    .mine-delete-btn {
+      border: none;
+      background: transparent;
+      color: #d84f67;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 4px 0;
+      flex: none;
+    }
+    .mine-post-content {
+      margin-top: 12px;
+      font-size: 13px;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #102a43;
+    }
+    .mine-image-grid {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .mine-image-grid img {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 12px;
+      object-fit: cover;
+      display: block;
+      background: #edf6ff;
+    }
+    .mine-activity-link {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(35, 136, 255, .06), rgba(32, 201, 143, .06));
+      cursor: pointer;
+      border: 1px solid rgba(35, 136, 255, .08);
+    }
+    .mine-activity-link img {
+      width: 46px;
+      height: 46px;
+      border-radius: 10px;
+      object-fit: cover;
+      background: #dbe9ff;
+      flex: none;
+    }
+    .mine-activity-info {
+      min-width: 0;
+      flex: 1;
+    }
+    .mine-activity-title {
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.35;
+      color: #102a43;
+    }
+    .mine-activity-meta {
+      margin-top: 3px;
+      color: #6b7c93;
+      font-size: 10px;
+      line-height: 1.4;
+    }
+    .mine-activity-status {
+      min-width: 52px;
+      height: 22px;
+      padding: 0 8px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(35, 136, 255, .1);
+      color: #1769e0;
+      font-size: 10px;
+      font-weight: 800;
+      flex: none;
+      align-self: flex-start;
+      margin-top: 1px;
+    }
+    .mine-action-row {
+      margin-top: 12px;
+      display: flex;
+      gap: 10px;
+    }
+    .mine-action-btn {
+      flex: 1;
+      height: 38px;
+      border-radius: 999px;
+      border: 1px solid rgba(35, 136, 255, .12);
+      background: #fff;
+      color: #6b7c93;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .mine-comment-dialog-body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .mine-comment-item {
+      padding: 12px 0;
+      border-bottom: 1px solid #eef3fa;
+    }
+    .mine-comment-item:last-child {
+      border-bottom: 0;
+    }
+    .mine-comment-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+    .mine-comment-author {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      min-width: 0;
+    }
+    .mine-comment-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #dbe9ff;
+      flex: none;
+    }
+    .mine-comment-name {
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .mine-comment-time {
+      margin-top: 3px;
+      color: #6b7c93;
+      font-size: 11px;
+    }
+    .mine-comment-text {
+      font-size: 13px;
+      line-height: 1.7;
+      color: #102a43;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .checkin-code-card {
+      border-radius: 14px;
+      padding: 14px;
+      background: #fff;
+      border: 1px solid #dceaf7;
+      text-align: center;
+      box-shadow: 0 8px 20px rgba(32, 94, 156, .05);
+    }
+    .checkin-code-title {
+      font-size: 15px;
+      font-weight: 900;
+      color: #102a43;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+    .checkin-code-meta {
+      color: #6b7c93;
+      font-size: 12px;
+      line-height: 1.7;
+    }
+    .checkin-code-value {
+      margin: 14px auto 10px;
+      padding: 14px 12px;
+      border-radius: 14px;
+      background: #102a43;
+      color: #fff;
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      font-family: "Courier New", monospace;
+      box-shadow: 0 10px 22px rgba(16,42,67,.18);
+      word-break: break-all;
+    }
+    .checkin-code-value:empty {
+      letter-spacing: 0;
+    }
+    .checkin-code-tip {
+      color: #425466;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .checkin-code-empty {
+      padding: 18px 0 8px;
+      text-align: center;
+      color: #8a9bb0;
+      font-size: 12px;
+    }
     .registration-proto .section-head {
       margin-bottom: 10px;
     }
@@ -574,7 +861,7 @@
     <div class="stat"><div class="stat-num">{{canManageActivities ? createdActivityTotal : registrationTotal}}</div><div class="stat-label">{{canManageActivities ? '发起活动' : '我报名的'}}</div></div>
     <div class="stat"><div class="stat-num">{{canManageActivities ? pendingReviewTotal : registrations.length}}</div><div class="stat-label">{{canManageActivities ? '待审核' : '我参与的'}}</div></div>
     <div class="stat" @click.stop="!canManageActivities && openView('favorites')"><div class="stat-num">{{canManageActivities ? reviewHistoryTotal : favoriteTotal}}</div><div class="stat-label">{{canManageActivities ? '历史活动' : '收藏活动'}}</div></div>
-    <div class="stat"><div class="stat-num">0</div><div class="stat-label">获奖记录</div></div>
+    <div class="stat" @click.stop="!canManageActivities && openMyDiscoverPosts()"><div class="stat-num">{{mineDiscoverTotal}}</div><div class="stat-label">我的动态</div></div>
   </div>
   <div class="home-section-head" v-if="!canManageActivities">
     <div class="home-section-title">我的报名</div>
@@ -586,7 +873,7 @@
   <div class="registration-preview-list" v-if="!canManageActivities">
     <div class="registration-preview-card" v-for="item in registrations.slice(0, 3)" :key="item.id" @click="viewDetail(item.activityId)">
       <button class="registration-thumb-btn" type="button" @click.stop="viewDetail(item.activityId)">
-        <img class="registration-thumb" :src="item.coverImage || '/imgs/blogs/blog1.jpg'" alt="">
+        <img class="registration-thumb" :src="item.activityCoverImage || item.coverImage || '/imgs/blogs/blog1.jpg'" alt="">
       </button>
       <div class="registration-copy">
         <div class="registration-title">{{item.activityTitle}}</div>
@@ -760,7 +1047,7 @@
         <div class="registration-count">共 {{registrationTotal}} 条报名记录，当前显示 {{filteredRegistrations.length}} 条</div>
         <div class="card registration-activity-card" v-for="item in filteredRegistrations" :key="item.id">
           <div class="registration-card-main">
-            <img class="registration-thumb" :src="item.coverImage || '/imgs/blogs/blog1.jpg'" alt="">
+            <img class="registration-thumb" :src="item.activityCoverImage || item.coverImage || '/imgs/blogs/blog1.jpg'" alt="">
             <div class="registration-card-content">
               <div class="registration-title-row">
                 <div class="registration-title">{{item.activityTitle}}</div>
@@ -775,9 +1062,11 @@
             </div>
           </div>
           <div class="registration-actions">
-            <el-button size="mini" plain @click="viewDetail(item.activityId)">详情</el-button>
-            <el-button v-if="canCancelRegistration(item)" size="mini" type="danger" plain @click="cancelRegistration(item.activityId)">退出</el-button>
             <el-button size="mini" plain @click="viewDetail(item.activityId)">查看</el-button>
+            <el-button v-if="canShowCheckInCode(item)" size="mini" type="primary" plain @click="openCheckInCode(item)">查看签到码</el-button>
+            <el-button v-else-if="canDeleteRegistrationRecord(item)" size="mini" type="danger" plain @click="deleteRegistrationRecord(item)">删除</el-button>
+            <el-button v-else size="mini" plain @click="viewDetail(item.activityId)">详情</el-button>
+            <el-button v-if="canCancelRegistration(item)" size="mini" type="danger" plain @click="cancelRegistration(item.activityId)">退出</el-button>
           </div>
         </div>
         <div class="card registration-empty" v-if="!filteredRegistrations.length">{{registrations.length ? '当前筛选条件下暂无报名记录。' : '还没有报名任何活动。'}}</div>
@@ -798,7 +1087,7 @@
         <div class="registration-count">共 {{favoriteTotal}} 条收藏记录，当前显示 {{favoriteActivities.length}} 条</div>
         <div class="card registration-activity-card" v-for="item in favoriteActivities" :key="'favorite-card-' + item.id">
           <div class="registration-card-main">
-            <img class="registration-thumb" :src="item.coverImage || '/imgs/blogs/blog1.jpg'" alt="">
+            <img class="registration-thumb" :src="item.activityCoverImage || item.coverImage || '/imgs/blogs/blog1.jpg'" alt="">
             <div class="registration-card-content">
               <div class="registration-title-row">
                 <div class="registration-title">{{item.title}}</div>
@@ -875,12 +1164,12 @@
     <el-tab-pane v-if="canManageActivities" name="reviews">
       <span slot="label" class="title-with-badge">
         <span>待审核请求</span>
-        <span v-if="pendingReviewTotal" class="review-badge">{{pendingReviewTotal > 99 ? '99+' : pendingReviewTotal}}</span>
+        <span v-if="Number(pendingReviewTotal) > 0" class="review-badge">{{Number(pendingReviewTotal) > 99 ? '99+' : Number(pendingReviewTotal)}}</span>
       </span>
       <div class="section-head">
         <div class="section-title title-with-badge">
           <span>待审核请求</span>
-          <span v-if="pendingReviewTotal" class="review-badge">{{pendingReviewTotal > 99 ? '99+' : pendingReviewTotal}}</span>
+          <span v-if="Number(pendingReviewTotal) > 0" class="review-badge">{{Number(pendingReviewTotal) > 99 ? '99+' : Number(pendingReviewTotal)}}</span>
         </div>
       </div>
       <div class="count-text">共 {{pendingReviewTotal}} 条待审核请求，当前显示 {{pendingReviews.length}} 条</div>
@@ -927,6 +1216,97 @@
     </el-tab-pane>
   </el-tabs>
 
+  <el-dialog
+    :visible.sync="checkInCodeDialogVisible"
+    title="签到码"
+    width="318px"
+    custom-class="checkin-code-dialog"
+    :append-to-body="true">
+    <div v-if="checkInCodeRegistration" class="checkin-code-card">
+      <div class="checkin-code-title">{{checkInCodeRegistration.activityTitle || '活动签到码'}}</div>
+      <div class="checkin-code-meta">活动时间：{{formatTime(checkInCodeRegistration.eventStartTime)}} - {{formatTime(checkInCodeRegistration.eventEndTime)}}</div>
+      <div class="checkin-code-meta">活动地点：{{checkInCodeRegistration.location || '待定'}}</div>
+      <div class="checkin-code-value">{{checkInCodeRegistration.voucherDisplayCode || '暂无签到码'}}</div>
+      <div class="checkin-code-tip">现场请向工作人员出示以上签到码。</div>
+    </div>
+    <div v-else class="checkin-code-empty">暂无可显示的签到码。</div>
+  </el-dialog>
+
+  <el-dialog
+    :visible.sync="mineDiscoverDialogVisible"
+    title="我的动态"
+    width="318px"
+    custom-class="my-dynamic-dialog"
+    :append-to-body="true">
+    <div class="my-dynamic-summary">共 {{mineDiscoverTotal}} 条动态，当前显示 {{mineDiscoverPosts.length}} 条</div>
+    <div class="my-dynamic-scroll">
+      <div class="mine-post-card" v-for="item in mineDiscoverPosts" :key="'mine-discover-' + item.id">
+        <div class="mine-post-top">
+          <div class="mine-author-box">
+            <img class="mine-post-avatar" :src="minePostAvatarSrc(item)" @error="handleImageError" alt="">
+            <div>
+              <div class="mine-author-name">{{ item.nickName || user.nickName || '校园同学' }}</div>
+              <div class="mine-author-time">{{ formatTime(item.createdAt) }}</div>
+            </div>
+          </div>
+          <button class="mine-delete-btn" @click="removeMineDiscoverPost(item)">删除</button>
+        </div>
+        <div class="mine-post-content">{{ item.content }}</div>
+        <div class="mine-image-grid" v-if="item.imageUrls && item.imageUrls.length">
+          <img v-for="(url, idx) in item.imageUrls" :key="idx" :src="url" alt="">
+        </div>
+        <div class="mine-activity-link" @click="viewDetail(item.activityId)">
+          <img :src="item.activityCoverImage || '/imgs/blogs/blog1.jpg'" alt="">
+          <div class="mine-activity-info">
+            <div class="mine-activity-title">{{ item.activityTitle || '活动已不可见' }}</div>
+            <div class="mine-activity-meta">{{ item.activityCategory || '校园活动' }}</div>
+            <div class="mine-activity-meta">{{ formatTime(item.eventStartTime) }}</div>
+          </div>
+          <div class="mine-activity-status">{{ item.activityStatusText || '未开放报名' }}</div>
+        </div>
+        <div class="mine-action-row">
+          <button class="mine-action-btn" @click="openMineDiscoverComments(item)">
+            查看评论 · {{ item.commentCount || 0 }}
+          </button>
+        </div>
+      </div>
+      <div class="empty-card" v-if="!mineDiscoverPosts.length && !mineDiscoverLoading">你还没有发布任何动态。</div>
+      <div class="load-more" v-if="mineDiscoverPosts.length && mineDiscoverPosts.length < mineDiscoverTotal">
+        <el-button :loading="mineDiscoverLoadingMore" @click="queryMineDiscoverPosts(false)">加载更多</el-button>
+      </div>
+    </div>
+  </el-dialog>
+
+  <el-dialog
+    :visible.sync="mineDiscoverCommentVisible"
+    title="评论"
+    width="318px"
+    custom-class="my-dynamic-comment-dialog"
+    :append-to-body="true">
+    <div v-if="mineDiscoverActivePost" class="mine-comment-dialog-body">
+      <div class="section-title">共 {{ mineDiscoverCommentTotal || 0 }} 条评论</div>
+      <div class="mine-comment-scroll">
+        <div class="mine-comment-item" v-for="item in mineDiscoverComments" :key="item.id">
+          <div class="mine-comment-head">
+            <div class="mine-comment-author">
+              <img class="mine-comment-avatar" :src="mineCommentAvatarSrc(item)" @error="handleImageError" alt="">
+              <div>
+                <div class="mine-comment-name">{{ item.nickName || '校园同学' }}</div>
+                <div class="mine-comment-time">{{ formatTime(item.createdAt) }}</div>
+              </div>
+            </div>
+            <button v-if="sameId(item.userId, user.id)" class="mine-delete-btn" @click="removeMineDiscoverComment(item)">删除</button>
+          </div>
+          <div class="mine-comment-text">{{ item.content }}</div>
+        </div>
+        <div class="empty-card" v-if="!mineDiscoverComments.length && !mineDiscoverCommentLoading">还没有评论，来看看大家的反馈吧。</div>
+        <div class="load-more" v-if="mineDiscoverComments.length && mineDiscoverComments.length < mineDiscoverCommentTotal">
+          <el-button @click="queryMineDiscoverComments(false)">加载更多</el-button>
+        </div>
+      </div>
+    </div>
+  </el-dialog>
+
   <div class="logout-fixed">
     <el-button style="width:100%;" type="danger" plain @click="logout">退出登录</el-button>
   </div>
@@ -969,6 +1349,19 @@
       favoriteKeyword: '',
       favoriteActivities: [],
       favoriteTotal: 0,
+      mineDiscoverPosts: [],
+      mineDiscoverTotal: 0,
+      mineDiscoverCurrent: 1,
+      mineDiscoverPageSize: 6,
+      mineDiscoverLoading: false,
+      mineDiscoverLoadingMore: false,
+      mineDiscoverDialogVisible: false,
+      mineDiscoverActivePost: null,
+      mineDiscoverComments: [],
+      mineDiscoverCommentCurrent: 1,
+      mineDiscoverCommentTotal: 0,
+      mineDiscoverCommentLoading: false,
+      mineDiscoverCommentVisible: false,
       pendingReviews: [],
       pendingReviewTotal: 0,
       createdActivities: [],
@@ -981,7 +1374,9 @@
       createdLoadingMore: false,
       reviewHistory: [],
       reviewHistoryTotal: 0,
-      unreadCount: 0
+      unreadCount: 0,
+      checkInCodeDialogVisible: false,
+      checkInCodeRegistration: null
     },
     created() {
       this.queryUser();
@@ -1057,6 +1452,7 @@
               this.tab = this.currentView === 'favorites' ? 'favorites' : 'registrations';
               this.queryRegistrations();
               this.queryFavoriteActivities();
+              this.queryMineDiscoverPosts(true);
               this.pendingReviews = [];
               this.createdActivities = [];
               this.reviewHistory = [];
@@ -1156,7 +1552,7 @@
         axios.get('/activity/manage/registration-reviews')
           .then(({data, total}) => {
             this.pendingReviews = data || [];
-            this.pendingReviewTotal = total || this.pendingReviews.length;
+            this.pendingReviewTotal = Number(total) || this.pendingReviews.length;
           })
           .catch(err => this.$message.error(err));
       },
@@ -1178,6 +1574,10 @@
       },
       openView(view) {
         location.href = '/info.html?view=' + view + '&returnUrl=' + encodeURIComponent(location.pathname + location.search);
+      },
+      openMyDiscoverPosts() {
+        this.mineDiscoverDialogVisible = true;
+        this.queryMineDiscoverPosts(true);
       },
       goEditProfile() {
         location.href = '/info-edit.html?returnUrl=' + encodeURIComponent(location.pathname + location.search);
@@ -1216,6 +1616,100 @@
       viewDetail(id) {
         location.href = '/activity-detail.html?id=' + id + '&returnUrl=' + encodeURIComponent(location.pathname + location.search);
       },
+      queryMineDiscoverPosts(reset) {
+        if (!this.user || !this.user.id) return;
+        if (this.mineDiscoverLoading || this.mineDiscoverLoadingMore) return;
+        if (reset) {
+          this.mineDiscoverCurrent = 1;
+          this.mineDiscoverLoading = true;
+        } else {
+          this.mineDiscoverLoadingMore = true;
+        }
+        axios.get('/discover/posts', {
+          params: {
+            current: this.mineDiscoverCurrent,
+            pageSize: this.mineDiscoverPageSize,
+            userId: this.user.id
+          }
+        }).then(({data, total}) => {
+          const list = data || [];
+          this.mineDiscoverTotal = total || 0;
+          this.mineDiscoverPosts = reset ? list : this.mineDiscoverPosts.concat(list);
+          this.mineDiscoverCurrent += 1;
+        }).catch(err => this.$message.error(err))
+          .finally(() => {
+            this.mineDiscoverLoading = false;
+            this.mineDiscoverLoadingMore = false;
+          });
+      },
+      openMineDiscoverComments(item) {
+        this.mineDiscoverActivePost = item;
+        this.mineDiscoverComments = [];
+        this.mineDiscoverCommentCurrent = 1;
+        this.mineDiscoverCommentTotal = 0;
+        this.mineDiscoverCommentVisible = true;
+        this.queryMineDiscoverComments(true);
+      },
+      queryMineDiscoverComments(reset) {
+        if (!this.mineDiscoverActivePost || this.mineDiscoverCommentLoading) return;
+        if (reset) {
+          this.mineDiscoverCommentCurrent = 1;
+        }
+        this.mineDiscoverCommentLoading = true;
+        axios.get('/discover/posts/' + this.mineDiscoverActivePost.id + '/comments', {
+          params: {
+            current: this.mineDiscoverCommentCurrent,
+            pageSize: 10
+          }
+        }).then(({data, total}) => {
+          const list = data || [];
+          this.mineDiscoverCommentTotal = total || 0;
+          this.mineDiscoverComments = reset ? list : this.mineDiscoverComments.concat(list);
+          this.mineDiscoverCommentCurrent += 1;
+        }).catch(err => this.$message.error(err))
+          .finally(() => {
+            this.mineDiscoverCommentLoading = false;
+          });
+      },
+      removeMineDiscoverPost(item) {
+        if (!item || !item.id) return;
+        this.$confirm('确认删除这条动态吗？删除后不可恢复。', '删除动态', {
+          confirmButtonText: '确认删除',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }).then(() => {
+          axios.delete('/discover/posts/' + item.id)
+            .then(() => {
+              this.$message.success('动态已删除');
+              if (this.mineDiscoverActivePost && this.sameId(this.mineDiscoverActivePost.id, item.id)) {
+                this.mineDiscoverCommentVisible = false;
+                this.mineDiscoverActivePost = null;
+                this.mineDiscoverComments = [];
+              }
+              this.queryMineDiscoverPosts(true);
+            })
+            .catch(err => this.$message.error(err));
+        }).catch(() => {});
+      },
+      removeMineDiscoverComment(item) {
+        if (!item || !item.id) return;
+        this.$confirm('确认删除这条评论吗？', '删除评论', {
+          confirmButtonText: '确认删除',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }).then(() => {
+          axios.delete('/discover/comments/' + item.id)
+            .then(() => {
+              this.$message.success('评论已删除');
+              if (this.mineDiscoverActivePost) {
+                this.mineDiscoverActivePost.commentCount = Math.max(0, (this.mineDiscoverActivePost.commentCount || 0) - 1);
+              }
+              this.queryMineDiscoverComments(true);
+              this.queryMineDiscoverPosts(true);
+            })
+            .catch(err => this.$message.error(err));
+        }).catch(() => {});
+      },
       toggleFavorite(item, nextStatus) {
         if (!item || !item.id) return;
         const request = nextStatus
@@ -1235,10 +1729,47 @@
           })
           .catch(err => this.$message.error(err));
       },
+      isActivityEnded(item) {
+        const eventEndTime = this.toTimestamp(item && item.eventEndTime);
+        return !!eventEndTime && eventEndTime < Date.now();
+      },
+      canShowCheckInCode(item) {
+        return Number(item && item.status) === 1 && !this.isActivityEnded(item);
+      },
+      canDeleteRegistrationRecord(item) {
+        return this.isActivityEnded(item) || Number(item && item.status) === 3;
+      },
       canCancelRegistration(item) {
         if (!item || item.status !== 1 || item.checkInStatus) return false;
         if (!item.eventStartTime) return true;
         return new Date(item.eventStartTime.replace(/-/g, '/')).getTime() > Date.now();
+      },
+      openCheckInCode(item) {
+        if (!item || !item.voucherDisplayCode) {
+          this.$message.warning('签到码暂未生成，请稍后刷新');
+          return;
+        }
+        this.checkInCodeRegistration = item;
+        this.checkInCodeDialogVisible = true;
+      },
+      deleteRegistrationRecord(item) {
+        if (!item || !item.id) return;
+        this.$confirm('确认删除这条报名记录吗？删除后不可恢复。', '删除报名记录', {
+          confirmButtonText: '确认删除',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }).then(() => {
+          axios.delete('/activity/registration/mine/' + item.id)
+            .then(() => {
+              this.$message.success('报名记录已删除');
+              if (this.checkInCodeRegistration && this.checkInCodeRegistration.id === item.id) {
+                this.checkInCodeDialogVisible = false;
+                this.checkInCodeRegistration = null;
+              }
+              this.queryRegistrations();
+            })
+            .catch(err => this.$message.error(err));
+        }).catch(() => {});
       },
       cancelRegistration(activityId) {
         this.$confirm('退出活动需要主办方审核，通过后才会释放名额并删除签到凭证。', '申请退出活动', {
@@ -1460,6 +1991,35 @@
         if (status === 3) return 'rejected';
         if (status === 4) return 'offline';
         return 'pending';
+      },
+      sameId(left, right) {
+        if (left === null || left === undefined || right === null || right === undefined) return false;
+        return String(left) === String(right);
+      },
+      handleImageError(event) {
+        if (event && event.target) {
+          event.target.src = this.defaultAvatar;
+        }
+      },
+      avatarSrc(url) {
+        if (!url) return this.defaultAvatar;
+        const value = String(url).trim();
+        if (!value || value === 'null' || value === 'undefined') {
+          return this.defaultAvatar;
+        }
+        if (/^(https?:)?\/\//.test(value) || value.startsWith('/') || value.startsWith('./') || value.startsWith('../')) {
+          return value;
+        }
+        return '/' + value.replace(/^\/+/, '');
+      },
+      minePostAvatarSrc(item) {
+        if (item && item.icon) {
+          return this.avatarSrc(item.icon);
+        }
+        return this.avatarSrc(this.user && this.user.icon);
+      },
+      mineCommentAvatarSrc(item) {
+        return this.avatarSrc(item && item.icon);
       }
     }
   })

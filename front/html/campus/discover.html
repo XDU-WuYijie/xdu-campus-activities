@@ -434,12 +434,12 @@
 <div id="app" class="page">
   <section class="hero">
     <div class="hero-head">
-      <div class="hero-title">校园圈</div>
+      <div class="hero-title">{{ mineOnly ? '我的动态' : '校园圈' }}</div>
       <button class="hero-btn" @click="goCreate">发布动态</button>
     </div>
   </section>
 
-  <div class="tab-switch">
+  <div class="tab-switch" v-if="!mineOnly">
     <button class="tab-btn" :class="{active: tab === 'circle'}" @click="tab = 'circle'">校园圈</button>
     <button class="tab-btn" :class="{active: tab === 'recommend'}" @click="switchRecommend">为你推荐</button>
   </div>
@@ -470,14 +470,17 @@
         <div class="activity-status">{{ item.activityStatusText || '未开放报名' }}</div>
       </div>
       <div class="action-row">
-        <button class="action-btn" :class="{liked: item.liked}" @click="toggleLike(item)">
+        <button v-if="mineOnly" class="action-btn" @click="openComments(item)">
+          查看评论 · {{ item.commentCount || 0 }}
+        </button>
+        <button v-else class="action-btn" :class="{liked: item.liked}" @click="toggleLike(item)">
           {{ item.liked ? '已点赞' : '点赞' }} · {{ item.likeCount || 0 }}
         </button>
-        <button class="action-btn" @click="openComments(item)">
+        <button v-if="!mineOnly" class="action-btn" @click="openComments(item)">
           评论 · {{ item.commentCount || 0 }}
         </button>
       </div>
-      <div class="quick-comment">
+      <div class="quick-comment" v-if="!mineOnly">
         <img class="quick-comment-avatar" :src="avatarSrc(user.icon)" @error="handleImageError" alt="">
         <input
           class="quick-comment-input"
@@ -489,7 +492,7 @@
       </div>
     </article>
 
-    <div class="empty-card" v-if="!posts.length && !loadingPosts">当前还没有校园圈动态，去参与一个活动后来发第一条吧。</div>
+    <div class="empty-card" v-if="!posts.length && !loadingPosts && (!mineOnly || (user && user.id))">{{ mineOnly ? '你还没有发布任何动态。' : '当前还没有校园圈动态，去参与一个活动后来发第一条吧。' }}</div>
 
     <div class="load-more" v-if="posts.length && posts.length < total">
       <el-button :loading="loadingMore" @click="loadPosts(false)">加载更多</el-button>
@@ -556,6 +559,7 @@
     el: '#app',
     data: {
       tab: 'circle',
+      mineOnly: util.getUrlParam('mine') === '1',
       user: window.auth.getUser() || {},
       posts: [],
       total: 0,
@@ -581,7 +585,9 @@
     created() {
       this.queryUser();
       this.initNotifications();
-      this.loadPosts(true);
+      if (!this.mineOnly) {
+        this.loadPosts(true);
+      }
     },
     mounted() {
       this.handlePageShow = event => {
@@ -607,7 +613,9 @@
     methods: {
       refreshAfterReturn() {
         this.queryUser();
-        this.loadPosts(true);
+        if (!this.mineOnly) {
+          this.loadPosts(true);
+        }
       },
       queryUser() {
         axios.get('/user/me').then(({data}) => {
@@ -616,6 +624,10 @@
           const permissions = (this.user && this.user.permissions) || [];
           const roles = (this.user && this.user.roleCodes) || [];
           this.canManageActivities = permissions.includes('activity:create') && !roles.includes('PLATFORM_ADMIN');
+          if (this.mineOnly) {
+            this.tab = 'circle';
+            this.loadPosts(true);
+          }
         }).catch(() => {});
       },
       initNotifications() {
@@ -640,11 +652,17 @@
         } else {
           this.loadingMore = true;
         }
+        const mineUserId = this.mineOnly ? (this.user && this.user.id) : undefined;
+        if (this.mineOnly && !mineUserId) {
+          this.loadingPosts = false;
+          this.loadingMore = false;
+          return;
+        }
         axios.get('/discover/posts', {
           params: {
             current: this.current,
             pageSize: this.pageSize,
-            userId: this.user && this.user.id
+            userId: mineUserId
           }
         }).then(({data, total}) => {
           const list = data || [];

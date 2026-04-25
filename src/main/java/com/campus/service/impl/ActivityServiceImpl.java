@@ -91,6 +91,8 @@ import static com.campus.utils.RedisConstants.ACTIVITY_USER_REGISTER_STATE_TTL_H
 import static com.campus.utils.RedisConstants.ACTIVITY_VOUCHER_DISPLAY_KEY;
 import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_CATEGORIES_KEY;
 import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_CATEGORIES_TTL;
+import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_CHECK_IN_DASHBOARD_KEY;
+import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_CHECK_IN_DASHBOARD_TTL;
 import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_CHECK_IN_RECORDS_KEY;
 import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_CHECK_IN_RECORDS_TTL;
 import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_CHECK_IN_STATS_KEY;
@@ -721,6 +723,51 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     }
 
     @Override
+    @Transactional
+    public Result deleteMyRegistration(Long registrationId) {
+        Result authResult = requirePermission(RbacConstants.PERM_REGISTRATION_VIEW_SELF, "无权删除报名记录");
+        if (authResult != null) {
+            return authResult;
+        }
+        if (registrationId == null) {
+            return Result.fail("报名记录ID不能为空");
+        }
+        ActivityRegistration registration = activityRegistrationMapper.selectById(registrationId);
+        UserDTO currentUser = UserHolder.getUser();
+        if (registration == null || currentUser == null || !Objects.equals(registration.getUserId(), currentUser.getId())) {
+            return Result.fail("报名记录不存在");
+        }
+
+        Activity activity = getById(registration.getActivityId());
+        LocalDateTime now = LocalDateTime.now();
+        boolean activityEnded = activity != null
+                && activity.getEventEndTime() != null
+                && !now.isBefore(activity.getEventEndTime());
+        boolean canDelete = activityEnded
+                || Objects.equals(registration.getStatus(), REGISTRATION_CANCELED)
+                || Objects.equals(registration.getStatus(), REGISTRATION_FAILED)
+                || Objects.equals(registration.getStatus(), REGISTRATION_CANCEL_PENDING);
+        if (!canDelete) {
+            return Result.fail("活动未结束，不能删除报名记录");
+        }
+
+        ActivityVoucher voucher = activityVoucherMapper.selectOne(new QueryWrapper<ActivityVoucher>()
+                .eq("registration_id", registrationId));
+        if (voucher != null) {
+            activityCheckInRecordMapper.delete(new QueryWrapper<ActivityCheckInRecord>()
+                    .eq("voucher_id", voucher.getId()));
+            if (StrUtil.isNotBlank(voucher.getDisplayCode())) {
+                stringRedisTemplate.delete(ACTIVITY_VOUCHER_DISPLAY_KEY + voucher.getDisplayCode());
+            }
+            activityVoucherMapper.deleteById(voucher.getId());
+        }
+        activityRegistrationMapper.deleteById(registrationId);
+        evictCheckInCache(registration.getActivityId());
+        stringRedisTemplate.delete(activityUserStateKey(registration.getActivityId(), currentUser.getId()));
+        return Result.ok();
+    }
+
+    @Override
     public Result queryActivityRegistrations(Long activityId, Integer current, Integer pageSize) {
         Result authResult = requirePermission(RbacConstants.PERM_REGISTRATION_VIEW_ALL, "无权查看该活动报名名单");
         if (authResult != null) {
@@ -927,15 +974,14 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         if (managedAuthResult != null) {
             return managedAuthResult;
         }
-        Activity activity = getById(activityId);
-        ActivityCheckInDashboardDTO dashboard = new ActivityCheckInDashboardDTO();
-        dashboard.setActivitySummary(buildCheckInSummary(activity));
-        ActivityCheckInStatsDTO stats = loadCheckInStats(activityId);
-        dashboard.setStats(stats);
-        dashboard.setStatusChart(buildCheckInStatusChart(stats));
-        dashboard.setRegistrationTrendChart(buildRegistrationTrendChart(activityId));
-        dashboard.setCheckInTrendChart(buildCheckInTrendChart(activityId));
-        dashboard.setRecentRecords(queryCachedCheckInRecordPage(activityId, 1, 10).getRecords());
+        ActivityCheckInDashboardDTO dashboard = cacheClient.queryWithPassThrough(
+                CACHE_ACTIVITY_CHECK_IN_DASHBOARD_KEY,
+                activityId,
+                ActivityCheckInDashboardDTO.class,
+                this::loadCheckInDashboard,
+                CACHE_ACTIVITY_CHECK_IN_DASHBOARD_TTL,
+                TimeUnit.MINUTES
+        );
         return Result.ok(dashboard);
     }
 
@@ -1200,7 +1246,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         ActivityVoucher latest = activityVoucherMapper.selectById(voucher.getId());
         ActivityCheckInResultDTO payload = buildCheckInResult(activityId, latest, CHECK_IN_RESULT_SUCCESS, "签到成功");
         Result result = Result.ok(payload);
-        evictActivityCache(activityId, false);
+        evictCheckInCache(activityId);
         recordCheckInAttempt(activityId, voucher.getId(), voucher.getUserId(), operatorId, idempotencyKey, fingerprint,
                 CHECK_IN_RESULT_SUCCESS, result);
         return result;
@@ -1435,6 +1481,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
             }
             registration.setActivityTitle(activity.getTitle());
             registration.setActivityCoverImage(activity.getCoverImage());
+            registration.setCoverImage(activity.getCoverImage());
             registration.setCategory(activity.getCategory());
             registration.setRegistrationMode(resolveRegistrationMode(activity));
             registration.setLocation(activity.getLocation());
@@ -1578,6 +1625,22 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         long uncheckedCount = Math.max(registeredCount - checkedInCount, 0);
         double checkInRate = registeredCount == 0 ? 0D : (checkedInCount * 100D / registeredCount);
         return new ActivityCheckInStatsDTO(registeredCount, checkedInCount, uncheckedCount, checkInRate);
+    }
+
+    private ActivityCheckInDashboardDTO loadCheckInDashboard(Long activityId) {
+        Activity activity = loadActivityDetail(activityId, false);
+        if (activity == null) {
+            return null;
+        }
+        ActivityCheckInDashboardDTO dashboard = new ActivityCheckInDashboardDTO();
+        dashboard.setActivitySummary(buildCheckInSummary(activity));
+        ActivityCheckInStatsDTO stats = loadCheckInStats(activityId);
+        dashboard.setStats(stats);
+        dashboard.setStatusChart(buildCheckInStatusChart(stats));
+        dashboard.setRegistrationTrendChart(buildRegistrationTrendChart(activityId));
+        dashboard.setCheckInTrendChart(buildCheckInTrendChart(activityId));
+        dashboard.setRecentRecords(queryCachedCheckInRecordPage(activityId, 1, 10).getRecords());
+        return dashboard;
     }
 
     private ActivityCheckInSummaryDTO buildCheckInSummary(Activity activity) {
@@ -3108,10 +3171,23 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
             stringRedisTemplate.delete(recordKeys);
         }
         stringRedisTemplate.delete(CACHE_ACTIVITY_CHECK_IN_STATS_KEY + activityId);
+        stringRedisTemplate.delete(CACHE_ACTIVITY_CHECK_IN_DASHBOARD_KEY + activityId);
         stringRedisTemplate.delete(activityMetaKey(activityId));
         stringRedisTemplate.delete(activityStockKey(activityId));
         stringRedisTemplate.delete(activityFrozenKey(activityId));
         stringRedisTemplate.delete(activityRegisterUsersKey(activityId));
+    }
+
+    private void evictCheckInCache(Long activityId) {
+        if (activityId == null) {
+            return;
+        }
+        stringRedisTemplate.delete(CACHE_ACTIVITY_CHECK_IN_STATS_KEY + activityId);
+        stringRedisTemplate.delete(CACHE_ACTIVITY_CHECK_IN_DASHBOARD_KEY + activityId);
+        java.util.Set<String> recordKeys = stringRedisTemplate.keys(CACHE_ACTIVITY_CHECK_IN_RECORDS_KEY + activityId + ":*");
+        if (recordKeys != null && !recordKeys.isEmpty()) {
+            stringRedisTemplate.delete(recordKeys);
+        }
     }
 
     private String activityUserStateKey(Long activityId, Long userId) {

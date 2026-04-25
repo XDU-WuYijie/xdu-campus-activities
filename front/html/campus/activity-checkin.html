@@ -54,7 +54,11 @@
     <button class="ghost-btn" @click="goDetail"><i class="el-icon-view"></i></button>
   </div>
 
-  <div v-if="dashboard.activitySummary">
+  <div v-if="loading && !dashboard.activitySummary" class="panel">
+    <div class="empty">签到管理数据加载中...</div>
+  </div>
+
+  <div v-else-if="dashboard.activitySummary">
     <section class="panel">
       <div class="hero-title">{{dashboard.activitySummary.title || '活动签到管理'}}</div>
       <div class="hero-meta">活动时间：{{formatTime(dashboard.activitySummary.eventStartTime)}} - {{formatTime(dashboard.activitySummary.eventEndTime)}}</div>
@@ -153,7 +157,7 @@
   </div>
 
   <section v-else class="panel">
-    <div class="empty">签到管理数据加载中...</div>
+    <div class="empty">暂无签到管理数据。</div>
   </section>
 </div>
 
@@ -168,6 +172,7 @@
     data: {
       user: window.auth.getUser() || {},
       dashboard: {},
+      loading: true,
       verifyForm: {
         displayCode: ''
       },
@@ -221,12 +226,17 @@
           .catch(() => location.href = '/login.html');
       },
       queryDashboard() {
+        this.loading = true;
         axios.get('/activity/manage/' + this.activityId() + '/check-in/dashboard')
           .then(({data}) => {
             this.dashboard = data || {};
+            this.loading = false;
             this.$nextTick(() => this.renderCharts());
           })
-          .catch(err => this.$message.error(err));
+          .catch(err => {
+            this.loading = false;
+            this.$message.error(err);
+          });
       },
       verifyCheckIn() {
         if (!this.verifyForm.displayCode) {

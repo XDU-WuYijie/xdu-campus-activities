@@ -54,6 +54,8 @@ public interface IActivityService extends IService<Activity> {
 
     Result queryMyRegistrations(String filter, String keyword, Integer current, Integer pageSize);
 
+    Result deleteMyRegistration(Long registrationId);
+
     Result queryActivityRegistrations(Long activityId, Integer current, Integer pageSize);
 
     Result queryMyPendingRegistrationReviews(Integer current, Integer pageSize);
