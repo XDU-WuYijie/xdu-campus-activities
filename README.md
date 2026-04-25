@@ -332,7 +332,6 @@ cd xdu-campus-activities
 - `OSS_ACCESS_KEY_ID`
 - `OSS_ACCESS_KEY_SECRET`
 - `QWEN_API_KEY`
-- `ROCKETMQ_BROKER_IP`
 - `QWEN_BASE_URL`
 - `QWEN_MODEL`
 - `QWEN_EMBEDDING_MODEL`
@@ -343,7 +342,6 @@ cd xdu-campus-activities
 export OSS_ACCESS_KEY_ID=xxx
 export OSS_ACCESS_KEY_SECRET=xxx
 export QWEN_API_KEY=xxx
-export ROCKETMQ_BROKER_IP=127.0.0.1
 ```
 
 ### 3. 启动基础服务
@@ -411,7 +409,7 @@ docker compose down
 
 - NameServer 默认地址：`rocketmq-namesrv:9876`
 - Broker 默认广播地址：`rocketmq-broker`
-- 宿主机调试 Spring Boot 时，将 `ROCKETMQ_BROKER_IP` 设置为 `127.0.0.1`
+- 宿主机调试 Spring Boot 时，Broker IP 默认使用 `127.0.0.1`
 
 ### Elasticsearch 配置
 
