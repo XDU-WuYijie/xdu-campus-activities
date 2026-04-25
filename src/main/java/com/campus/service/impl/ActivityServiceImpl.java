@@ -15,6 +15,7 @@ import com.campus.dto.ActivityCheckInDashboardDTO;
 import com.campus.dto.ActivityCheckInResultDTO;
 import com.campus.dto.ActivityCheckInStatsDTO;
 import com.campus.dto.ActivityCheckInSummaryDTO;
+import com.campus.dto.ActivityCategoryTreeDTO;
 import com.campus.dto.ActivityCheckInVerifyDTO;
 import com.campus.dto.ActivityRegisterResponseDTO;
 import com.campus.dto.ActivitySearchPageDTO;
@@ -23,28 +24,40 @@ import com.campus.dto.ActivityRegistrationEventDTO;
 import com.campus.dto.ActivityRegistrationPushDTO;
 import com.campus.dto.ActivityRegistrationStatusDTO;
 import com.campus.dto.ActivityTrendPointDTO;
+import com.campus.dto.ActivityTagOptionDTO;
 import com.campus.dto.Result;
 import com.campus.dto.ReviewActionDTO;
+import com.campus.dto.UserPreferenceTagUpdateDTO;
 import com.campus.dto.UserDTO;
 import com.campus.entity.Activity;
+import com.campus.entity.ActivityCategory;
 import com.campus.entity.ActivityCheckInRecord;
 import com.campus.entity.ActivityFavorite;
 import com.campus.entity.ActivityRegistration;
+import com.campus.entity.ActivityTag;
+import com.campus.entity.ActivityTagRelation;
 import com.campus.entity.ActivityVoucher;
 import com.campus.entity.User;
+import com.campus.entity.UserPreferenceTag;
+import com.campus.mapper.ActivityCategoryMapper;
 import com.campus.mapper.ActivityCheckInRecordMapper;
 import com.campus.mapper.ActivityFavoriteMapper;
 import com.campus.mapper.ActivityMapper;
 import com.campus.mapper.ActivityRegistrationMapper;
+import com.campus.mapper.ActivityTagMapper;
+import com.campus.mapper.ActivityTagRelationMapper;
 import com.campus.mapper.ActivityVoucherMapper;
+import com.campus.mapper.UserPreferenceTagMapper;
 import com.campus.mapper.UserMapper;
 import com.campus.service.ActivitySearchService;
+import com.campus.service.EmbeddingTaskService;
 import com.campus.service.IActivityService;
 import com.campus.service.IActivityAiReviewService;
 import com.campus.service.INotificationService;
 import com.campus.service.IReviewRecordService;
 import com.campus.utils.CacheClient;
 import com.campus.utils.AuthorizationUtils;
+import com.campus.utils.ActivityCategoryConstants;
 import com.campus.utils.RedisIdWorker;
 import com.campus.utils.RbacConstants;
 import com.campus.utils.SystemConstants;
@@ -101,6 +114,10 @@ import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_DETAIL_KEY;
 import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_DETAIL_TTL;
 import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_LIST_KEY;
 import static com.campus.utils.RedisConstants.CACHE_ACTIVITY_LIST_TTL;
+import static com.campus.utils.RedisConstants.RECOMMENDATION_GLOBAL_VERSION_KEY;
+import static com.campus.utils.RedisConstants.RECOMMENDATION_USER_VERSION_KEY;
+import static com.campus.utils.RedisConstants.USER_PREFERENCE_TAGS_KEY;
+import static com.campus.utils.RedisConstants.USER_PREFERENCE_TAGS_TTL;
 
 @Slf4j
 @Service
@@ -115,14 +132,9 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     private static final String STAGE_FILTER_REGISTRATION_NOT_OPEN = "REGISTRATION_NOT_OPEN";
     private static final String STAGE_FILTER_IN_PROGRESS = "IN_PROGRESS";
     private static final String STAGE_FILTER_FINISHED = "FINISHED";
-    private static final List<String> ACTIVITY_CATEGORY_OPTIONS = Arrays.asList(
-            "公益活动",
-            "创新实践",
-            "志愿服务",
-            "文艺活动",
-            "竞赛训练",
-            "其他"
-    );
+    private static final List<String> ACTIVITY_CATEGORY_OPTIONS = ActivityCategoryConstants.categoryNames();
+    private static final int MIN_ACTIVITY_TAG_COUNT = 1;
+    private static final int MAX_ACTIVITY_TAG_COUNT = 5;
     private static final int REGISTRATION_PENDING = 0;
     private static final int REGISTRATION_SUCCESS = 1;
     private static final int REGISTRATION_FAILED = 2;
@@ -184,6 +196,18 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     private ActivityFavoriteMapper activityFavoriteMapper;
 
     @Resource
+    private ActivityCategoryMapper activityCategoryMapper;
+
+    @Resource
+    private ActivityTagMapper activityTagMapper;
+
+    @Resource
+    private ActivityTagRelationMapper activityTagRelationMapper;
+
+    @Resource
+    private UserPreferenceTagMapper userPreferenceTagMapper;
+
+    @Resource
     private UserMapper userMapper;
 
     @Resource
@@ -221,6 +245,9 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
 
     @Resource
     private IActivityAiReviewService activityAiReviewService;
+
+    @Resource
+    private EmbeddingTaskService embeddingTaskService;
 
     @Override
     public Result queryPublicActivities(String keyword,
@@ -267,14 +294,49 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
 
     @Override
     public Result queryPublicCategories() {
-        try {
-            if (activitySearchService.isAvailable()) {
-                return Result.ok(activitySearchService.queryCategories(STATUS_PUBLISHED));
-            }
-        } catch (Exception e) {
-            log.warn("活动分类 ES 聚合失败，降级 MySQL: " + e.getMessage());
-        }
         return Result.ok(queryCachedCategories());
+    }
+
+    @Override
+    public Result queryMyPreferenceTags() {
+        Long userId = UserHolder.getUser() == null ? null : UserHolder.getUser().getId();
+        if (userId == null) {
+            return Result.fail("请先登录");
+        }
+        return Result.ok(queryCachedUserPreferenceTags(userId));
+    }
+
+    @Override
+    @Transactional
+    public Result updateMyPreferenceTags(UserPreferenceTagUpdateDTO dto) {
+        Long userId = UserHolder.getUser() == null ? null : UserHolder.getUser().getId();
+        if (userId == null) {
+            return Result.fail("请先登录");
+        }
+        List<Long> tagIds = dto == null ? Collections.emptyList() : normalizeTagIds(dto.getTagIds());
+        if (tagIds.size() > MAX_ACTIVITY_TAG_COUNT) {
+            return Result.fail("偏好标签最多选择5个");
+        }
+        if (!tagIds.isEmpty()) {
+            Map<Long, ActivityTag> tagMap = queryTagMap(tagIds);
+            if (tagMap.size() != tagIds.size()) {
+                return Result.fail("偏好标签包含无效项");
+            }
+        }
+        userPreferenceTagMapper.delete(new QueryWrapper<UserPreferenceTag>()
+                .eq("user_id", userId)
+                .eq("source", ActivityCategoryConstants.PREFERENCE_SOURCE_MANUAL));
+        for (Long tagId : tagIds) {
+            UserPreferenceTag preferenceTag = new UserPreferenceTag();
+            preferenceTag.setUserId(userId);
+            preferenceTag.setTagId(tagId);
+            preferenceTag.setSource(ActivityCategoryConstants.PREFERENCE_SOURCE_MANUAL);
+            userPreferenceTagMapper.insert(preferenceTag);
+        }
+        evictUserPreferenceCache(userId);
+        incrementRecommendationVersion(userId);
+        embeddingTaskService.touchUser(userId, "PREFERENCE_TAGS");
+        return Result.ok(queryCachedUserPreferenceTags(userId));
     }
 
     @Override
@@ -352,6 +414,8 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         activity.setCheckInCodeExpireTime(null);
         normalizeActivityImages(activity);
         save(activity);
+        replaceActivityTags(activity.getId(), activity.getTagIds());
+        embeddingTaskService.touchActivity(activity.getId(), "CREATE");
         refreshActivityCacheState(activity.getId(), true);
         notifyActivitySubmitted(activity);
         activityAiReviewService.scheduleActivityReview(activity, "CREATE");
@@ -407,6 +471,8 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         existing.setCheckInCodeExpireTime(null);
         normalizeActivityImages(existing);
         updateById(existing);
+        replaceActivityTags(existing.getId(), activity.getTagIds());
+        embeddingTaskService.touchActivity(existing.getId(), "UPDATE");
         refreshActivityCacheState(existing.getId(), true);
         notifyActivitySubmitted(existing);
         activityAiReviewService.scheduleActivityReview(existing, "UPDATE");
@@ -443,18 +509,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         }
         QueryWrapper<Activity> wrapper = new QueryWrapper<Activity>()
                 .eq("creator_id", UserHolder.getUser().getId())
-                .and(StrUtil.isNotBlank(keyword), query -> query
-                        .like("title", keyword)
-                        .or()
-                        .like("summary", keyword)
-                        .or()
-                        .like("content", keyword)
-                        .or()
-                        .like("custom_category", keyword)
-                        .or()
-                        .like("category", keyword)
-                        .or()
-                        .like("location", keyword))
+                .and(StrUtil.isNotBlank(keyword), query -> applyActivityKeywordQuery(query, keyword))
                 .orderByDesc("create_time");
         Page<Activity> page = page(
                 new Page<>(
@@ -663,6 +718,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         } catch (DuplicateKeyException e) {
             return Result.ok();
         }
+        embeddingTaskService.touchUser(UserHolder.getUser().getId(), "FAVORITE");
         return Result.ok();
     }
 
@@ -672,6 +728,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         activityFavoriteMapper.delete(new QueryWrapper<ActivityFavorite>()
                 .eq("activity_id", activityId)
                 .eq("user_id", UserHolder.getUser().getId()));
+        embeddingTaskService.touchUser(UserHolder.getUser().getId(), "UNFAVORITE");
         return Result.ok();
     }
 
@@ -697,8 +754,11 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         }
         List<Activity> activities = listByIds(activityIds).stream()
                 .filter(item -> item != null && isPublicActivityStatus(item.getStatus()))
-                .filter(item -> matchesFavoriteKeyword(item, keyword))
                 .sorted(Comparator.comparingInt(item -> orderMap.getOrDefault(item.getId(), Integer.MAX_VALUE)))
+                .collect(Collectors.toList());
+        attachActivityTags(activities);
+        activities = activities.stream()
+                .filter(item -> matchesFavoriteKeyword(item, keyword))
                 .collect(Collectors.toList());
         enrichActivities(activities, UserHolder.getUser());
         int currentPage = current == null || current < 1 ? 1 : current;
@@ -989,26 +1049,14 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     public Result queryPendingReviewActivities(String keyword) {
         List<Activity> activities = query()
                 .in("status", STATUS_PENDING_REVIEW, STATUS_OFFLINE_PENDING_REVIEW)
-                .and(StrUtil.isNotBlank(keyword), wrapper -> wrapper
-                        .like("title", keyword)
-                        .or()
-                        .like("summary", keyword)
-                        .or()
-                        .like("content", keyword)
-                        .or()
-                        .like("custom_category", keyword)
-                        .or()
-                        .like("organizer_name", keyword)
-                        .or()
-                        .like("category", keyword)
-                        .or()
-                        .like("location", keyword))
+                .and(StrUtil.isNotBlank(keyword), wrapper -> applyActivityKeywordQuery(wrapper, keyword))
                 .orderByDesc("create_time")
                 .orderByDesc("id")
                 .list();
         if (activities.isEmpty()) {
             return Result.ok(Collections.emptyList());
         }
+        attachActivityTags(activities);
         List<Long> creatorIds = activities.stream().map(Activity::getCreatorId).filter(Objects::nonNull).distinct().collect(Collectors.toList());
         Map<Long, User> creatorMap = creatorIds.isEmpty() ? Collections.emptyMap() : userMapper.selectBatchIds(creatorIds)
                 .stream().collect(Collectors.toMap(User::getId, item -> item));
@@ -1059,20 +1107,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         }
         Page<Activity> page = query()
                 .eq("status", STATUS_PUBLISHED)
-                .and(StrUtil.isNotBlank(keyword), query -> query
-                        .like("title", keyword)
-                        .or()
-                        .like("summary", keyword)
-                        .or()
-                        .like("content", keyword)
-                        .or()
-                        .like("custom_category", keyword)
-                        .or()
-                        .like("category", keyword)
-                        .or()
-                        .like("organizer_name", keyword)
-                        .or()
-                        .like("location", keyword))
+                .and(StrUtil.isNotBlank(keyword), query -> applyActivityKeywordQuery(query, keyword))
                 .orderByDesc("create_time")
                 .page(new Page<>(
                         current == null || current < 1 ? 1 : current,
@@ -1249,6 +1284,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         evictCheckInCache(activityId);
         recordCheckInAttempt(activityId, voucher.getId(), voucher.getUserId(), operatorId, idempotencyKey, fingerprint,
                 CHECK_IN_RESULT_SUCCESS, result);
+        embeddingTaskService.touchUser(voucher.getUserId(), "CHECK_IN");
         return result;
     }
 
@@ -1407,6 +1443,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         if (activities == null || activities.isEmpty()) {
             return;
         }
+        attachActivityTags(activities);
         Map<Long, ActivityUserStateCache> userStateMap = Collections.emptyMap();
         Set<Long> favoriteIds = Collections.emptySet();
         if (user != null) {
@@ -1467,6 +1504,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         }
         List<Long> activityIds = registrations.stream().map(ActivityRegistration::getActivityId).distinct().collect(Collectors.toList());
         Map<Long, Activity> activityMap = listByIds(activityIds).stream().collect(Collectors.toMap(Activity::getId, a -> a));
+        attachActivityTags(new ArrayList<>(activityMap.values()));
         enrichRegistrationActivitiesFromMap(registrations, activityMap);
     }
 
@@ -1482,7 +1520,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
             registration.setActivityTitle(activity.getTitle());
             registration.setActivityCoverImage(activity.getCoverImage());
             registration.setCoverImage(activity.getCoverImage());
-            registration.setCategory(activity.getCategory());
+            registration.setCategory(StrUtil.blankToDefault(activity.getDisplayCategory(), activity.getCategory()));
             registration.setRegistrationMode(resolveRegistrationMode(activity));
             registration.setLocation(activity.getLocation());
             registration.setOrganizerName(activity.getOrganizerName());
@@ -1814,6 +1852,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         ActivityRegistrationStatusDTO status = buildRegistrationStatus(registration, null, activity);
         cacheFinalRegistrationStatus(activity.getId(), currentUser.getId(), status);
         refreshActivityCacheState(activity.getId(), false);
+        embeddingTaskService.touchUser(currentUser.getId(), "REGISTRATION_REQUEST");
         notifyRegistrationRequested(activity, currentUser.getId());
         return Result.ok(new ActivityRegisterResponseDTO(
                 activity.getId(),
@@ -1859,6 +1898,8 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         stringRedisTemplate.opsForValue().increment(activityStockKey(activity.getId()));
         cacheCanceledRegistrationStatus(activity.getId(), currentUser.getId(), registration.getRequestId(), "已退出活动");
         refreshActivityCacheState(activity.getId(), false);
+        embeddingTaskService.touchUser(currentUser.getId(), "REGISTRATION_CANCEL");
+        incrementRecommendationVersion(currentUser.getId());
         return Result.ok();
     }
 
@@ -1892,6 +1933,8 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         }
         cacheFinalRegistrationStatus(activity.getId(), registration.getUserId(), status);
         refreshActivityCacheState(activity.getId(), false);
+        embeddingTaskService.touchUser(registration.getUserId(), "REGISTRATION_SUCCESS");
+        incrementRecommendationVersion(registration.getUserId());
         publishRegistrationResult(registration.getUserId(), status);
         notifyRegistrationSuccess(activity, registration.getUserId());
         recordActivityAdminReview(activity, registration, "REGISTRATION", "APPROVED", null);
@@ -1945,6 +1988,8 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         }
         cacheCanceledRegistrationStatus(activity.getId(), registration.getUserId(), registration.getRequestId(), "已退出活动");
         refreshActivityCacheState(activity.getId(), false);
+        embeddingTaskService.touchUser(registration.getUserId(), "REGISTRATION_CANCEL");
+        incrementRecommendationVersion(registration.getUserId());
         ActivityRegistrationStatusDTO status = resolveRegistrationStatus(activity.getId(), registration.getUserId());
         publishRegistrationResult(registration.getUserId(), status);
         notifyRegistrationCancelApproved(activity, registration.getUserId());
@@ -2047,10 +2092,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         QueryWrapper<Activity> wrapper = new QueryWrapper<>();
         wrapper.in(targetStatus == null, "status", STATUS_PUBLISHED, STATUS_OFFLINE_PENDING_REVIEW)
                 .eq(targetStatus != null, "status", targetStatus)
-                .and(StrUtil.isNotBlank(keyword), query -> query
-                        .like("title", keyword)
-                        .or()
-                        .like("custom_category", keyword))
+                .and(StrUtil.isNotBlank(keyword), query -> applyActivityKeywordQuery(query, keyword))
                 .eq(StrUtil.isNotBlank(category), "category", category)
                 .like(StrUtil.isNotBlank(location), "location", location)
                 .like(StrUtil.isNotBlank(organizerName), "organizer_name", organizerName)
@@ -2249,6 +2291,48 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         return activityIds;
     }
 
+    private QueryWrapper<Activity> applyActivityKeywordQuery(QueryWrapper<Activity> wrapper, String keyword) {
+        if (wrapper == null || StrUtil.isBlank(keyword)) {
+            return wrapper;
+        }
+        List<Long> matchedTagActivityIds = queryActivityIdsByTagKeyword(keyword);
+        wrapper.like("title", keyword)
+                .or()
+                .like("summary", keyword)
+                .or()
+                .like("content", keyword)
+                .or()
+                .like("organizer_name", keyword)
+                .or()
+                .like("category", keyword)
+                .or()
+                .like("location", keyword);
+        if (!matchedTagActivityIds.isEmpty()) {
+            wrapper.or().in("id", matchedTagActivityIds);
+        }
+        return wrapper;
+    }
+
+    private List<Long> queryActivityIdsByTagKeyword(String keyword) {
+        if (StrUtil.isBlank(keyword)) {
+            return Collections.emptyList();
+        }
+        List<ActivityTag> matchedTags = activityTagMapper.selectList(new QueryWrapper<ActivityTag>()
+                .like("name", keyword)
+                .eq("status", 1));
+        if (matchedTags == null || matchedTags.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Long> tagIds = matchedTags.stream().map(ActivityTag::getId).collect(Collectors.toList());
+        return activityTagRelationMapper.selectList(new QueryWrapper<ActivityTagRelation>()
+                        .in("tag_id", tagIds))
+                .stream()
+                .map(ActivityTagRelation::getActivityId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
     private boolean matchesMyRegistrationFilter(ActivityRegistration record, String filter, LocalDateTime now) {
         if (record == null) {
             return false;
@@ -2271,24 +2355,213 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         return true;
     }
 
-    private List<String> queryCachedCategories() {
+    private List<ActivityCategoryTreeDTO> queryCachedCategories() {
         String key = CACHE_ACTIVITY_CATEGORIES_KEY;
         String categoriesJson = stringRedisTemplate.opsForValue().get(key);
         if (StrUtil.isNotBlank(categoriesJson)) {
-            return JSONUtil.parseArray(categoriesJson).toList(String.class);
+            return JSONUtil.parseArray(categoriesJson).toList(ActivityCategoryTreeDTO.class);
         }
-        QueryWrapper<Activity> wrapper = new QueryWrapper<>();
-        wrapper.select("DISTINCT category")
-                .isNotNull("category")
-                .ne("category", "")
-                .eq("status", STATUS_PUBLISHED)
-                .orderByAsc("category");
-        List<String> categories = listObjs(wrapper, item -> item == null ? null : item.toString())
-                .stream()
-                .filter(StrUtil::isNotBlank)
-                .collect(Collectors.toList());
+        List<ActivityCategoryTreeDTO> categories = buildCategoryTree();
         stringRedisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(categories), CACHE_ACTIVITY_CATEGORIES_TTL, TimeUnit.MINUTES);
         return categories;
+    }
+
+    private List<ActivityCategoryTreeDTO> buildCategoryTree() {
+        List<ActivityCategory> categories = activityCategoryMapper.selectList(new QueryWrapper<ActivityCategory>()
+                .eq("status", 1)
+                .orderByAsc("sort_no")
+                .orderByAsc("id"));
+        if (categories == null || categories.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Map<Long, List<ActivityTag>> tagMap = activityTagMapper.selectList(new QueryWrapper<ActivityTag>()
+                        .eq("status", 1)
+                        .orderByAsc("sort_no")
+                        .orderByAsc("id"))
+                .stream()
+                .collect(Collectors.groupingBy(ActivityTag::getCategoryId, LinkedHashMap::new, Collectors.toList()));
+        List<ActivityCategoryTreeDTO> result = new ArrayList<>(categories.size());
+        for (ActivityCategory category : categories) {
+            ActivityCategoryTreeDTO dto = new ActivityCategoryTreeDTO();
+            dto.setId(category.getId());
+            dto.setName(category.getName());
+            dto.setSortNo(category.getSortNo());
+            List<ActivityTagOptionDTO> tags = tagMap.getOrDefault(category.getId(), Collections.emptyList()).stream()
+                    .map(item -> toTagOption(item, category.getName()))
+                    .collect(Collectors.toList());
+            dto.setTags(tags);
+            result.add(dto);
+        }
+        return result;
+    }
+
+    private void attachActivityTags(List<Activity> activities) {
+        if (activities == null || activities.isEmpty()) {
+            return;
+        }
+        List<Long> activityIds = activities.stream()
+                .map(Activity::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (activityIds.isEmpty()) {
+            return;
+        }
+        List<ActivityTagRelation> relations = activityTagRelationMapper.selectList(new QueryWrapper<ActivityTagRelation>()
+                .in("activity_id", activityIds)
+                .orderByAsc("id"));
+        Map<Long, List<ActivityTag>> activityTagMap = buildActivityTagMap(relations);
+        for (Activity activity : activities) {
+            List<ActivityTag> tags = new ArrayList<>(activityTagMap.getOrDefault(activity.getId(), Collections.emptyList()));
+            activity.setTags(tags);
+            activity.setTagIds(tags.stream().map(ActivityTag::getId).collect(Collectors.toList()));
+            activity.setDisplayCategory(buildDisplayCategory(activity.getCategory(), tags));
+            activity.setCustomCategory(null);
+        }
+    }
+
+    private Map<Long, List<ActivityTag>> buildActivityTagMap(List<ActivityTagRelation> relations) {
+        if (relations == null || relations.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<Long, List<Long>> tagIdsByActivity = new LinkedHashMap<>();
+        for (ActivityTagRelation relation : relations) {
+            tagIdsByActivity.computeIfAbsent(relation.getActivityId(), key -> new ArrayList<>()).add(relation.getTagId());
+        }
+        List<Long> tagIds = tagIdsByActivity.values().stream().flatMap(List::stream).distinct().collect(Collectors.toList());
+        Map<Long, ActivityTag> tagMap = queryTagMap(tagIds);
+        Map<Long, List<ActivityTag>> result = new LinkedHashMap<>();
+        for (Map.Entry<Long, List<Long>> entry : tagIdsByActivity.entrySet()) {
+            List<ActivityTag> tags = entry.getValue().stream()
+                    .map(tagMap::get)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+            result.put(entry.getKey(), tags);
+        }
+        return result;
+    }
+
+    private Map<Long, ActivityTag> queryTagMap(List<Long> tagIds) {
+        if (tagIds == null || tagIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<ActivityTag> tags = activityTagMapper.selectList(new QueryWrapper<ActivityTag>()
+                .in("id", tagIds)
+                .eq("status", 1)
+                .orderByAsc("sort_no")
+                .orderByAsc("id"));
+        if (tags == null || tags.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<Long, String> categoryNameMap = queryCategoryNameMap(tags.stream()
+                .map(ActivityTag::getCategoryId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList()));
+        for (ActivityTag tag : tags) {
+            tag.setCategoryName(categoryNameMap.get(tag.getCategoryId()));
+        }
+        return tags.stream().collect(Collectors.toMap(ActivityTag::getId, item -> item, (a, b) -> a, LinkedHashMap::new));
+    }
+
+    private Map<Long, String> queryCategoryNameMap(List<Long> categoryIds) {
+        if (categoryIds == null || categoryIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return activityCategoryMapper.selectBatchIds(categoryIds).stream()
+                .collect(Collectors.toMap(ActivityCategory::getId, ActivityCategory::getName, (a, b) -> a));
+    }
+
+    private ActivityTagOptionDTO toTagOption(ActivityTag tag, String categoryName) {
+        ActivityTagOptionDTO dto = new ActivityTagOptionDTO();
+        dto.setId(tag.getId());
+        dto.setCategoryId(tag.getCategoryId());
+        dto.setCategoryName(categoryName);
+        dto.setName(tag.getName());
+        dto.setSortNo(tag.getSortNo());
+        return dto;
+    }
+
+    private String buildDisplayCategory(String category, List<ActivityTag> tags) {
+        if (StrUtil.isBlank(category)) {
+            return "未分类";
+        }
+        if (tags == null || tags.isEmpty()) {
+            return category;
+        }
+        return category + " / " + tags.stream()
+                .map(ActivityTag::getName)
+                .filter(StrUtil::isNotBlank)
+                .collect(Collectors.joining("、"));
+    }
+
+    private void replaceActivityTags(Long activityId, List<Long> tagIds) {
+        if (activityId == null) {
+            return;
+        }
+        activityTagRelationMapper.delete(new QueryWrapper<ActivityTagRelation>().eq("activity_id", activityId));
+        for (Long tagId : normalizeTagIds(tagIds)) {
+            ActivityTagRelation relation = new ActivityTagRelation();
+            relation.setActivityId(activityId);
+            relation.setTagId(tagId);
+            activityTagRelationMapper.insert(relation);
+        }
+    }
+
+    private List<Long> normalizeTagIds(List<Long> tagIds) {
+        if (tagIds == null || tagIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return tagIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
+    private List<ActivityTagOptionDTO> queryCachedUserPreferenceTags(Long userId) {
+        String key = USER_PREFERENCE_TAGS_KEY + userId;
+        String cachedJson = stringRedisTemplate.opsForValue().get(key);
+        if (StrUtil.isNotBlank(cachedJson)) {
+            return JSONUtil.parseArray(cachedJson).toList(ActivityTagOptionDTO.class);
+        }
+        List<UserPreferenceTag> preferences = userPreferenceTagMapper.selectList(new QueryWrapper<UserPreferenceTag>()
+                .eq("user_id", userId)
+                .eq("source", ActivityCategoryConstants.PREFERENCE_SOURCE_MANUAL)
+                .orderByAsc("id"));
+        List<Long> tagIds = preferences.stream().map(UserPreferenceTag::getTagId).filter(Objects::nonNull).collect(Collectors.toList());
+        Map<Long, ActivityTag> tagMap = queryTagMap(tagIds);
+        List<ActivityTagOptionDTO> result = tagIds.stream()
+                .map(tagMap::get)
+                .filter(Objects::nonNull)
+                .map(item -> toTagOption(item, item.getCategoryName()))
+                .collect(Collectors.toList());
+        stringRedisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(result), USER_PREFERENCE_TAGS_TTL, TimeUnit.MINUTES);
+        return result;
+    }
+
+    private void evictUserPreferenceCache(Long userId) {
+        if (userId != null) {
+            stringRedisTemplate.delete(USER_PREFERENCE_TAGS_KEY + userId);
+        }
+    }
+
+    private void incrementRecommendationVersion(Long userId) {
+        if (userId == null) {
+            return;
+        }
+        try {
+            stringRedisTemplate.opsForValue().increment(RECOMMENDATION_USER_VERSION_KEY + userId + ":version");
+        } catch (Exception e) {
+            log.warn("递增推荐版本失败 userId={}", userId, e);
+        }
+    }
+
+    private void incrementGlobalRecommendationVersion() {
+        try {
+            stringRedisTemplate.opsForValue().increment(RECOMMENDATION_GLOBAL_VERSION_KEY);
+        } catch (Exception e) {
+            log.warn("递增全局推荐版本失败", e);
+        }
     }
 
     private void applyMysqlFallbackSort(QueryWrapper<Activity> wrapper, String sortBy) {
@@ -2318,9 +2591,14 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         }
         if (cacheOnly) {
             String cacheJson = stringRedisTemplate.opsForValue().get(CACHE_ACTIVITY_DETAIL_KEY + id);
-            return StrUtil.isBlank(cacheJson) ? null : JSONUtil.toBean(cacheJson, Activity.class);
+            if (StrUtil.isBlank(cacheJson)) {
+                return null;
+            }
+            Activity cached = JSONUtil.toBean(cacheJson, Activity.class);
+            attachActivityTags(Collections.singletonList(cached));
+            return cached;
         }
-        return cacheClient.queryWithPassThrough(
+        Activity activity = cacheClient.queryWithPassThrough(
                 CACHE_ACTIVITY_DETAIL_KEY,
                 id,
                 Activity.class,
@@ -2328,6 +2606,8 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                 CACHE_ACTIVITY_DETAIL_TTL,
                 TimeUnit.MINUTES
         );
+        attachActivityTags(Collections.singletonList(activity));
+        return activity;
     }
 
     private Result buildActivityDetailResult(Activity activity, boolean fallbackMode) {
@@ -2348,6 +2628,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
 
     private void refreshActivityCacheState(Long activityId, boolean evictCategoryCache) {
         Activity latest = getById(activityId);
+        incrementGlobalRecommendationVersion();
         if (latest == null) {
             evictActivityCache(activityId, evictCategoryCache);
             dispatchActivitySearchSyncEvent(activityId, "DELETE");
@@ -2741,6 +3022,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         ActivityRegistrationStatusDTO status = buildRegistrationStatus(registration, voucher, activity);
         cacheFinalRegistrationStatus(activity.getId(), userId, status);
         refreshActivityCacheState(activity.getId(), false);
+        incrementRecommendationVersion(userId);
         return status;
     }
 
@@ -3118,7 +3400,8 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
                 || StrUtil.containsIgnoreCase(activity.getActivityFlow(), normalizedKeyword)
                 || StrUtil.containsIgnoreCase(activity.getFaq(), normalizedKeyword)
                 || StrUtil.containsIgnoreCase(activity.getCategory(), normalizedKeyword)
-                || StrUtil.containsIgnoreCase(activity.getCustomCategory(), normalizedKeyword)
+                || StrUtil.containsIgnoreCase(activity.getDisplayCategory(), normalizedKeyword)
+                || (activity.getTags() != null && activity.getTags().stream().anyMatch(tag -> StrUtil.containsIgnoreCase(tag.getName(), normalizedKeyword)))
                 || StrUtil.containsIgnoreCase(activity.getOrganizerName(), normalizedKeyword)
                 || StrUtil.containsIgnoreCase(activity.getLocation(), normalizedKeyword);
     }
@@ -3265,15 +3548,24 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
             return "活动分类不能为空";
         }
         if (!ACTIVITY_CATEGORY_OPTIONS.contains(activity.getCategory())) {
-            return "活动分类只能选择公益活动、创新实践、志愿服务、文艺活动、竞赛训练、其他";
+            return "活动分类不合法";
         }
         normalizeCustomCategory(activity);
-        if ("其他".equals(activity.getCategory()) && StrUtil.isBlank(activity.getCustomCategory())) {
-            return "选择其他分类时，请填写具体活动类型";
+        List<Long> tagIds = normalizeTagIds(activity.getTagIds());
+        if (tagIds.size() < MIN_ACTIVITY_TAG_COUNT || tagIds.size() > MAX_ACTIVITY_TAG_COUNT) {
+            return "请在当前一级分类下选择1-5个标签";
         }
-        if (StrUtil.length(StrUtil.trim(activity.getCustomCategory())) > 64) {
-            return "自定义活动类型长度不能超过64个字符";
+        Map<Long, ActivityTag> tagMap = queryTagMap(tagIds);
+        if (tagMap.size() != tagIds.size()) {
+            return "标签包含无效项";
         }
+        for (Long tagId : tagIds) {
+            ActivityTag tag = tagMap.get(tagId);
+            if (tag == null || !Objects.equals(tag.getCategoryName(), activity.getCategory())) {
+                return "所选标签必须属于当前一级分类";
+            }
+        }
+        activity.setTagIds(tagIds);
         if (StrUtil.isBlank(activity.getRegistrationMode())) {
             activity.setRegistrationMode(REGISTRATION_MODE_AUDIT_REQUIRED);
         }
@@ -3343,10 +3635,6 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
 
     private void normalizeCustomCategory(Activity activity) {
         if (activity == null) {
-            return;
-        }
-        if ("其他".equals(activity.getCategory())) {
-            activity.setCustomCategory(StrUtil.trim(activity.getCustomCategory()));
             return;
         }
         activity.setCustomCategory(null);

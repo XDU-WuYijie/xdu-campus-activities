@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.campus.dto.ActivityCheckInVerifyDTO;
 import com.campus.dto.ReviewActionDTO;
 import com.campus.dto.Result;
+import com.campus.dto.UserPreferenceTagUpdateDTO;
 import com.campus.entity.Activity;
 
 import java.time.LocalDateTime;
@@ -23,6 +24,10 @@ public interface IActivityService extends IService<Activity> {
                                  Integer pageSize);
 
     Result queryPublicCategories();
+
+    Result queryMyPreferenceTags();
+
+    Result updateMyPreferenceTags(UserPreferenceTagUpdateDTO dto);
 
     Result queryActivityDetail(Long id);
 

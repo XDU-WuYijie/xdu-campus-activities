@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>活动偏好标签</title>
+  <link rel="stylesheet" href="css/element.css">
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+<div id="app" style="max-width: 920px; margin: 0 auto; padding: 24px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+    <div>
+      <div style="font-size:28px;font-weight:700;color:#1f2937;">活动偏好标签</div>
+      <div style="margin-top:6px;color:#6b7280;">选择 1-5 个偏好标签，后续推荐会优先参考这里。</div>
+    </div>
+    <el-button @click="goBack">返回</el-button>
+  </div>
+
+  <div v-loading="loading">
+    <div v-for="category in categoryTree" :key="category.id" style="margin-bottom:18px;padding:18px;border:1px solid #e5e7eb;border-radius:14px;background:#fff;">
+      <div style="font-size:18px;font-weight:600;color:#111827;margin-bottom:12px;">{{category.name}}</div>
+      <el-checkbox-group v-model="selectedTagIds">
+        <el-checkbox v-for="tag in category.tags" :key="tag.id" :label="tag.id" style="margin:0 16px 10px 0;">{{tag.name}}</el-checkbox>
+      </el-checkbox-group>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:24px;">
+    <div style="color:#6b7280;">已选择 {{selectedTagIds.length}} / 5</div>
+    <div>
+      <el-button @click="clearAll">清空</el-button>
+      <el-button type="primary" :loading="submitting" @click="save">保存偏好</el-button>
+    </div>
+  </div>
+</div>
+
+<script src="js/vue.js"></script>
+<script src="js/axios.min.js"></script>
+<script src="js/element.js"></script>
+<script src="js/common.js"></script>
+<script>
+  new Vue({
+    el: '#app',
+    data: {
+      loading: false,
+      submitting: false,
+      categoryTree: [],
+      selectedTagIds: []
+    },
+    watch: {
+      selectedTagIds(value, oldValue) {
+        if (value.length <= 5) return;
+        this.$message.warning('偏好标签最多选择5个');
+        this.selectedTagIds = oldValue || value.slice(0, 5);
+      }
+    },
+    created() {
+      this.init();
+    },
+    methods: {
+      init() {
+        this.loading = true;
+        Promise.all([
+          axios.get('/activity/public/categories'),
+          axios.get('/user/preferences/activity-tags')
+        ]).then(([categoriesRes, preferencesRes]) => {
+          this.categoryTree = Array.isArray(categoriesRes.data) ? categoriesRes.data : [];
+          const preferences = Array.isArray(preferencesRes.data) ? preferencesRes.data : [];
+          this.selectedTagIds = preferences.map(item => item.id);
+        }).catch(err => this.$message.error(err))
+          .finally(() => this.loading = false);
+      },
+      clearAll() {
+        this.selectedTagIds = [];
+      },
+      save() {
+        if (this.selectedTagIds.length > 5) {
+          this.$message.error('偏好标签最多选择5个');
+          return;
+        }
+        this.submitting = true;
+        axios.put('/user/preferences/activity-tags', {
+          tagIds: this.selectedTagIds
+        }).then(() => {
+          this.$message.success('偏好标签已保存');
+        }).catch(err => this.$message.error(err))
+          .finally(() => this.submitting = false);
+      },
+      goBack() {
+        util.goBack('/info.html');
+      }
+    }
+  });
+</script>
+</body>
+</html>

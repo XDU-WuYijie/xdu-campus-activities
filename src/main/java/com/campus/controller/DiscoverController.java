@@ -4,6 +4,7 @@ import com.campus.dto.ActivityPostCommentCreateDTO;
 import com.campus.dto.ActivityPostCreateDTO;
 import com.campus.dto.Result;
 import com.campus.service.IActivityPostService;
+import com.campus.service.RecommendationService;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.annotation.Resource;
@@ -14,6 +15,9 @@ public class DiscoverController {
 
     @Resource
     private IActivityPostService activityPostService;
+
+    @Resource
+    private RecommendationService recommendationService;
 
     @GetMapping("/posts")
     public Result queryPosts(@RequestParam(value = "current", defaultValue = "1") Integer current,
@@ -62,8 +66,9 @@ public class DiscoverController {
     }
 
     @GetMapping("/recommendations")
-    public Result queryRecommendations() {
-        return activityPostService.queryRecommendations();
+    public Result queryRecommendations(@RequestParam(value = "current", defaultValue = "1") Integer current,
+                                       @RequestParam(value = "pageSize", defaultValue = "10") Integer pageSize) {
+        return recommendationService.queryRecommendations(current, pageSize);
     }
 
     @GetMapping("/eligible-activities")

@@ -7,7 +7,11 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.campus.config.ActivitySearchProperties;
 import com.campus.dto.ActivitySearchPageDTO;
 import com.campus.entity.Activity;
+import com.campus.entity.ActivityTag;
+import com.campus.entity.ActivityTagRelation;
 import com.campus.mapper.ActivityMapper;
+import com.campus.mapper.ActivityTagMapper;
+import com.campus.mapper.ActivityTagRelationMapper;
 import com.campus.service.ActivitySearchService;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
@@ -75,6 +79,12 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
 
     @Resource
     private ActivitySearchProperties activitySearchProperties;
+
+    @Resource
+    private ActivityTagMapper activityTagMapper;
+
+    @Resource
+    private ActivityTagRelationMapper activityTagRelationMapper;
 
     private final RestHighLevelClient restHighLevelClient;
 
@@ -423,7 +433,8 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
         appendTextField(builder, "title");
         appendTextField(builder, "summary");
         appendTextField(builder, "content");
-        appendTextField(builder, "customCategory");
+        appendTextField(builder, "tags");
+        appendKeywordField(builder, "tagNames");
         appendTextField(builder, "organizerName");
         appendTextField(builder, "location");
         appendKeywordField(builder, "category");
@@ -500,7 +511,7 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
             String normalizedKeyword = keyword.trim();
             MultiMatchQueryBuilder multiMatchQuery = QueryBuilders.multiMatchQuery(normalizedKeyword)
                     .field("title", 4.0f)
-                    .field("customCategory", 3.0f)
+                    .field("tags", 3.0f)
                     .field("summary", 2.0f)
                     .field("organizerName", 2.0f)
                     .field("location")
@@ -594,9 +605,11 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
         document.put("title", StrUtil.blankToDefault(activity.getTitle(), ""));
         document.put("summary", StrUtil.blankToDefault(activity.getSummary(), ""));
         document.put("content", StrUtil.blankToDefault(activity.getContent(), ""));
-        document.put("customCategory", StrUtil.blankToDefault(activity.getCustomCategory(), ""));
         document.put("organizerName", StrUtil.blankToDefault(activity.getOrganizerName(), ""));
         document.put("category", StrUtil.blankToDefault(activity.getCategory(), ""));
+        List<String> tagNames = queryActivityTagNames(activity.getId());
+        document.put("tags", String.join(" ", tagNames));
+        document.put("tagNames", tagNames);
         document.put("registrationMode", StrUtil.blankToDefault(activity.getRegistrationMode(), "AUDIT_REQUIRED"));
         document.put("location", StrUtil.blankToDefault(activity.getLocation(), ""));
         document.put("status", activity.getStatus());
@@ -657,5 +670,31 @@ public class ActivitySearchServiceImpl implements ActivitySearchService {
 
     private String formatDate(LocalDateTime value) {
         return value == null ? null : value.toString();
+    }
+
+    private List<String> queryActivityTagNames(Long activityId) {
+        if (activityId == null) {
+            return Collections.emptyList();
+        }
+        List<ActivityTagRelation> relations = activityTagRelationMapper.selectList(new QueryWrapper<ActivityTagRelation>()
+                .eq("activity_id", activityId)
+                .orderByAsc("id"));
+        if (CollUtil.isEmpty(relations)) {
+            return Collections.emptyList();
+        }
+        List<Long> tagIds = relations.stream().map(ActivityTagRelation::getTagId).distinct().collect(Collectors.toList());
+        Map<Long, String> tagNameMap = activityTagMapper.selectList(new QueryWrapper<ActivityTag>()
+                        .in("id", tagIds)
+                        .eq("status", 1))
+                .stream()
+                .collect(Collectors.toMap(ActivityTag::getId, ActivityTag::getName, (a, b) -> a));
+        List<String> result = new ArrayList<>();
+        for (ActivityTagRelation relation : relations) {
+            String name = tagNameMap.get(relation.getTagId());
+            if (StrUtil.isNotBlank(name)) {
+                result.add(name);
+            }
+        }
+        return result;
     }
 }

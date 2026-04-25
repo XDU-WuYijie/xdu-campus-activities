@@ -428,6 +428,85 @@
       margin-top: 10px;
       text-align: center;
     }
+
+    .recommend-tip {
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255, 128, 93, .12);
+      color: #b65635;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .recommend-cover {
+      width: 100%;
+      height: 156px;
+      border-radius: 16px;
+      object-fit: cover;
+      display: block;
+      background: #dbe9ff;
+    }
+
+    .recommend-head {
+      margin-top: 14px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .recommend-title {
+      font-size: 17px;
+      font-weight: 900;
+      line-height: 1.45;
+    }
+
+    .recommend-reason {
+      flex: none;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(35, 136, 255, .14), rgba(32, 201, 143, .14));
+      color: var(--primary-deep);
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.3;
+    }
+
+    .recommend-meta {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.8;
+    }
+
+    .recommend-tags {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .recommend-tag {
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(35, 136, 255, .08);
+      color: var(--primary-deep);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .recommend-action {
+      margin-top: 14px;
+      width: 100%;
+      height: 42px;
+      border: none;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #2388ff, #20c98f);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 800;
+    }
   </style>
 </head>
 <body>
@@ -441,7 +520,7 @@
   </section>
 
   <div class="tab-switch" v-if="!mineOnly">
-    <button class="tab-btn" :class="{active: tab === 'circle'}" @click="tab = 'circle'">校园圈</button>
+    <button class="tab-btn" :class="{active: tab === 'circle'}" @click="switchCircle">校园圈</button>
     <button class="tab-btn" :class="{active: tab === 'recommend'}" @click="switchRecommend">为你推荐</button>
   </div>
 
@@ -501,7 +580,24 @@
   </template>
 
   <template v-else>
-    <div class="empty-card" v-if="!recommendations.length">暂未推荐内容</div>
+    <div class="recommend-tip" v-if="recommendFallback && recommendMessage">{{ recommendMessage }}</div>
+    <article class="recommend-box" v-for="item in recommendations" :key="item.activityId">
+      <img class="recommend-cover" :src="item.coverImage || defaultCover" @error="handleCoverError" alt="">
+      <div class="recommend-head">
+        <div class="recommend-title">{{ item.title || '活动推荐' }}</div>
+        <div class="recommend-reason">{{ item.reason || '为你推荐' }}</div>
+      </div>
+      <div class="recommend-meta">{{ item.displayCategory || item.categoryName || '校园活动' }}</div>
+      <div class="recommend-meta">{{ formatRecommendTime(item.startTime) }}</div>
+      <div class="recommend-meta">{{ item.location || '地点待定' }}</div>
+      <div class="recommend-tags" v-if="item.tags && item.tags.length">
+        <span class="recommend-tag" v-for="(tag, index) in item.tags" :key="item.activityId + '-' + index">{{ tag }}</span>
+      </div>
+      <button class="recommend-action" @click="openRecommendActivity(item)">查看活动详情</button>
+    </article>
+
+    <div class="empty-card" v-if="!recommendations.length && !loadingRecommend">当前还没有可推荐的活动。</div>
+
   </template>
 
   <nav class="campus-tabbar">
@@ -560,7 +656,7 @@
   new Vue({
     el: '#app',
     data: {
-      tab: 'circle',
+      tab: util.getUrlParam('tab') === 'recommend' ? 'recommend' : 'circle',
       mineOnly: util.getUrlParam('mine') === '1',
       user: window.auth.getUser() || {},
       posts: [],
@@ -571,6 +667,13 @@
       loadingMore: false,
       recommendations: [],
       recommendLoaded: false,
+      recommendCurrent: 1,
+      recommendPageSize: 8,
+      recommendTotal: 0,
+      loadingRecommend: false,
+      loadingRecommendMore: false,
+      recommendFallback: false,
+      recommendMessage: '',
       canManageActivities: false,
       unreadCount: 0,
       commentDrawerVisible: false,
@@ -588,7 +691,11 @@
       this.queryUser();
       this.initNotifications();
       if (!this.mineOnly) {
-        this.loadPosts(true);
+        if (this.tab === 'recommend') {
+          this.loadRecommendations(true);
+        } else {
+          this.loadPosts(true);
+        }
       }
     },
     mounted() {
@@ -615,7 +722,13 @@
     methods: {
       refreshAfterReturn() {
         this.queryUser();
-        if (!this.mineOnly) {
+        if (this.mineOnly) {
+          return;
+        }
+        if (this.tab === 'recommend') {
+          this.recommendLoaded = false;
+          this.loadRecommendations(true);
+        } else {
           this.loadPosts(true);
         }
       },
@@ -680,12 +793,51 @@
       },
       switchRecommend() {
         this.tab = 'recommend';
-        if (this.recommendLoaded) return;
-        axios.get('/discover/recommendations').then(({data}) => {
-          this.recommendations = data || [];
+        this.syncTabToUrl();
+        this.loadRecommendations(true);
+      },
+      switchCircle() {
+        this.tab = 'circle';
+        this.syncTabToUrl();
+        this.loadPosts(true);
+      },
+      syncTabToUrl() {
+        if (this.mineOnly) {
+          return;
+        }
+        util.syncCurrentUrl(this.tab === 'recommend' ? { tab: 'recommend' } : { tab: '' });
+      },
+      buildDiscoverReturnUrl() {
+        return util.buildReturnUrl(this.tab === 'recommend' ? { tab: 'recommend' } : { tab: '' });
+      },
+      loadRecommendations(reset) {
+        if (this.loadingRecommend || this.loadingRecommendMore) return;
+        if (reset) {
+          this.recommendCurrent = 1;
+          this.loadingRecommend = true;
+        } else {
+          this.loadingRecommendMore = true;
+        }
+        axios.get('/discover/recommendations', {
+          params: {
+            current: this.recommendCurrent,
+            pageSize: this.recommendPageSize
+          }
+        }).then(({data}) => {
+          const page = Array.isArray(data) ? { records: data, total: data.length } : (data || {});
+          const list = Array.isArray(page.records) ? page.records : [];
+          this.recommendTotal = list.length;
+          this.recommendFallback = !!page.fallback;
+          this.recommendMessage = page.message || '';
+          this.recommendations = reset ? list : this.recommendations.concat(list);
+          this.recommendCurrent += 1;
           this.recommendLoaded = true;
-        }).catch(() => {
+        }).catch(err => {
           this.recommendLoaded = true;
+          notifyToast(err || '推荐加载失败', 'error');
+        }).finally(() => {
+          this.loadingRecommend = false;
+          this.loadingRecommendMore = false;
         });
       },
       toggleLike(item) {
@@ -784,11 +936,16 @@
         }).catch(() => {});
       },
       openActivity(item) {
-        const returnUrl = encodeURIComponent(location.pathname + location.search);
+        const returnUrl = this.buildDiscoverReturnUrl();
+        location.href = '/activity-detail.html?id=' + item.activityId + '&returnUrl=' + returnUrl;
+      },
+      openRecommendActivity(item) {
+        if (!item || !item.activityId) return;
+        const returnUrl = this.buildDiscoverReturnUrl();
         location.href = '/activity-detail.html?id=' + item.activityId + '&returnUrl=' + returnUrl;
       },
       goCreate() {
-        const returnUrl = encodeURIComponent(location.pathname + location.search);
+        const returnUrl = this.buildDiscoverReturnUrl();
         location.href = '/discover-post-create.html?returnUrl=' + returnUrl;
       },
       isMine(item) {
@@ -828,9 +985,18 @@
           event.target.src = this.defaultAvatar;
         }
       },
+      handleCoverError(event) {
+        if (event && event.target) {
+          event.target.src = this.defaultCover;
+        }
+      },
       formatTime(value) {
         if (!value) return '刚刚';
         return String(value).replace('T', ' ').slice(0, 16);
+      },
+      formatRecommendTime(value) {
+        if (!value) return '开始时间待定';
+        return '开始时间 ' + String(value).replace('T', ' ').slice(0, 16);
       },
       formatActivityStartTime(item) {
         if (!item) return '时间待定';

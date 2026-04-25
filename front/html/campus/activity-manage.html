@@ -712,21 +712,26 @@
           <div class="fact-row">
             <div class="fact-icon"><i class="el-icon-collection-tag"></i></div>
             <div class="fact-content">
-              <div class="fact-label">活动分类</div>
+              <div class="fact-label">一级分类</div>
               <el-form-item>
-                <el-select v-model="form.category" placeholder="请选择活动分类" style="width:100%;">
+                <el-select v-model="form.category" placeholder="请选择一级分类" style="width:100%;" @change="handleCategoryChange">
                   <el-option v-for="item in categoryOptions" :key="item" :label="item" :value="item"></el-option>
                 </el-select>
               </el-form-item>
             </div>
           </div>
 
-          <div class="fact-row" v-if="form.category === '其他'">
-            <div class="fact-icon"><i class="el-icon-edit-outline"></i></div>
+          <div class="fact-row">
+            <div class="fact-icon"><i class="el-icon-collection"></i></div>
             <div class="fact-content">
-              <div class="fact-label">具体活动类型</div>
+              <div class="fact-label">二级标签</div>
               <el-form-item>
-                <el-input v-model.trim="form.customCategory" maxlength="64" placeholder="例如：粉丝见面会、校友分享会、电影放映"></el-input>
+                <el-select v-model="form.tagIds" multiple collapse-tags placeholder="请选择1-5个标签" style="width:100%;">
+                  <el-option v-for="item in currentTagOptions" :key="item.id" :label="item.name" :value="item.id"></el-option>
+                </el-select>
+                <div style="margin-top:8px;color:#718096;font-size:12px;line-height:1.6;">
+                  需选择 1-5 个标签，且必须属于当前一级分类。
+                </div>
               </el-form-item>
             </div>
           </div>
@@ -837,7 +842,7 @@
       form: {
         title: '',
         category: '',
-        customCategory: '',
+        tagIds: [],
         registrationMode: 'AUDIT_REQUIRED',
         organizerName: '',
         contactInfo: '',
@@ -855,7 +860,8 @@
         status: null
       },
       imageList: [],
-      categoryOptions: ['公益活动', '创新实践', '志愿服务', '文艺活动', '竞赛训练', '其他'],
+      categoryTree: [],
+      categoryOptions: [],
       user: window.auth.getUser() || {},
       permissionLoaded: false,
       submitting: false
@@ -874,11 +880,27 @@
       displayOrganizerName() {
         return this.form.organizerName || this.user.nickName || '主办方';
       },
+      currentTagOptions() {
+        const current = this.categoryTree.find(item => item.name === this.form.category);
+        return current && current.tags ? current.tags : [];
+      },
       canApplyOffline() {
         return !!this.form.id && Number(this.form.status) === 2;
       }
     },
     methods: {
+      fetchCategoryTree() {
+        return axios.get('/activity/public/categories')
+          .then(({data}) => {
+            this.categoryTree = Array.isArray(data) ? data : [];
+            this.categoryOptions = this.categoryTree.map(item => item.name);
+          })
+          .catch(err => {
+            this.$message.error(err);
+            this.categoryTree = [];
+            this.categoryOptions = [];
+          });
+      },
       queryUser() {
         axios.get('/user/me')
           .then(({data}) => {
@@ -894,12 +916,18 @@
               this.$message.warning('当前账号无发起活动权限');
               return;
             }
-            const id = util.getUrlParam('id');
-            if (id) {
-              this.loadActivity(id);
-            }
+            this.fetchCategoryTree().then(() => {
+              const id = util.getUrlParam('id');
+              if (id) {
+                this.loadActivity(id);
+              }
+            });
           })
           .catch(() => location.href = '/login.html');
+      },
+      handleCategoryChange() {
+        const validIds = new Set(this.currentTagOptions.map(item => item.id));
+        this.form.tagIds = (this.form.tagIds || []).filter(id => validIds.has(id));
       },
       beforeImageUpload(file) {
         const isImage = file.type && file.type.indexOf('image/') === 0;
@@ -937,11 +965,19 @@
           this.$message.error('请先上传至少一张活动图片');
           return;
         }
+        if (!this.form.category) {
+          this.$message.error('请选择一级分类');
+          return;
+        }
+        if (!this.form.tagIds.length || this.form.tagIds.length > 5) {
+          this.$message.error('请在当前一级分类下选择1-5个标签');
+          return;
+        }
         const payload = {
           id: this.form.id,
           title: this.form.title,
           category: this.form.category,
-          customCategory: this.form.category === '其他' ? this.form.customCategory : '',
+          tagIds: this.form.tagIds,
           registrationMode: this.form.registrationMode,
           organizerName: this.form.organizerName,
           contactInfo: this.form.contactInfo,
@@ -980,7 +1016,7 @@
               id: data.id,
               title: data.title || '',
               category: data.category || '',
-              customCategory: data.customCategory || '',
+              tagIds: Array.isArray(data.tagIds) ? data.tagIds : ((data.tags || []).map(item => item.id)),
               registrationMode: data.registrationMode || 'AUDIT_REQUIRED',
               organizerName: data.organizerName || '',
               contactInfo: data.contactInfo || '',
@@ -1006,7 +1042,7 @@
         this.form = {
           title: '',
           category: '',
-          customCategory: '',
+          tagIds: [],
           registrationMode: 'AUDIT_REQUIRED',
           organizerName: '',
           contactInfo: '',

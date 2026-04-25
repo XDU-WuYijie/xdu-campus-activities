@@ -93,6 +93,123 @@
     .home-section-link i {
       font-size:14px;
     }
+    .preference-row {
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      gap:8px;
+      margin: 6px 0 14px;
+    }
+    .preference-chip {
+      display:inline-flex;
+      align-items:center;
+      min-height:28px;
+      padding:0 10px;
+      border-radius:999px;
+      border:1px solid rgba(35, 136, 255, .12);
+      background:linear-gradient(135deg, rgba(35, 136, 255, .12), rgba(32, 201, 143, .12));
+      box-shadow:0 6px 16px rgba(32,94,156,.08);
+      color:#1769e0;
+      font-size:12px;
+      font-weight:700;
+      box-sizing:border-box;
+      white-space:nowrap;
+    }
+    .pref-mask {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      background: rgba(13, 33, 58, .34);
+      backdrop-filter: blur(6px);
+    }
+    .pref-dialog {
+      position: fixed;
+      z-index: 21;
+      left: 50%;
+      top: 11vh;
+      width: min(318px, calc(100vw - 28px));
+      transform: translateX(-50%);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(15, 47, 81, .24);
+      background: #fff;
+    }
+    .pref-dialog-head {
+      padding: 18px 18px 14px;
+      background: linear-gradient(135deg, #1e90ff 0%, #20c98f 100%);
+      color: #fff;
+    }
+    .pref-dialog-title {
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1.2;
+    }
+    .pref-dialog-sub {
+      margin-top: 6px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: rgba(255, 255, 255, .88);
+    }
+    .pref-dialog-body {
+      max-height: 52vh;
+      overflow-y: auto;
+      padding: 14px 14px 10px;
+      background: #f7fbff;
+    }
+    .pref-category-card {
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid #e8f1fb;
+      background: #fff;
+      box-shadow: 0 8px 22px rgba(32, 94, 156, .05);
+      margin-bottom: 10px;
+    }
+    .pref-category-name {
+      font-size: 14px;
+      font-weight: 900;
+      color: #102a43;
+      margin-bottom: 10px;
+    }
+    .pref-tag-grid {
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+    .pref-tag {
+      border: 1px solid #dbe9f8;
+      border-radius: 999px;
+      background: #f8fbff;
+      color: #47627f;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 7px 12px;
+      cursor: pointer;
+      transition: all .18s ease;
+    }
+    .pref-tag.active {
+      border-color: rgba(35, 136, 255, .18);
+      background: linear-gradient(135deg, rgba(35, 136, 255, .12), rgba(32, 201, 143, .12));
+      color: #1769e0;
+      box-shadow: inset 0 0 0 1px rgba(35, 136, 255, .08);
+    }
+    .pref-dialog-foot {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding: 12px 14px 14px;
+      background:#fff;
+      border-top:1px solid #edf3fa;
+    }
+    .pref-count {
+      color:#7a8da6;
+      font-size:12px;
+      font-weight:700;
+    }
+    .pref-actions {
+      display:flex;
+      gap:8px;
+    }
     .registration-preview-list {
       display:flex;
       flex-direction:column;
@@ -862,6 +979,10 @@
     <div class="stat" @click.stop="!canManageActivities && openView('favorites')"><div class="stat-num">{{canManageActivities ? reviewHistoryTotal : favoriteTotal}}</div><div class="stat-label">{{canManageActivities ? '历史活动' : '收藏活动'}}</div></div>
     <div class="stat" @click.stop="!canManageActivities && openMyDiscoverPosts()"><div class="stat-num">{{mineDiscoverTotal}}</div><div class="stat-label">我的动态</div></div>
   </div>
+  <div v-if="!canManageActivities" class="preference-row">
+    <span class="preference-chip" v-for="item in selectedPreferenceTags" :key="'pref-' + item.id">{{item.name}}</span>
+    <el-button plain size="mini" icon="el-icon-collection-tag" @click="openPreferenceDialog">偏好设置</el-button>
+  </div>
   <div class="home-section-head" v-if="!canManageActivities">
     <div class="home-section-title">我的报名</div>
     <button class="home-section-link" type="button" @click="openView('registrations')">
@@ -877,7 +998,7 @@
       <div class="registration-copy">
         <div class="registration-title">{{item.activityTitle}}</div>
         <div class="registration-meta">{{formatTime(item.eventStartTime)}}</div>
-        <div class="registration-meta">{{item.category}} · {{item.location}}</div>
+        <div class="registration-meta">{{displayCategory(item)}} · {{item.location}}</div>
       </div>
       <span :class="['registration-status', registrationStatusClass(item)]">{{item.statusText || '未知状态'}}</span>
     </div>
@@ -905,7 +1026,7 @@
     <div class="card" v-if="!favoriteActivities.length">还没有收藏任何活动。</div>
   </div>
   <template v-else>
-    <el-tabs v-model="tab" class="organizer-tabs">
+    <el-tabs v-model="tab" class="organizer-tabs" @tab-click="syncInfoUrl">
       <el-tab-pane name="created">
         <span slot="label">我发起的活动</span>
         <section class="created-proto">
@@ -940,7 +1061,7 @@
                   <div class="created-title">{{item.title}}</div>
                   <span :class="['created-status', activityStatusClass(item.status)]">{{activityAuditStatusText(item.status)}}</span>
                 </div>
-                <div class="created-meta"><strong>分类：</strong>{{item.category || '未分类'}}　<strong>地点：</strong>{{item.location || '待定'}}</div>
+                <div class="created-meta"><strong>分类：</strong>{{displayCategory(item)}}　<strong>地点：</strong>{{item.location || '待定'}}</div>
                 <div class="created-meta"><strong>活动时间：</strong>{{formatTime(item.eventStartTime)}} - {{formatTime(item.eventEndTime)}}</div>
                 <div class="created-meta"><strong>报名人数：</strong>{{item.registeredCount || 0}} / {{item.maxParticipants || 0}}</div>
                 <div class="created-meta" v-if="item.status === 3"><strong>驳回原因：</strong>{{item.reviewRemark || '平台暂未填写驳回原因'}}</div>
@@ -1016,7 +1137,7 @@
   </template>
   </template>
 
-  <el-tabs v-if="currentView !== 'home'" v-model="tab" :class="{'organizer-tabs': canManageActivities}">
+  <el-tabs v-if="currentView !== 'home'" v-model="tab" :class="{'organizer-tabs': canManageActivities}" @tab-click="syncInfoUrl">
     <el-tab-pane v-if="!canManageActivities" label="我的报名" name="registrations">
       <div class="registration-proto">
         <div class="section-head">
@@ -1053,7 +1174,7 @@
                 <span :class="['registration-status-pill', registrationStatusClass(item)]">{{item.statusText || '未知状态'}}</span>
               </div>
               <div class="registration-meta"><strong>时间：</strong>{{formatTime(item.eventStartTime)}}</div>
-              <div class="registration-meta"><strong>分类：</strong>{{item.category || '未分类'}}　<strong>地点：</strong>{{item.location || '待定'}}</div>
+              <div class="registration-meta"><strong>分类：</strong>{{displayCategory(item)}}　<strong>地点：</strong>{{item.location || '待定'}}</div>
               <div class="registration-meta"><strong>状态：</strong>{{item.statusText || '未知状态'}}</div>
               <div class="registration-meta"><strong>说明：</strong>{{item.failReason || (item.status === 0 ? '系统确认中，请稍候刷新。' : '已受理')}}</div>
               <div v-if="item.status !== 3" class="registration-meta"><strong>签到凭证：</strong>{{item.voucherDisplayCode || (item.status === 0 ? '生成中' : '待生成')}}</div>
@@ -1140,7 +1261,7 @@
                 <div class="created-title">{{item.title}}</div>
                 <span :class="['created-status', activityStatusClass(item.status)]">{{activityAuditStatusText(item.status)}}</span>
               </div>
-              <div class="created-meta"><strong>分类：</strong>{{item.category || '未分类'}}　<strong>地点：</strong>{{item.location || '待定'}}</div>
+              <div class="created-meta"><strong>分类：</strong>{{displayCategory(item)}}　<strong>地点：</strong>{{item.location || '待定'}}</div>
               <div class="created-meta"><strong>活动时间：</strong>{{formatTime(item.eventStartTime)}} - {{formatTime(item.eventEndTime)}}</div>
               <div class="created-meta"><strong>报名人数：</strong>{{item.registeredCount || 0}} / {{item.maxParticipants || 0}}</div>
               <div class="created-meta" v-if="item.status === 3"><strong>驳回原因：</strong>{{item.reviewRemark || '平台暂未填写驳回原因'}}</div>
@@ -1214,6 +1335,37 @@
       <div class="card" v-if="!reviewHistory.length">暂无审核历史。</div>
     </el-tab-pane>
   </el-tabs>
+
+  <div v-if="preferenceDialogVisible" class="pref-mask" @click="closePreferenceDialog"></div>
+  <section v-if="preferenceDialogVisible" class="pref-dialog">
+    <div class="pref-dialog-head">
+      <div class="pref-dialog-title">挑几个你感兴趣的方向</div>
+      <div class="pref-dialog-sub">最多选择 5 个偏好标签，保存后会展示在个人主页里。</div>
+    </div>
+    <div class="pref-dialog-body">
+      <div class="pref-category-card" v-for="category in preferenceCategoryTree" :key="'pref-cat-' + category.id">
+        <div class="pref-category-name">{{category.name}}</div>
+        <div class="pref-tag-grid">
+          <button
+            type="button"
+            v-for="tag in category.tags"
+            :key="'pref-tag-' + tag.id"
+            :class="['pref-tag', { active: draftPreferenceTagIds.includes(tag.id) }]"
+            @click="togglePreferenceTag(tag.id)">
+            {{tag.name}}
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="pref-dialog-foot">
+      <div class="pref-count">已选择 {{draftPreferenceTagIds.length}} / 5</div>
+      <div class="pref-actions">
+        <el-button size="mini" @click="clearPreferenceDraft">清空</el-button>
+        <el-button size="mini" @click="closePreferenceDialog">取消</el-button>
+        <el-button size="mini" type="primary" :loading="savingPreferences" @click="savePreferences">保存</el-button>
+      </div>
+    </div>
+  </section>
 
   <el-dialog
     :visible.sync="checkInCodeDialogVisible"
@@ -1371,7 +1523,12 @@
       reviewHistoryTotal: 0,
       unreadCount: 0,
       checkInCodeDialogVisible: false,
-      checkInCodeRegistration: null
+      checkInCodeRegistration: null,
+      preferenceDialogVisible: false,
+      savingPreferences: false,
+      preferenceCategoryTree: [],
+      selectedPreferenceTags: [],
+      draftPreferenceTagIds: []
     },
     created() {
       this.queryUser();
@@ -1436,15 +1593,21 @@
               location.replace('/admin-dashboard.html');
               return;
             }
+            const requestedTab = util.getUrlParam('tab');
             this.queryProfile();
             if (this.canManageActivities) {
-              this.tab = this.currentView === 'home' ? 'created' : this.currentView;
+              if (this.currentView === 'home') {
+                this.tab = ['created', 'reviews', 'reviewHistory'].includes(requestedTab) ? requestedTab : 'created';
+              } else {
+                this.tab = ['created', 'reviews', 'reviewHistory'].includes(this.currentView) ? this.currentView : 'created';
+              }
               this.queryPendingReviews();
               this.refreshCreatedActivities();
               this.queryReviewHistory();
             } else {
               this.currentView = ['home', 'registrations', 'favorites'].includes(this.currentView) ? this.currentView : 'home';
               this.tab = this.currentView === 'favorites' ? 'favorites' : 'registrations';
+              this.initPreferences();
               this.queryRegistrations();
               this.queryFavoriteActivities();
               this.queryMineDiscoverPosts(true);
@@ -1455,11 +1618,70 @@
           })
           .catch(() => location.href = '/login.html');
       },
+      syncInfoUrl() {
+        if (!this.canManageActivities) {
+          return;
+        }
+        util.syncCurrentUrl({
+          view: this.currentView || 'home',
+          tab: this.currentView === 'home' ? this.tab : this.currentView
+        });
+      },
       queryProfile() {
         if (!this.user || !this.user.id) return;
         axios.get('/user/info/' + this.user.id)
           .then(({data}) => this.profile = data || {})
           .catch(() => this.profile = {});
+      },
+      initPreferences() {
+        Promise.all([
+          axios.get('/activity/public/categories'),
+          axios.get('/user/preferences/activity-tags')
+        ]).then(([categoryRes, preferenceRes]) => {
+          this.preferenceCategoryTree = Array.isArray(categoryRes.data) ? categoryRes.data : [];
+          this.selectedPreferenceTags = Array.isArray(preferenceRes.data) ? preferenceRes.data : [];
+          this.draftPreferenceTagIds = this.selectedPreferenceTags.map(item => item.id);
+        }).catch(() => {
+          this.preferenceCategoryTree = [];
+          this.selectedPreferenceTags = [];
+          this.draftPreferenceTagIds = [];
+        });
+      },
+      openPreferenceDialog() {
+        this.draftPreferenceTagIds = this.selectedPreferenceTags.map(item => item.id);
+        this.preferenceDialogVisible = true;
+      },
+      closePreferenceDialog() {
+        this.preferenceDialogVisible = false;
+      },
+      togglePreferenceTag(tagId) {
+        const current = this.draftPreferenceTagIds.slice();
+        const index = current.indexOf(tagId);
+        if (index >= 0) {
+          current.splice(index, 1);
+          this.draftPreferenceTagIds = current;
+          return;
+        }
+        if (current.length >= 5) {
+          this.$message.warning('偏好最多选择5个');
+          return;
+        }
+        current.push(tagId);
+        this.draftPreferenceTagIds = current;
+      },
+      clearPreferenceDraft() {
+        this.draftPreferenceTagIds = [];
+      },
+      savePreferences() {
+        this.savingPreferences = true;
+        axios.put('/user/preferences/activity-tags', {
+          tagIds: this.draftPreferenceTagIds
+        }).then(({data}) => {
+          this.selectedPreferenceTags = Array.isArray(data) ? data : [];
+          this.preferenceDialogVisible = false;
+          this.$message.success('已更新');
+        }).catch(err => this.$message.error(err))
+          .finally(() => this.savingPreferences = false);
       },
       queryRegistrations() {
         axios.get('/activity/registration/mine', {
@@ -1568,17 +1790,17 @@
         util.goBack(this.canManageActivities ? '/organizer-dashboard.html' : '/info.html');
       },
       openView(view) {
-        location.href = '/info.html?view=' + view + '&returnUrl=' + encodeURIComponent(location.pathname + location.search);
+        location.href = '/info.html?view=' + view + '&returnUrl=' + util.buildReturnUrl();
       },
       openMyDiscoverPosts() {
         this.mineDiscoverDialogVisible = true;
         this.queryMineDiscoverPosts(true);
       },
       goEditProfile() {
-        location.href = '/info-edit.html?returnUrl=' + encodeURIComponent(location.pathname + location.search);
+        location.href = '/info-edit.html?returnUrl=' + util.buildReturnUrl();
       },
       goNotifications() {
-        location.href = '/notification.html?returnUrl=' + encodeURIComponent(location.pathname + location.search);
+        location.href = '/notification.html?returnUrl=' + util.buildReturnUrl();
       },
       initNotifications() {
         window.notificationClient.fetchUnread().then(count => this.unreadCount = count || 0);
@@ -1600,16 +1822,16 @@
         });
       },
       editActivity(id) {
-        location.href = '/activity-manage.html?id=' + id + '&returnUrl=' + encodeURIComponent(location.pathname + location.search);
+        location.href = '/activity-manage.html?id=' + id + '&returnUrl=' + util.buildReturnUrl();
       },
       openCheckInManager(id) {
-        location.href = '/activity-checkin.html?id=' + id + '&returnUrl=' + encodeURIComponent(location.pathname + location.search);
+        location.href = '/activity-checkin.html?id=' + id + '&returnUrl=' + util.buildReturnUrl();
       },
       createActivity() {
-        location.href = '/activity-manage.html?returnUrl=' + encodeURIComponent(location.pathname + location.search);
+        location.href = '/activity-manage.html?returnUrl=' + util.buildReturnUrl();
       },
       viewDetail(id) {
-        location.href = '/activity-detail.html?id=' + id + '&returnUrl=' + encodeURIComponent(location.pathname + location.search);
+        location.href = '/activity-detail.html?id=' + id + '&returnUrl=' + util.buildReturnUrl();
       },
       queryMineDiscoverPosts(reset) {
         if (!this.user || !this.user.id) return;
@@ -1968,10 +2190,7 @@
       },
       displayCategory(item) {
         if (!item) return '未分类';
-        if (item.category === '其他' && item.customCategory) {
-          return item.customCategory;
-        }
-        return item.category || '未分类';
+        return item.displayCategory || item.category || '未分类';
       },
       activityAuditStatusText(status) {
         if (status === 1) return '待审核';

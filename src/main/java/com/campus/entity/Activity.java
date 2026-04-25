@@ -11,6 +11,7 @@ import lombok.experimental.Accessors;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @EqualsAndHashCode(callSuper = false)
@@ -113,4 +114,13 @@ public class Activity implements Serializable {
 
     @TableField(exist = false)
     private Boolean favorited;
+
+    @TableField(exist = false)
+    private List<Long> tagIds;
+
+    @TableField(exist = false)
+    private List<ActivityTag> tags;
+
+    @TableField(exist = false)
+    private String displayCategory;
 }

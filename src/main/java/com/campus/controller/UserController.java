@@ -8,10 +8,12 @@ import com.campus.dto.OrganizerApplyDTO;
 import com.campus.dto.Result;
 import com.campus.dto.ReviewActionDTO;
 import com.campus.dto.UserDTO;
+import com.campus.dto.UserPreferenceTagUpdateDTO;
 import com.campus.dto.UserProfileUpdateDTO;
 import com.campus.entity.User;
 import com.campus.entity.UserInfo;
 import com.campus.service.OssService;
+import com.campus.service.IActivityService;
 import com.campus.service.IUserInfoService;
 import com.campus.service.IUserService;
 import com.campus.utils.UserHolder;
@@ -44,6 +46,9 @@ public class UserController {
 
     @Resource
     private IUserInfoService userInfoService;
+
+    @Resource
+    private IActivityService activityService;
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
@@ -195,6 +200,16 @@ public class UserController {
     @GetMapping("/sign/count")
     public Result signCount(){
         return userService.signCount();
+    }
+
+    @GetMapping("/preferences/activity-tags")
+    public Result queryMyPreferenceTags() {
+        return activityService.queryMyPreferenceTags();
+    }
+
+    @PutMapping("/preferences/activity-tags")
+    public Result updateMyPreferenceTags(@RequestBody(required = false) UserPreferenceTagUpdateDTO dto) {
+        return activityService.updateMyPreferenceTags(dto);
     }
 
     private void syncLoginUserCache(String token, String field, String value) {

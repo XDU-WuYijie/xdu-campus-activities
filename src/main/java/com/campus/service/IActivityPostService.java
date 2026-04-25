@@ -24,7 +24,5 @@ public interface IActivityPostService extends IService<ActivityPost> {
 
     Result deleteComment(Long commentId);
 
-    Result queryRecommendations();
-
     Result queryEligibleActivities();
 }

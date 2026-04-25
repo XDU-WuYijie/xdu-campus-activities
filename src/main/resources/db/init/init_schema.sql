@@ -12,8 +12,8 @@ CREATE TABLE IF NOT EXISTS `tb_activity` (
   `content` text,
   `activity_flow` text COMMENT '活动流程',
   `faq` text COMMENT '常见问题',
-  `category` varchar(64) NOT NULL,
-  `custom_category` varchar(64) DEFAULT NULL COMMENT '自定义活动类型，仅 category=其他 时使用',
+  `category` varchar(64) NOT NULL COMMENT '一级分类名称',
+  `custom_category` varchar(64) DEFAULT NULL COMMENT '历史自定义分类保留字段，新逻辑不再写入',
   `registration_mode` varchar(64) NOT NULL DEFAULT 'AUDIT_REQUIRED' COMMENT '报名模式：AUDIT_REQUIRED/FIRST_COME_FIRST_SERVED',
   `contact_info` varchar(255) DEFAULT NULL COMMENT '主办方联系方式',
   `location` varchar(255) NOT NULL,
@@ -37,6 +37,53 @@ CREATE TABLE IF NOT EXISTS `tb_activity` (
   KEY `idx_activity_category` (`category`),
   KEY `idx_activity_event_start` (`event_start_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `tb_activity_category` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(64) NOT NULL,
+  `sort_no` int NOT NULL DEFAULT 0,
+  `status` tinyint(1) NOT NULL DEFAULT 1,
+  `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_activity_category_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='活动一级分类表';
+
+CREATE TABLE IF NOT EXISTS `tb_activity_tag` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `category_id` bigint unsigned NOT NULL,
+  `name` varchar(64) NOT NULL,
+  `sort_no` int NOT NULL DEFAULT 0,
+  `status` tinyint(1) NOT NULL DEFAULT 1,
+  `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_activity_tag_category_name` (`category_id`,`name`),
+  KEY `idx_activity_tag_category` (`category_id`,`sort_no`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='活动二级标签表';
+
+CREATE TABLE IF NOT EXISTS `tb_activity_tag_relation` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `activity_id` bigint unsigned NOT NULL,
+  `tag_id` bigint unsigned NOT NULL,
+  `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_activity_tag_relation` (`activity_id`,`tag_id`),
+  KEY `idx_activity_tag_relation_tag` (`tag_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='活动标签关联表';
+
+CREATE TABLE IF NOT EXISTS `tb_user_preference_tag` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint unsigned NOT NULL,
+  `tag_id` bigint unsigned NOT NULL,
+  `source` varchar(32) NOT NULL DEFAULT 'MANUAL',
+  `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_preference_tag` (`user_id`,`tag_id`,`source`),
+  KEY `idx_user_preference_tag_tag` (`tag_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户活动偏好标签表';
 
 CREATE TABLE IF NOT EXISTS `tb_activity_registration` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -446,6 +493,225 @@ FROM `tb_user` u
 JOIN `sys_role` r ON r.`role_code` = 'USER'
 WHERE u.`username` IN ('test');
 
+INSERT INTO `tb_activity_category` (`name`, `sort_no`, `status`) VALUES
+('学术讲座', 1, 1),
+('就业指导', 2, 1),
+('竞赛训练', 3, 1),
+('创新实践', 4, 1),
+('文艺活动', 5, 1),
+('体育活动', 6, 1),
+('志愿公益', 7, 1),
+('社团活动', 8, 1)
+ON DUPLICATE KEY UPDATE `sort_no` = VALUES(`sort_no`), `status` = VALUES(`status`);
+
+DELETE upt
+FROM `tb_user_preference_tag` upt
+JOIN `tb_activity_tag` t ON t.`id` = upt.`tag_id`
+JOIN `tb_activity_category` c ON c.`id` = t.`category_id`
+JOIN (
+  SELECT '学术讲座' AS category_name, '前沿分享' AS tag_name UNION ALL
+  SELECT '学术讲座', '名师讲堂' UNION ALL
+  SELECT '学术讲座', '学科论坛' UNION ALL
+  SELECT '学术讲座', '读书交流' UNION ALL
+  SELECT '学术讲座', '学术沙龙' UNION ALL
+  SELECT '就业指导', '求职训练' UNION ALL
+  SELECT '就业指导', '简历面试' UNION ALL
+  SELECT '就业指导', '实习辅导' UNION ALL
+  SELECT '竞赛训练', '辩论训练' UNION ALL
+  SELECT '竞赛训练', '赛前集训' UNION ALL
+  SELECT '创新实践', '创客实践' UNION ALL
+  SELECT '创新实践', '实验开放' UNION ALL
+  SELECT '创新实践', '产学协作' UNION ALL
+  SELECT '文艺活动', '音乐演出' UNION ALL
+  SELECT '文艺活动', '戏剧展演' UNION ALL
+  SELECT '文艺活动', '影像放映' UNION ALL
+  SELECT '文艺活动', '美育工作坊' UNION ALL
+  SELECT '文艺活动', '节庆晚会' UNION ALL
+  SELECT '体育活动', '球类赛事' UNION ALL
+  SELECT '体育活动', '跑步健身' UNION ALL
+  SELECT '体育活动', '户外拓展' UNION ALL
+  SELECT '体育活动', '体育训练' UNION ALL
+  SELECT '志愿公益', '助学帮扶' UNION ALL
+  SELECT '志愿公益', '大型赛会志愿' UNION ALL
+  SELECT '社团活动', '骨干培训' UNION ALL
+  SELECT '社团活动', '主题交流' UNION ALL
+  SELECT '社团活动', '联谊活动' UNION ALL
+  SELECT '社团活动', '例会沙龙'
+) legacy ON legacy.category_name = c.`name` AND legacy.tag_name = t.`name`;
+
+DELETE r
+FROM `tb_activity_tag_relation` r
+JOIN `tb_activity_tag` t ON t.`id` = r.`tag_id`
+JOIN `tb_activity_category` c ON c.`id` = t.`category_id`
+JOIN (
+  SELECT '学术讲座' AS category_name, '前沿分享' AS tag_name UNION ALL
+  SELECT '学术讲座', '名师讲堂' UNION ALL
+  SELECT '学术讲座', '学科论坛' UNION ALL
+  SELECT '学术讲座', '读书交流' UNION ALL
+  SELECT '学术讲座', '学术沙龙' UNION ALL
+  SELECT '就业指导', '求职训练' UNION ALL
+  SELECT '就业指导', '简历面试' UNION ALL
+  SELECT '就业指导', '实习辅导' UNION ALL
+  SELECT '竞赛训练', '辩论训练' UNION ALL
+  SELECT '竞赛训练', '赛前集训' UNION ALL
+  SELECT '创新实践', '创客实践' UNION ALL
+  SELECT '创新实践', '实验开放' UNION ALL
+  SELECT '创新实践', '产学协作' UNION ALL
+  SELECT '文艺活动', '音乐演出' UNION ALL
+  SELECT '文艺活动', '戏剧展演' UNION ALL
+  SELECT '文艺活动', '影像放映' UNION ALL
+  SELECT '文艺活动', '美育工作坊' UNION ALL
+  SELECT '文艺活动', '节庆晚会' UNION ALL
+  SELECT '体育活动', '球类赛事' UNION ALL
+  SELECT '体育活动', '跑步健身' UNION ALL
+  SELECT '体育活动', '户外拓展' UNION ALL
+  SELECT '体育活动', '体育训练' UNION ALL
+  SELECT '志愿公益', '助学帮扶' UNION ALL
+  SELECT '志愿公益', '大型赛会志愿' UNION ALL
+  SELECT '社团活动', '骨干培训' UNION ALL
+  SELECT '社团活动', '主题交流' UNION ALL
+  SELECT '社团活动', '联谊活动' UNION ALL
+  SELECT '社团活动', '例会沙龙'
+) legacy ON legacy.category_name = c.`name` AND legacy.tag_name = t.`name`;
+
+DELETE t
+FROM `tb_activity_tag` t
+JOIN `tb_activity_category` c ON c.`id` = t.`category_id`
+JOIN (
+  SELECT '学术讲座' AS category_name, '前沿分享' AS tag_name UNION ALL
+  SELECT '学术讲座', '名师讲堂' UNION ALL
+  SELECT '学术讲座', '学科论坛' UNION ALL
+  SELECT '学术讲座', '读书交流' UNION ALL
+  SELECT '学术讲座', '学术沙龙' UNION ALL
+  SELECT '就业指导', '求职训练' UNION ALL
+  SELECT '就业指导', '简历面试' UNION ALL
+  SELECT '就业指导', '实习辅导' UNION ALL
+  SELECT '竞赛训练', '辩论训练' UNION ALL
+  SELECT '竞赛训练', '赛前集训' UNION ALL
+  SELECT '创新实践', '创客实践' UNION ALL
+  SELECT '创新实践', '实验开放' UNION ALL
+  SELECT '创新实践', '产学协作' UNION ALL
+  SELECT '文艺活动', '音乐演出' UNION ALL
+  SELECT '文艺活动', '戏剧展演' UNION ALL
+  SELECT '文艺活动', '影像放映' UNION ALL
+  SELECT '文艺活动', '美育工作坊' UNION ALL
+  SELECT '文艺活动', '节庆晚会' UNION ALL
+  SELECT '体育活动', '球类赛事' UNION ALL
+  SELECT '体育活动', '跑步健身' UNION ALL
+  SELECT '体育活动', '户外拓展' UNION ALL
+  SELECT '体育活动', '体育训练' UNION ALL
+  SELECT '志愿公益', '助学帮扶' UNION ALL
+  SELECT '志愿公益', '大型赛会志愿' UNION ALL
+  SELECT '社团活动', '骨干培训' UNION ALL
+  SELECT '社团活动', '主题交流' UNION ALL
+  SELECT '社团活动', '联谊活动' UNION ALL
+  SELECT '社团活动', '例会沙龙'
+) legacy ON legacy.category_name = c.`name` AND legacy.tag_name = t.`name`;
+
+INSERT INTO `tb_activity_tag` (`category_id`, `name`, `sort_no`, `status`)
+SELECT c.`id`, t.`name`, t.`sort_no`, 1
+FROM `tb_activity_category` c
+JOIN (
+  SELECT '学术讲座' AS category_name, '名师讲座' AS name, 1 AS sort_no UNION ALL
+  SELECT '学术讲座', '学术报告', 2 UNION ALL
+  SELECT '学术讲座', '科研交流', 3 UNION ALL
+  SELECT '学术讲座', '专业分享', 4 UNION ALL
+  SELECT '学术讲座', '论文写作', 5 UNION ALL
+  SELECT '学术讲座', '保研经验', 6 UNION ALL
+  SELECT '学术讲座', '考研经验', 7 UNION ALL
+  SELECT '学术讲座', '学科前沿', 8 UNION ALL
+  SELECT '学术讲座', '实验室开放', 9 UNION ALL
+  SELECT '学术讲座', '导师面对面', 10 UNION ALL
+  SELECT '就业指导', '实习', 1 UNION ALL
+  SELECT '就业指导', '秋招', 2 UNION ALL
+  SELECT '就业指导', '春招', 3 UNION ALL
+  SELECT '就业指导', '简历指导', 4 UNION ALL
+  SELECT '就业指导', '面试经验', 5 UNION ALL
+  SELECT '就业指导', '职业规划', 6 UNION ALL
+  SELECT '就业指导', '企业宣讲', 7 UNION ALL
+  SELECT '就业指导', '就业分享', 8 UNION ALL
+  SELECT '就业指导', '求职技巧', 9 UNION ALL
+  SELECT '就业指导', '职场能力', 10 UNION ALL
+  SELECT '就业指导', 'Java后端', 11 UNION ALL
+  SELECT '就业指导', '前端开发', 12 UNION ALL
+  SELECT '就业指导', '人工智能', 13 UNION ALL
+  SELECT '就业指导', '产品运营', 14 UNION ALL
+  SELECT '竞赛训练', '学科竞赛', 1 UNION ALL
+  SELECT '竞赛训练', '编程竞赛', 2 UNION ALL
+  SELECT '竞赛训练', '数学建模', 3 UNION ALL
+  SELECT '竞赛训练', '蓝桥杯', 4 UNION ALL
+  SELECT '竞赛训练', 'ACM训练', 5 UNION ALL
+  SELECT '竞赛训练', '挑战杯', 6 UNION ALL
+  SELECT '竞赛训练', '互联网+', 7 UNION ALL
+  SELECT '竞赛训练', '电子设计', 8 UNION ALL
+  SELECT '竞赛训练', '机器人竞赛', 9 UNION ALL
+  SELECT '竞赛训练', '英语竞赛', 10 UNION ALL
+  SELECT '竞赛训练', '创新创业竞赛', 11 UNION ALL
+  SELECT '竞赛训练', '赛前培训', 12 UNION ALL
+  SELECT '竞赛训练', '组队招募', 13 UNION ALL
+  SELECT '创新实践', '创新项目', 1 UNION ALL
+  SELECT '创新实践', '创业实践', 2 UNION ALL
+  SELECT '创新实践', '科研训练', 3 UNION ALL
+  SELECT '创新实践', '项目路演', 4 UNION ALL
+  SELECT '创新实践', '实践课程', 5 UNION ALL
+  SELECT '创新实践', '技术分享', 6 UNION ALL
+  SELECT '创新实践', '创客活动', 7 UNION ALL
+  SELECT '创新实践', '实验实践', 8 UNION ALL
+  SELECT '创新实践', '产品设计', 9 UNION ALL
+  SELECT '创新实践', '项目招募', 10 UNION ALL
+  SELECT '创新实践', '创新工坊', 11 UNION ALL
+  SELECT '创新实践', '校企合作', 12 UNION ALL
+  SELECT '文艺活动', '校园歌手', 1 UNION ALL
+  SELECT '文艺活动', '晚会演出', 2 UNION ALL
+  SELECT '文艺活动', '舞蹈表演', 3 UNION ALL
+  SELECT '文艺活动', '摄影展', 4 UNION ALL
+  SELECT '文艺活动', '读书会', 5 UNION ALL
+  SELECT '文艺活动', '电影放映', 6 UNION ALL
+  SELECT '文艺活动', '音乐活动', 7 UNION ALL
+  SELECT '文艺活动', '戏剧表演', 8 UNION ALL
+  SELECT '文艺活动', '主持朗诵', 9 UNION ALL
+  SELECT '文艺活动', '书画展览', 10 UNION ALL
+  SELECT '文艺活动', '传统文化', 11 UNION ALL
+  SELECT '文艺活动', '社交舞会', 12 UNION ALL
+  SELECT '体育活动', '篮球', 1 UNION ALL
+  SELECT '体育活动', '足球', 2 UNION ALL
+  SELECT '体育活动', '羽毛球', 3 UNION ALL
+  SELECT '体育活动', '乒乓球', 4 UNION ALL
+  SELECT '体育活动', '排球', 5 UNION ALL
+  SELECT '体育活动', '跑步打卡', 6 UNION ALL
+  SELECT '体育活动', '运动会', 7 UNION ALL
+  SELECT '体育活动', '健身训练', 8 UNION ALL
+  SELECT '体育活动', '趣味运动', 9 UNION ALL
+  SELECT '体育活动', '户外活动', 10 UNION ALL
+  SELECT '体育活动', '体育竞赛', 11 UNION ALL
+  SELECT '体育活动', '健康打卡', 12 UNION ALL
+  SELECT '志愿公益', '志愿服务', 1 UNION ALL
+  SELECT '志愿公益', '公益实践', 2 UNION ALL
+  SELECT '志愿公益', '社区服务', 3 UNION ALL
+  SELECT '志愿公益', '支教活动', 4 UNION ALL
+  SELECT '志愿公益', '环保行动', 5 UNION ALL
+  SELECT '志愿公益', '校园服务', 6 UNION ALL
+  SELECT '志愿公益', '爱心捐助', 7 UNION ALL
+  SELECT '志愿公益', '文明引导', 8 UNION ALL
+  SELECT '志愿公益', '公益宣传', 9 UNION ALL
+  SELECT '志愿公益', '社会实践', 10 UNION ALL
+  SELECT '志愿公益', '应急志愿', 11 UNION ALL
+  SELECT '志愿公益', '志愿者招募', 12 UNION ALL
+  SELECT '社团活动', '社团招新', 1 UNION ALL
+  SELECT '社团活动', '社团例会', 2 UNION ALL
+  SELECT '社团活动', '社团开放日', 3 UNION ALL
+  SELECT '社团活动', '兴趣小组', 4 UNION ALL
+  SELECT '社团活动', '社团展示', 5 UNION ALL
+  SELECT '社团活动', '社团培训', 6 UNION ALL
+  SELECT '社团活动', '社团联谊', 7 UNION ALL
+  SELECT '社团活动', '校园组织', 8 UNION ALL
+  SELECT '社团活动', '学生会活动', 9 UNION ALL
+  SELECT '社团活动', '协会活动', 10 UNION ALL
+  SELECT '社团活动', '俱乐部活动', 11 UNION ALL
+  SELECT '社团活动', '新生见面会', 12
+) t ON t.category_name = c.`name`
+ON DUPLICATE KEY UPDATE `sort_no` = VALUES(`sort_no`), `status` = VALUES(`status`);
+
 INSERT INTO `tb_activity` (`creator_id`, `organizer_name`, `title`, `cover_image`, `images`, `summary`, `content`, `category`, `registration_mode`, `location`, `max_participants`, `registered_count`, `registration_start_time`, `registration_end_time`, `event_start_time`, `event_end_time`, `check_in_enabled`, `status`)
 SELECT u.`id`, '西电活动中心', '星火创新实践开放日',
        'https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=1200&q=80',
@@ -476,7 +742,7 @@ SELECT u.`id`, '西电活动中心', '校园招聘会志愿者集训',
        'https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=80',
        '为大型校园招聘会招募并培训现场志愿者。',
        '集训内容包括签到引导、会场分流、企业接待、突发情况上报流程。完成培训并签到的同学将进入招聘会志愿者排班名单。',
-       '志愿服务', 'AUDIT_REQUIRED', '南校区体育馆会议室', 90, 0,
+       '志愿公益', 'AUDIT_REQUIRED', '南校区体育馆会议室', 90, 0,
        '2026-04-28 09:00:00', '2026-05-06 18:00:00', '2026-05-09 09:00:00', '2026-05-09 12:00:00', 1, 2
 FROM `tb_user` u
 WHERE u.`username` = 'test'
@@ -500,7 +766,7 @@ SELECT u.`id`, '西电活动中心', '秦岭环保公益行',
        'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
        '面向学生志愿者的户外环保公益活动。',
        '活动计划开展环保宣讲、步道垃圾清理和自然观察记录。因出行安排调整，主办方已提交下架申请，等待平台管理员审核。',
-       '公益活动', 'AUDIT_REQUIRED', '秦岭生态保护实践基地', 45, 0,
+       '志愿公益', 'AUDIT_REQUIRED', '秦岭生态保护实践基地', 45, 0,
        '2026-05-12 09:00:00', '2026-05-22 18:00:00', '2026-05-26 08:00:00', '2026-05-26 17:00:00', 1, 5
 FROM `tb_user` u
 WHERE u.`username` = 'test'
@@ -562,9 +828,9 @@ SELECT u.`id`,
        END,
        CONCAT('本活动由西电活动中心组织，设置报名审核和现场签到环节。活动第', n, '期将围绕主题开展分组实践、经验分享和成果交流，报名通过后请按时到场签到。'),
        CASE MOD(n, 5)
-         WHEN 0 THEN '公益活动'
+         WHEN 0 THEN '志愿公益'
          WHEN 1 THEN '创新实践'
-         WHEN 2 THEN '志愿服务'
+         WHEN 2 THEN '志愿公益'
          WHEN 3 THEN '文艺活动'
          ELSE '竞赛训练'
        END,
@@ -593,5 +859,66 @@ SELECT u.`id`,
 FROM seq
 JOIN `tb_user` u ON u.`username` = 'test'
 WHERE NOT EXISTS (SELECT 1 FROM `tb_activity` WHERE `title` = CONCAT('校园创新工坊开放日 第1期'));
+
+INSERT IGNORE INTO `tb_activity_tag_relation` (`activity_id`, `tag_id`)
+SELECT a.`id`, t.`id`
+FROM `tb_activity` a
+JOIN `tb_activity_category` c ON c.`name` = a.`category`
+JOIN `tb_activity_tag` t ON t.`category_id` = c.`id`
+WHERE
+  (a.`title` = '星火创新实践开放日' AND t.`name` IN ('创新项目', '项目路演'))
+  OR (a.`title` = '毕业季草坪音乐会' AND t.`name` IN ('音乐活动', '晚会演出'))
+  OR (a.`title` = '校园招聘会志愿者集训' AND t.`name` IN ('志愿服务', '公益宣传'))
+  OR (a.`title` = '网络安全攻防体验营' AND t.`name` IN ('编程竞赛', '赛前培训'))
+  OR (a.`title` = '秦岭环保公益行' AND t.`name` IN ('环保行动', '公益实践'));
+
+INSERT IGNORE INTO `tb_activity_tag_relation` (`activity_id`, `tag_id`)
+SELECT a.`id`, t.`id`
+FROM `tb_activity` a
+JOIN `tb_activity_category` c ON c.`name` = a.`category`
+JOIN `tb_activity_tag` t ON t.`category_id` = c.`id`
+WHERE a.`title` LIKE '%第%期'
+  AND (
+    (a.`title` LIKE '秦岭生态公益实践%' AND t.`name` IN ('环保行动', '公益实践'))
+    OR (a.`title` LIKE '校园创新工坊开放日%' AND t.`name` IN ('创新工坊', '实验实践'))
+    OR (a.`title` LIKE '大型活动志愿者训练营%' AND t.`name` IN ('志愿服务', '志愿者招募'))
+    OR (a.`title` LIKE '毕业季草坪音乐会%' AND t.`name` IN ('音乐活动', '晚会演出'))
+    OR (a.`title` LIKE '网络安全竞赛体验营%' AND t.`name` IN ('编程竞赛', '赛前培训'))
+    OR (a.`title` LIKE '社区公益服务行动%' AND t.`name` IN ('社区服务', '公益实践'))
+    OR (a.`title` LIKE '智能硬件创客挑战%' AND t.`name` IN ('创客活动', '科研训练'))
+    OR (a.`title` LIKE '校园迎新志愿服务%' AND t.`name` IN ('校园服务', '志愿者招募'))
+    OR (a.`title` LIKE '青年艺术展演活动%' AND t.`name` IN ('戏剧表演', '书画展览'))
+    OR (a.`title` LIKE '算法挑战赛训练营%' AND t.`name` IN ('编程竞赛', '数学建模'))
+  );
+
+CREATE TABLE IF NOT EXISTS `tb_user_profile_embedding` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `user_id` bigint NOT NULL COMMENT '用户ID',
+  `profile_text` text NOT NULL COMMENT '用户画像文本',
+  `embedding_vector` longtext NOT NULL COMMENT '用户画像向量JSON',
+  `model_name` varchar(100) NOT NULL COMMENT 'Embedding模型名称',
+  `version` int NOT NULL DEFAULT 1 COMMENT '画像版本',
+  `behavior_window_days` int NOT NULL DEFAULT 30 COMMENT '行为统计窗口天数',
+  `status` tinyint NOT NULL DEFAULT 1 COMMENT '状态：1有效，2失效',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_model_version` (`user_id`, `model_name`, `version`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户画像向量表';
+
+CREATE TABLE IF NOT EXISTS `tb_embedding_task` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `biz_type` varchar(50) NOT NULL COMMENT '业务类型：ACTIVITY / USER_PROFILE',
+  `biz_id` bigint NOT NULL COMMENT '业务ID',
+  `task_status` tinyint NOT NULL DEFAULT 0 COMMENT '任务状态：0待处理，1处理中，2成功，3失败',
+  `retry_count` int NOT NULL DEFAULT 0 COMMENT '重试次数',
+  `error_message` varchar(500) DEFAULT NULL COMMENT '错误信息',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_embedding_task_biz` (`biz_type`, `biz_id`),
+  KEY `idx_task_status` (`task_status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Embedding生成任务表';
 
 SET FOREIGN_KEY_CHECKS = 1;

@@ -566,6 +566,7 @@ public class ActivityAiReviewServiceImpl implements IActivityAiReviewService {
                 query.must(QueryBuilders.multiMatchQuery(keyword)
                         .field("title", 4.0f)
                         .field("category", 3.0f)
+                        .field("tags", 3.0f)
                         .field("summary", 2.0f)
                         .field("content", 1.0f)
                         .field("organizerName", 1.0f)
@@ -596,10 +597,7 @@ public class ActivityAiReviewServiceImpl implements IActivityAiReviewService {
                 summary.put("id", item.getId());
                 summary.put("title", item.getTitle());
                 summary.put("category", item.getCategory());
-                summary.put("customCategory", item.getCustomCategory());
-                summary.put("displayCategory", "其他".equals(item.getCategory()) && StrUtil.isNotBlank(item.getCustomCategory())
-                        ? item.getCustomCategory()
-                        : item.getCategory());
+                summary.put("displayCategory", item.getCategory());
                 summary.put("organizerName", item.getOrganizerName());
                 summary.put("location", item.getLocation());
                 summary.put("eventStartTime", formatTime(item.getEventStartTime()));
@@ -633,7 +631,6 @@ public class ActivityAiReviewServiceImpl implements IActivityAiReviewService {
                 .append("活动简介：").append(StrUtil.blankToDefault(activity.getSummary(), "未填写")).append('\n')
                 .append("活动详情：").append(StrUtil.blankToDefault(activity.getContent(), "未填写")).append('\n')
                 .append("活动分类：").append(StrUtil.blankToDefault(activity.getCategory(), "未填写")).append('\n')
-                .append("具体活动类型：").append(StrUtil.blankToDefault(activity.getCustomCategory(), "未填写")).append('\n')
                 .append("主办方联系方式：").append(StrUtil.blankToDefault(activity.getContactInfo(), "未填写")).append('\n')
                 .append("活动地点：").append(StrUtil.blankToDefault(activity.getLocation(), "未填写")).append('\n')
                 .append("主办方：").append(StrUtil.blankToDefault(activity.getOrganizerName(), "未填写")).append('\n')

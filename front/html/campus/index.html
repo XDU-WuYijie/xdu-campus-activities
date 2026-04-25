@@ -218,6 +218,115 @@
       margin: 18px 0 12px;
     }
 
+    .pref-mask {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      background: rgba(13, 33, 58, .34);
+      backdrop-filter: blur(6px);
+    }
+
+    .pref-dialog {
+      position: fixed;
+      z-index: 21;
+      left: 50%;
+      top: 11vh;
+      width: min(318px, calc(100vw - 28px));
+      transform: translateX(-50%);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(15, 47, 81, .24);
+      background: #fff;
+    }
+
+    .pref-dialog-head {
+      padding: 18px 18px 14px;
+      background: linear-gradient(135deg, #1e90ff 0%, #20c98f 100%);
+      color: #fff;
+    }
+
+    .pref-dialog-title {
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1.2;
+    }
+
+    .pref-dialog-sub {
+      margin-top: 6px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: rgba(255, 255, 255, .88);
+    }
+
+    .pref-dialog-body {
+      max-height: 52vh;
+      overflow-y: auto;
+      padding: 14px 14px 10px;
+      background: #f7fbff;
+    }
+
+    .pref-category-card {
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid #e8f1fb;
+      background: #fff;
+      box-shadow: 0 8px 22px rgba(32, 94, 156, .05);
+      margin-bottom: 10px;
+    }
+
+    .pref-category-name {
+      font-size: 14px;
+      font-weight: 900;
+      color: var(--ink);
+      margin-bottom: 10px;
+    }
+
+    .pref-tag-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pref-tag {
+      border: 1px solid #dbe9f8;
+      border-radius: 999px;
+      background: #f8fbff;
+      color: #47627f;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 7px 12px;
+      cursor: pointer;
+      transition: all .18s ease;
+    }
+
+    .pref-tag.active {
+      border-color: rgba(35, 136, 255, .18);
+      background: linear-gradient(135deg, rgba(35, 136, 255, .12), rgba(32, 201, 143, .12));
+      color: var(--primary-deep);
+      box-shadow: inset 0 0 0 1px rgba(35, 136, 255, .08);
+    }
+
+    .pref-dialog-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px 14px;
+      background: #fff;
+      border-top: 1px solid #edf3fa;
+    }
+
+    .pref-count {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .pref-actions {
+      display: flex;
+      gap: 8px;
+    }
+
     .section-title {
       font-size: 20px;
       font-weight: 900;
@@ -917,6 +1026,7 @@
     </a>
     <a class="campus-tab-item" href="/info.html"><i class="el-icon-user"></i>我的</a>
   </nav>
+
   </div>
 </div>
 
@@ -930,12 +1040,14 @@
     data: {
       user: window.auth.getUser() || {},
       categoryButtons: [
-        { name: '公益活动', value: '公益活动', desc: '公益实践，服务社会', icon: 'el-icon-s-custom' },
-        { name: '创新实践', value: '创新实践', desc: '探索创新，实践成长', icon: 'el-icon-medal' },
-        { name: '志愿服务', value: '志愿服务', desc: '奉献爱心，温暖校园', icon: 'el-icon-lollipop' },
-        { name: '文艺活动', value: '文艺活动', desc: '文艺舞台，绽放青春', icon: 'el-icon-umbrella' },
+        { name: '学术讲座', value: '学术讲座', desc: '拓展视野，启发思考', icon: 'el-icon-reading' },
+        { name: '就业指导', value: '就业指导', desc: '规划未来，提升竞争力', icon: 'el-icon-suitcase' },
         { name: '竞赛训练', value: '竞赛训练', desc: '提升能力，挑战自我', icon: 'el-icon-trophy' },
-        { name: '其他活动', value: '其他', desc: '更多精彩，等你发现', icon: 'el-icon-star-on' }
+        { name: '创新实践', value: '创新实践', desc: '探索创新，实践成长', icon: 'el-icon-medal' },
+        { name: '文艺活动', value: '文艺活动', desc: '文艺舞台，绽放青春', icon: 'el-icon-umbrella' },
+        { name: '体育活动', value: '体育活动', desc: '强健体魄，活力校园', icon: 'el-icon-football' },
+        { name: '志愿公益', value: '志愿公益', desc: '奉献爱心，服务社会', icon: 'el-icon-s-custom' },
+        { name: '社团活动', value: '社团活动', desc: '社团联动，持续发生', icon: 'el-icon-star-on' }
       ],
       activities: [],
       keyword: '',
@@ -1103,10 +1215,7 @@
       },
       displayCategory(item) {
         if (!item) return '未分类';
-        if (item.category === '其他' && item.customCategory) {
-          return item.customCategory;
-        }
-        return item.category || '未分类';
+        return item.displayCategory || item.category || '未分类';
       },
       syncCategoryState() {
         if (!this.categorySelected || !this.selectedCategory) {

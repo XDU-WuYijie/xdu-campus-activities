@@ -1126,10 +1126,7 @@
       },
       displayCategory(item) {
         if (!item) return '未分类';
-        if (item.category === '其他' && item.customCategory) {
-          return item.customCategory;
-        }
-        return item.category || '未分类';
+        return item.displayCategory || item.category || '未分类';
       },
       formatTime(value) {
         return value ? value.replace('T', ' ') : '待定';

@@ -134,6 +134,29 @@ const util = {
     }
     return "";
   },
+  buildCurrentUrl(overrides) {
+    const url = new URL(window.location.href);
+    const params = overrides || {};
+    Object.keys(params).forEach(key => {
+      const value = params[key];
+      if (value === undefined || value === null || value === '') {
+        url.searchParams.delete(key);
+        return;
+      }
+      url.searchParams.set(key, value);
+    });
+    return url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '') + url.hash;
+  },
+  syncCurrentUrl(overrides) {
+    const next = this.buildCurrentUrl(overrides);
+    if (window.history && typeof window.history.replaceState === 'function') {
+      window.history.replaceState(null, '', next);
+    }
+    return next;
+  },
+  buildReturnUrl(overrides) {
+    return encodeURIComponent(this.buildCurrentUrl(overrides));
+  },
   goBack(fallback) {
     const returnUrl = this.getUrlParam('returnUrl');
     if (returnUrl) {

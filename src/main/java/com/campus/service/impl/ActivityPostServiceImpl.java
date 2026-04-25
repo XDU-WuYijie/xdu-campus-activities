@@ -19,6 +19,8 @@ import com.campus.entity.ActivityPostComment;
 import com.campus.entity.ActivityPostImage;
 import com.campus.entity.ActivityPostLike;
 import com.campus.entity.ActivityRegistration;
+import com.campus.entity.ActivityTag;
+import com.campus.entity.ActivityTagRelation;
 import com.campus.entity.User;
 import com.campus.mapper.ActivityCheckInRecordMapper;
 import com.campus.mapper.ActivityMapper;
@@ -27,8 +29,11 @@ import com.campus.mapper.ActivityPostImageMapper;
 import com.campus.mapper.ActivityPostLikeMapper;
 import com.campus.mapper.ActivityPostMapper;
 import com.campus.mapper.ActivityRegistrationMapper;
+import com.campus.mapper.ActivityTagMapper;
+import com.campus.mapper.ActivityTagRelationMapper;
 import com.campus.mapper.UserMapper;
 import com.campus.service.IActivityPostService;
+import com.campus.service.EmbeddingTaskService;
 import com.campus.service.INotificationService;
 import com.campus.utils.RedisIdWorker;
 import com.campus.utils.UserHolder;
@@ -107,6 +112,12 @@ public class ActivityPostServiceImpl extends ServiceImpl<ActivityPostMapper, Act
     private UserMapper userMapper;
 
     @Resource
+    private ActivityTagMapper activityTagMapper;
+
+    @Resource
+    private ActivityTagRelationMapper activityTagRelationMapper;
+
+    @Resource
     private RedisIdWorker redisIdWorker;
 
     @Resource
@@ -114,6 +125,9 @@ public class ActivityPostServiceImpl extends ServiceImpl<ActivityPostMapper, Act
 
     @Resource
     private INotificationService notificationService;
+
+    @Resource
+    private EmbeddingTaskService embeddingTaskService;
 
     @Override
     public Result queryPosts(Integer current, Integer pageSize, Long activityId, Long userId) {
@@ -175,6 +189,7 @@ public class ActivityPostServiceImpl extends ServiceImpl<ActivityPostMapper, Act
             images.forEach(activityPostImageMapper::insert);
         }
         invalidatePostPageCache();
+        embeddingTaskService.touchUser(currentUser.getId(), "DISCOVER_POST_CREATE");
         return Result.ok(buildPostVOs(Collections.singletonList(post), currentUser.getId()).stream().findFirst().orElse(null));
     }
 
@@ -202,6 +217,7 @@ public class ActivityPostServiceImpl extends ServiceImpl<ActivityPostMapper, Act
                 .eq(ActivityPostComment::getStatus, COMMENT_STATUS_NORMAL)
                 .set(ActivityPostComment::getStatus, COMMENT_STATUS_DELETED));
         invalidatePostPageCache();
+        embeddingTaskService.touchUser(currentUser.getId(), "DISCOVER_POST_DELETE");
         return Result.ok();
     }
 
@@ -244,6 +260,7 @@ public class ActivityPostServiceImpl extends ServiceImpl<ActivityPostMapper, Act
         if (persisted) {
             notifyPostLiked(post, currentUser);
         }
+        embeddingTaskService.touchUser(currentUser.getId(), "DISCOVER_POST_LIKE");
         return Result.ok();
     }
 
@@ -280,6 +297,7 @@ public class ActivityPostServiceImpl extends ServiceImpl<ActivityPostMapper, Act
             return Result.fail("取消点赞失败");
         }
         invalidatePostPageCache();
+        embeddingTaskService.touchUser(currentUser.getId(), "DISCOVER_POST_UNLIKE");
         return Result.ok();
     }
 
@@ -326,6 +344,7 @@ public class ActivityPostServiceImpl extends ServiceImpl<ActivityPostMapper, Act
                 .setSql("comment_count = comment_count + 1"));
         invalidatePostPageCache();
         notifyPostCommented(post, currentUser, content);
+        embeddingTaskService.touchUser(currentUser.getId(), "DISCOVER_POST_COMMENT");
         return Result.ok(buildCommentVOs(Collections.singletonList(comment)).stream().findFirst().orElse(null));
     }
 
@@ -353,12 +372,8 @@ public class ActivityPostServiceImpl extends ServiceImpl<ActivityPostMapper, Act
                 .apply("comment_count > 0")
                 .setSql("comment_count = comment_count - 1"));
         invalidatePostPageCache();
+        embeddingTaskService.touchUser(currentUser.getId(), "DISCOVER_POST_COMMENT_DELETE");
         return Result.ok();
-    }
-
-    @Override
-    public Result queryRecommendations() {
-        return Result.ok(Collections.emptyList(), 0L);
     }
 
     @Override
@@ -441,6 +456,7 @@ public class ActivityPostServiceImpl extends ServiceImpl<ActivityPostMapper, Act
                 userMapper.selectBatchIds(userIds).stream().collect(Collectors.toMap(User::getId, item -> item));
         Map<Long, Activity> activityMap = activityIds.isEmpty() ? Collections.emptyMap() :
                 activityMapper.selectBatchIds(activityIds).stream().collect(Collectors.toMap(Activity::getId, item -> item));
+        Map<Long, List<String>> activityTagNameMap = queryActivityTagNameMap(activityIds);
 
         List<ActivityPostVO> result = new ArrayList<>(posts.size());
         for (ActivityPost post : posts) {
@@ -458,7 +474,7 @@ public class ActivityPostServiceImpl extends ServiceImpl<ActivityPostMapper, Act
             vo.setActivityId(post.getActivityId());
             vo.setActivityTitle(activity == null ? "" : activity.getTitle());
             vo.setActivityCoverImage(activity == null ? "" : activity.getCoverImage());
-            vo.setActivityCategory(activity == null ? "" : displayCategory(activity));
+            vo.setActivityCategory(activity == null ? "" : displayCategory(activity, activityTagNameMap.get(activity.getId())));
             vo.setActivityStartTime(activity == null ? null : activity.getEventStartTime());
             vo.setActivityStartTimeText(activity == null ? "" : buildActivityStartTimeText(activity.getEventStartTime()));
             vo.setActivityStatusText(activity == null ? "" : buildActivityStatusText(activity));
@@ -654,13 +670,14 @@ public class ActivityPostServiceImpl extends ServiceImpl<ActivityPostMapper, Act
                     return left.compareTo(right);
                 })
                 .collect(Collectors.toList());
+        Map<Long, List<String>> activityTagNameMap = queryActivityTagNameMap(activities.stream().map(Activity::getId).collect(Collectors.toList()));
         List<EligibleActivityVO> result = new ArrayList<>(activities.size());
         for (Activity activity : activities) {
             EligibleActivityVO vo = new EligibleActivityVO();
             vo.setActivityId(activity.getId());
             vo.setActivityTitle(activity.getTitle());
             vo.setActivityCoverImage(activity.getCoverImage());
-            vo.setActivityCategory(displayCategory(activity));
+            vo.setActivityCategory(displayCategory(activity, activityTagNameMap.get(activity.getId())));
             vo.setEventStartTime(activity.getEventStartTime());
             vo.setEventEndTime(activity.getEventEndTime());
             result.add(vo);
@@ -668,14 +685,41 @@ public class ActivityPostServiceImpl extends ServiceImpl<ActivityPostMapper, Act
         return result;
     }
 
-    private String displayCategory(Activity activity) {
+    private String displayCategory(Activity activity, List<String> tagNames) {
         if (activity == null) {
             return "";
         }
-        if ("其他".equals(activity.getCategory()) && StrUtil.isNotBlank(activity.getCustomCategory())) {
-            return activity.getCustomCategory();
+        if (tagNames != null && !tagNames.isEmpty()) {
+            return StrUtil.blankToDefault(activity.getCategory(), "") + " / " + String.join("、", tagNames);
         }
         return StrUtil.blankToDefault(activity.getCategory(), "");
+    }
+
+    private Map<Long, List<String>> queryActivityTagNameMap(List<Long> activityIds) {
+        if (CollUtil.isEmpty(activityIds)) {
+            return Collections.emptyMap();
+        }
+        List<ActivityTagRelation> relations = activityTagRelationMapper.selectList(new LambdaQueryWrapper<ActivityTagRelation>()
+                .in(ActivityTagRelation::getActivityId, activityIds)
+                .orderByAsc(ActivityTagRelation::getId));
+        if (CollUtil.isEmpty(relations)) {
+            return Collections.emptyMap();
+        }
+        List<Long> tagIds = relations.stream().map(ActivityTagRelation::getTagId).distinct().collect(Collectors.toList());
+        Map<Long, String> tagNameMap = activityTagMapper.selectList(new LambdaQueryWrapper<ActivityTag>()
+                        .in(ActivityTag::getId, tagIds)
+                        .eq(ActivityTag::getStatus, 1))
+                .stream()
+                .collect(Collectors.toMap(ActivityTag::getId, ActivityTag::getName, (a, b) -> a));
+        Map<Long, List<String>> result = new LinkedHashMap<>();
+        for (ActivityTagRelation relation : relations) {
+            String name = tagNameMap.get(relation.getTagId());
+            if (StrUtil.isBlank(name)) {
+                continue;
+            }
+            result.computeIfAbsent(relation.getActivityId(), key -> new ArrayList<>()).add(name);
+        }
+        return result;
     }
 
     private String buildActivityStatusText(Activity activity) {

@@ -12,7 +12,7 @@ public class RedisConstants {
     public static final Long CACHE_ACTIVITY_DETAIL_TTL = 10L;
     public static final String CACHE_ACTIVITY_LIST_KEY = "cache:activity:list:";
     public static final Long CACHE_ACTIVITY_LIST_TTL = 1L;
-    public static final String CACHE_ACTIVITY_CATEGORIES_KEY = "cache:activity:categories:";
+    public static final String CACHE_ACTIVITY_CATEGORIES_KEY = "activity:category:tree";
     public static final Long CACHE_ACTIVITY_CATEGORIES_TTL = 30L;
     public static final String CACHE_ACTIVITY_USER_STATE_KEY = "cache:activity:user-state:";
     public static final Long CACHE_ACTIVITY_USER_STATE_TTL = 5L;
@@ -36,6 +36,13 @@ public class RedisConstants {
     public static final String ACTIVITY_VOUCHER_DISPLAY_KEY = "activity:voucher:display:";
     public static final String ACTIVITY_CHECK_IN_IDEMPOTENCY_KEY = "activity:checkin:idempotency:";
     public static final Long ACTIVITY_CHECK_IN_IDEMPOTENCY_TTL_MINUTES = 10L;
+    public static final String USER_PREFERENCE_TAGS_KEY = "user:preference:tags:";
+    public static final Long USER_PREFERENCE_TAGS_TTL = 30L;
+    public static final String RECOMMENDATION_USER_KEY = "recommend:user:";
+    public static final String RECOMMENDATION_USER_VERSION_KEY = "recommend:user:";
+    public static final String RECOMMENDATION_GLOBAL_VERSION_KEY = "recommend:global:version";
+    public static final String RECOMMENDATION_FALLBACK_HOT_KEY = "recommend:fallback:hot:size:";
+    public static final Long RECOMMENDATION_USER_TTL_MINUTES = 10L;
 
     public static final String LOCK_CACHE_KEY = "lock:cache:";
     public static final String USER_SIGN_KEY = "sign:";

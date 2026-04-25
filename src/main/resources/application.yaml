@@ -19,6 +19,14 @@ spring:
       chat:
         options:
           model: ${QWEN_MODEL:qwen-plus}
+  embedding:
+    enabled: true
+    model: ${QWEN_EMBEDDING_MODEL:text-embedding-v4}
+    dimensions: ${QWEN_EMBEDDING_DIMENSIONS:1024}
+    behavior-window-days: ${QWEN_EMBEDDING_BEHAVIOR_WINDOW_DAYS:30}
+    task-batch-size: 20
+    task-retry-limit: 3
+    compensation-cron: 0 */2 * * * ?
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://127.0.0.1:3307/campus?useSSL=false&serverTimezone=UTC

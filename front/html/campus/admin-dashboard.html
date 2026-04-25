@@ -549,7 +549,7 @@
     </div>
   </section>
 
-  <el-tabs v-model="tab" class="admin-tabs">
+  <el-tabs v-model="tab" class="admin-tabs" @tab-click="syncTabUrl">
     <el-tab-pane name="activities">
       <span slot="label" class="title-with-badge">
         <span>活动审核</span>
@@ -567,7 +567,7 @@
             <div class="item-title">{{ item.title }}</div>
             <div class="item-line">审核类型：{{ pendingActivityTypeText(item.status) }}</div>
             <div class="item-line">主办方：{{ item.organizerName || '未填写' }}</div>
-            <div class="item-line">分类：{{ item.category }}</div>
+            <div class="item-line">分类：{{ item.displayCategory || item.category || '未分类' }}</div>
             <div class="item-line">地点：{{ item.location }}</div>
             <div class="item-line">活动时间：{{ formatTime(item.eventStartTime) }} - {{ formatTime(item.eventEndTime) }}</div>
             <div class="item-line">报名时间：{{ formatTime(item.registrationStartTime) }} - {{ formatTime(item.registrationEndTime) }}</div>
@@ -595,7 +595,7 @@
           <div class="list-card-content">
             <div class="item-title">{{ item.title }}</div>
             <div class="item-line">主办方：{{ item.organizerName || '未填写' }}</div>
-            <div class="item-line">分类：{{ item.category }}</div>
+            <div class="item-line">分类：{{ item.displayCategory || item.category || '未分类' }}</div>
             <div class="item-line">地点：{{ item.location }}</div>
             <div class="item-line">报名人数：{{ item.registeredCount || 0 }} / {{ item.maxParticipants }}</div>
             <div class="item-line">活动时间：{{ formatTime(item.eventStartTime) }} - {{ formatTime(item.eventEndTime) }}</div>
@@ -803,6 +803,10 @@
         if (!allowedTabs.includes(this.tab)) {
           this.tab = 'activities';
         }
+        this.syncTabUrl();
+      },
+      syncTabUrl() {
+        util.syncCurrentUrl({ tab: this.tab });
       },
       goBack() {
         location.href = '/index.html';
@@ -961,10 +965,10 @@
         }).catch(() => {});
       },
       viewDetail(id) {
-        location.href = '/activity-detail.html?id=' + id + '&mode=admin-preview&returnUrl=' + encodeURIComponent(location.pathname + location.search + '#activities');
+        location.href = '/activity-detail.html?id=' + id + '&mode=admin-preview&returnUrl=' + util.buildReturnUrl();
       },
       goNotifications() {
-        location.href = '/notification.html?returnUrl=' + encodeURIComponent(location.pathname + location.search);
+        location.href = '/notification.html?returnUrl=' + util.buildReturnUrl();
       },
       initNotifications() {
         window.notificationClient.fetchUnread().then(count => this.unreadCount = count || 0);
@@ -1030,7 +1034,7 @@
         if (!items || !items.length) return '暂无';
         return items.map(item => {
           const title = this.escapeHtml(item.title || '未命名活动');
-          const category = this.escapeHtml(item.displayCategory || item.customCategory || item.category || '其他');
+          const category = this.escapeHtml(item.displayCategory || item.category || '未分类');
           const organizer = this.escapeHtml(item.organizerName || '待补充');
           const location = this.escapeHtml(item.location || '待补充');
           const time = this.escapeHtml(item.eventStartTime || '待补充');
@@ -1058,7 +1062,7 @@
           if (!item) return '';
           if (typeof item === 'string') return item;
           const title = item.title || '未命名活动';
-          const category = item.displayCategory || item.customCategory || item.category || '其他';
+          const category = item.displayCategory || item.category || '未分类';
           const organizer = item.organizerName || '待补充';
           const location = item.location || '待补充';
           const time = item.eventStartTime || '待补充';
