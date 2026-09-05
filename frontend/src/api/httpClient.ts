@@ -4,7 +4,10 @@ import type {
   AxiosRequestConfig,
   AxiosResponse,
 } from 'axios'
-import { clearStoredSession, getAccessToken } from '../features/auth/authSession'
+import {
+  clearStoredSession,
+  getAccessToken,
+} from '../features/auth/model'
 import { ApiError } from './ApiError'
 import type { ApiResult, PageResult } from './types'
 

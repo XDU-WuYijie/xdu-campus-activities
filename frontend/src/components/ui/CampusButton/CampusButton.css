@@ -1,0 +1,18 @@
+.campus-button.adm-button {
+  --border-radius: var(--campus-radius-md);
+
+  min-height: var(--campus-touch-target);
+  padding-right: var(--campus-space-4);
+  padding-left: var(--campus-space-4);
+  font-size: var(--campus-font-size-md);
+  font-weight: var(--campus-font-weight-semibold);
+}
+
+.campus-button.adm-button-mini,
+.campus-button.adm-button-small {
+  min-height: 36px;
+}
+
+.campus-button.adm-button-fill-outline {
+  background: var(--campus-color-surface);
+}

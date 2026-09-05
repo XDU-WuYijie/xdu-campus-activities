@@ -1,0 +1,23 @@
+.state-feedback {
+  display: grid;
+  min-height: 180px;
+  padding: var(--campus-space-6);
+  align-content: center;
+  justify-items: center;
+  color: var(--campus-color-text-secondary);
+  gap: var(--campus-space-4);
+  text-align: center;
+}
+
+.state-feedback--page {
+  min-height: 100vh;
+  padding:
+    calc(var(--campus-space-6) + var(--campus-safe-top))
+    calc(var(--campus-space-6) + var(--campus-safe-right))
+    calc(var(--campus-space-6) + var(--campus-safe-bottom))
+    calc(var(--campus-space-6) + var(--campus-safe-left));
+}
+
+.state-feedback .adm-error-block {
+  --image-height: 120px;
+}

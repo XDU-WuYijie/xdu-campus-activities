@@ -3,9 +3,8 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import {
   ErrorState,
   LoadingState,
-} from '../components/ui/StateFeedback'
-import { hasRequiredAccess } from '../features/auth/authSession'
-import { useAuth } from '../features/auth/useAuth'
+} from '../components/ui'
+import { hasRequiredAccess, useAuth } from '../features/auth/model'
 
 interface RoleRouteProps extends PropsWithChildren {
   requiredPermission?: string

@@ -4,6 +4,7 @@ import {
   NotFoundPage,
   RoutePlaceholder,
 } from '../pages/RoutePlaceholder'
+import { M2PreviewPage } from '../pages/M2PreviewPage'
 import { AuthenticatedRoute, RoleRoute } from './guards'
 
 const ACTIVITY_ADMIN_ROLE = 'ACTIVITY_ADMIN'
@@ -211,6 +212,10 @@ export const router = createBrowserRouter([
         element: <ForbiddenPage />,
       },
     ],
+  },
+  {
+    path: '/ui-preview',
+    element: import.meta.env.DEV ? <M2PreviewPage /> : <NotFoundPage />,
   },
   {
     path: '*',

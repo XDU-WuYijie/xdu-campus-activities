@@ -1,0 +1,107 @@
+html:root {
+  color-scheme: light;
+
+  /* Brand and semantic colors */
+  --campus-color-brand: #2388ff;
+  --campus-color-primary: #1769e0;
+  --campus-color-primary-pressed: #1259bf;
+  --campus-color-primary-soft: #eaf4ff;
+  --campus-color-accent: #20c98f;
+  --campus-color-accent-soft: #e8fbf4;
+  --campus-color-success: #087a52;
+  --campus-color-success-soft: #e8f8f1;
+  --campus-color-warning: #b45309;
+  --campus-color-warning-soft: #fff7e8;
+  --campus-color-danger: #c9363b;
+  --campus-color-danger-soft: #fff0f1;
+  --campus-color-info: #1769e0;
+
+  /* Surfaces, text, and borders */
+  --campus-color-page: #f7fbff;
+  --campus-color-surface: #ffffff;
+  --campus-color-surface-glass: rgb(255 255 255 / 96%);
+  --campus-color-surface-subtle: #f1f6fb;
+  --campus-color-surface-raised: #ffffff;
+  --campus-color-text: #102a43;
+  --campus-color-text-secondary: #53657c;
+  --campus-color-text-tertiary: #64748b;
+  --campus-color-text-disabled: #a8b4c2;
+  --campus-color-text-inverse: #ffffff;
+  --campus-color-border: #dfe8f2;
+  --campus-color-border-strong: #cbd8e6;
+  --campus-color-mask: rgb(16 42 67 / 48%);
+
+  /* Typography */
+  --campus-font-family:
+    Inter, "PingFang SC", "Microsoft YaHei", system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --campus-font-size-xs: 12px;
+  --campus-font-size-sm: 13px;
+  --campus-font-size-md: 14px;
+  --campus-font-size-lg: 16px;
+  --campus-font-size-xl: 18px;
+  --campus-font-size-2xl: 22px;
+  --campus-font-size-3xl: 28px;
+  --campus-line-height-tight: 1.3;
+  --campus-line-height-normal: 1.5;
+  --campus-line-height-relaxed: 1.7;
+  --campus-font-weight-regular: 400;
+  --campus-font-weight-medium: 500;
+  --campus-font-weight-semibold: 600;
+  --campus-font-weight-bold: 700;
+
+  /* Four-pixel spacing scale */
+  --campus-space-0: 0;
+  --campus-space-1: 4px;
+  --campus-space-2: 8px;
+  --campus-space-3: 12px;
+  --campus-space-4: 16px;
+  --campus-space-5: 20px;
+  --campus-space-6: 24px;
+  --campus-space-8: 32px;
+  --campus-space-10: 40px;
+  --campus-space-12: 48px;
+
+  /* Shape and elevation */
+  --campus-radius-xs: 2px;
+  --campus-radius-sm: 4px;
+  --campus-radius-md: 8px;
+  --campus-radius-dialog: 20px;
+  --campus-radius-full: 999px;
+  --campus-shadow-sm: 0 2px 8px rgb(32 94 156 / 6%);
+  --campus-shadow-md: 0 10px 28px rgb(32 94 156 / 8%);
+  --campus-shadow-lg: 0 16px 40px rgb(16 42 67 / 14%);
+  --campus-shadow-nav: 0 -8px 26px rgb(32 94 156 / 6%);
+
+  /* Stable mobile layout dimensions */
+  --campus-app-width: 390px;
+  --campus-wide-page-width: 1120px;
+  --campus-page-gutter: 16px;
+  --campus-header-height: 52px;
+  --campus-tabbar-height: 68px;
+  --campus-touch-target: 44px;
+  --campus-safe-top: env(safe-area-inset-top, 0px);
+  --campus-safe-right: env(safe-area-inset-right, 0px);
+  --campus-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --campus-safe-left: env(safe-area-inset-left, 0px);
+
+  /* Layer order */
+  --campus-z-sticky: 100;
+  --campus-z-navigation: 200;
+  --campus-z-popup: 1000;
+  --campus-z-toast: 1100;
+
+  /* Ant Design Mobile theme bridge */
+  --adm-color-primary: var(--campus-color-primary);
+  --adm-color-success: var(--campus-color-success);
+  --adm-color-warning: var(--campus-color-warning);
+  --adm-color-danger: var(--campus-color-danger);
+  --adm-color-text: var(--campus-color-text);
+  --adm-color-text-secondary: var(--campus-color-text-secondary);
+  --adm-color-weak: var(--campus-color-text-tertiary);
+  --adm-color-light: var(--campus-color-text-disabled);
+  --adm-color-border: var(--campus-color-border);
+  --adm-color-background: var(--campus-color-surface);
+  --adm-font-family: var(--campus-font-family);
+  --adm-font-size-main: var(--campus-font-size-md);
+}

@@ -1,9 +1,9 @@
-import { apiClient } from '../../api/httpClient'
-import { ApiError } from '../../api/ApiError'
+import { apiClient } from '../../../api/httpClient'
+import { ApiError } from '../../../api/ApiError'
 import {
   normalizeSessionUser,
   type SessionUser,
-} from './authSession'
+} from '../model'
 
 export async function fetchCurrentUser(): Promise<SessionUser> {
   const user = await apiClient.get<SessionUser | null>('/user/me')

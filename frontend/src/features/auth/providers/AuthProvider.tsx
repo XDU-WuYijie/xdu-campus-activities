@@ -6,9 +6,9 @@ import {
   useMemo,
   useSyncExternalStore,
 } from 'react'
-import { queryKeys } from '../../api/queryKeys'
-import { fetchCurrentUser, requestLogout } from './authApi'
-import { AuthContext, type AuthStatus } from './authContext'
+import { queryKeys } from '../../../api/queryKeys'
+import { fetchCurrentUser, requestLogout } from '../api'
+import { AuthContext, type AuthStatus } from '../model'
 import {
   clearStoredSession,
   getAccessToken,
@@ -18,7 +18,7 @@ import {
   syncStoredSession,
   TOKEN_STORAGE_KEY,
   USER_STORAGE_KEY,
-} from './authSession'
+} from '../model'
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const queryClient = useQueryClient()

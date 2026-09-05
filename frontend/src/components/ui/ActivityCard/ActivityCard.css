@@ -1,0 +1,121 @@
+.activity-card.adm-card {
+  overflow: hidden;
+  border: 1px solid var(--campus-color-border);
+  border-radius: var(--campus-radius-md);
+  background: var(--campus-color-surface);
+  box-shadow: var(--campus-shadow-sm);
+}
+
+.activity-card .adm-card-body {
+  padding: var(--campus-space-3);
+}
+
+.activity-card__layout {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: var(--campus-space-3);
+}
+
+.activity-card__cover {
+  width: 112px;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: var(--campus-radius-sm);
+  background: var(--campus-color-surface-subtle);
+}
+
+.activity-card__content {
+  min-width: 0;
+}
+
+.activity-card__eyebrow {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--campus-color-primary);
+  gap: var(--campus-space-2);
+  font-size: var(--campus-font-size-xs);
+  font-weight: var(--campus-font-weight-semibold);
+}
+
+.activity-card__eyebrow > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-card h3 {
+  display: -webkit-box;
+  margin: var(--campus-space-1) 0 var(--campus-space-2);
+  overflow: hidden;
+  color: var(--campus-color-text);
+  font-size: var(--campus-font-size-lg);
+  line-height: var(--campus-line-height-tight);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.activity-card__meta {
+  display: grid;
+  margin: 0;
+  color: var(--campus-color-text-secondary);
+  gap: var(--campus-space-1);
+  font-size: var(--campus-font-size-xs);
+}
+
+.activity-card__meta > div {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--campus-space-1);
+}
+
+.activity-card__meta svg {
+  color: var(--campus-color-text-tertiary);
+  font-size: 15px;
+}
+
+.activity-card__meta dt {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.activity-card__meta dd {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-card__tags {
+  display: flex;
+  margin-top: var(--campus-space-3);
+  flex-wrap: wrap;
+  gap: var(--campus-space-1);
+}
+
+.activity-card__action.adm-button {
+  min-height: 36px;
+  margin-top: var(--campus-space-2);
+  color: var(--campus-color-primary);
+}
+
+@media (max-width: 359px) {
+  .activity-card__layout {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+
+  .activity-card__cover {
+    width: 96px;
+  }
+}

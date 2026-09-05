@@ -329,7 +329,16 @@ git clone <your-repo-url>
 cd xdu-campus-activities
 ```
 
-### 2. 配置环境变量
+### 2. 安装前端依赖
+
+```bash
+./scripts/bootstrap.sh
+```
+
+脚本校验 Node.js 版本，并严格按照 `frontend/package-lock.json` 执行
+`npm ci`，适合在新机器或干净工作区初始化前端环境。
+
+### 3. 配置环境变量
 
 请在当前终端、IDE 运行配置或系统环境中直接设置以下变量：
 
@@ -348,22 +357,21 @@ export OSS_ACCESS_KEY_SECRET=xxx
 export QWEN_API_KEY=xxx
 ```
 
-### 3. 启动基础服务
+### 4. 启动基础服务
 
 ```bash
 docker compose up -d
 ```
 
-### 4. 启动 Spring Boot 后端
+### 5. 启动 Spring Boot 后端
 
 ```bash
 mvn -f backend/pom.xml spring-boot:run
 ```
 
-### 5. 启动新前端
+### 6. 启动新前端
 
 ```bash
-npm --prefix frontend install
 npm --prefix frontend run dev
 ```
 
@@ -382,7 +390,7 @@ npm --prefix frontend start
 
 生产托管默认监听 `3000`，可通过 `PORT` 修改端口，通过 `BACKEND_URL` 指定后端地址。
 
-### 6. 常用命令
+### 7. 常用命令
 
 ```bash
 docker compose ps

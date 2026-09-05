@@ -2,13 +2,15 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AuthContextValue } from '../features/auth/authContext'
-import { useAuth } from '../features/auth/useAuth'
+import type { AuthContextValue } from '../features/auth/model'
+import { useAuth } from '../features/auth/model'
 import { AuthenticatedRoute, RoleRoute } from './guards'
 
-vi.mock('../features/auth/useAuth', () => ({
-  useAuth: vi.fn(),
-}))
+vi.mock('../features/auth/model', async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import('../features/auth/model')>()
+  return { ...original, useAuth: vi.fn() }
+})
 
 const mockUseAuth = vi.mocked(useAuth)
 
