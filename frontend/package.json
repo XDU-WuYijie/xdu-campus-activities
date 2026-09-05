@@ -10,9 +10,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint && npm run lint:structure",
-    "lint:structure": "node scripts/check-structure.mjs",
+    "lint:structure": "tsx scripts/check-structure.ts",
     "preview": "vite preview",
-    "start": "node server/index.mjs",
+    "start": "tsx server/index.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -29,6 +29,7 @@
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.87.0",
     "react-router-dom": "^7.18.3",
+    "tsx": "^4.23.13",
     "zod": "^4.5.4"
   },
   "devDependencies": {

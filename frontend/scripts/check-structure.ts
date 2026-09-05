@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 
 const frontendRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
 const srcRoot = join(frontendRoot, 'src')
-const errors = []
+const errors: string[] = []
 let checkedModules = 0
 
 const componentCollections = [
@@ -23,11 +23,11 @@ const featureLayers = new Set([
   'utils',
 ])
 
-function displayPath(path) {
+function displayPath(path: string) {
   return relative(frontendRoot, path)
 }
 
-function checkModuleCollection(relativePath) {
+function checkModuleCollection(relativePath: string) {
   const collectionPath = join(srcRoot, relativePath)
 
   for (const entry of readdirSync(collectionPath, { withFileTypes: true })) {
