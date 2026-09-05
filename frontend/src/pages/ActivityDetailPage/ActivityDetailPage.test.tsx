@@ -62,6 +62,7 @@ function renderDetail(initialEntry: string) {
             path="/activities/categories/:categoryId"
             element={<LocationProbe />}
           />
+          <Route path="/me/registrations" element={<LocationProbe />} />
           <Route path="/" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>
@@ -190,5 +191,25 @@ describe('ActivityDetailPage', () => {
     ).toBeTruthy()
     expect(screen.getByText('报名成功')).toBeInTheDocument()
     expect(screen.queryByText('退出申请已通过')).not.toBeInTheDocument()
+  })
+
+  it('keeps the full detail URL when opening my registrations', async () => {
+    const user = userEvent.setup()
+    mockFetchRegistrationStatus.mockResolvedValueOnce({
+      activityId: '30',
+      message: '报名成功',
+      status: 'SUCCESS',
+    })
+    renderDetail(
+      '/activities/30?returnTo=%2Factivities%2Fcategories%2F10',
+    )
+
+    await user.click(
+      await screen.findByRole('button', { name: '查看我的报名' }),
+    )
+
+    expect(screen.getByLabelText('returned URL')).toHaveTextContent(
+      '/me/registrations?returnTo=%2Factivities%2F30%3FreturnTo%3D%252Factivities%252Fcategories%252F10',
+    )
   })
 })

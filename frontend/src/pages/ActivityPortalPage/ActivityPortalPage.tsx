@@ -281,7 +281,7 @@ export function ActivityPortalPage() {
       messages: '/notifications',
       me: currentUser?.roleCodes.includes(PLATFORM_ADMIN_ROLE)
         ? '/admin'
-        : '/me/profile',
+        : '/me',
       publish: canManageActivities
         ? '/organizer/activities/new'
         : '/discover/create',

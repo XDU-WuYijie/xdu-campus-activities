@@ -63,9 +63,13 @@ export const queryKeys = {
   },
   profile: {
     all: profileRoot,
+    application: () => [...profileRoot, 'organizer-application'] as const,
     detail: (userId: EntityId) =>
       [...profileRoot, 'detail', userId] as const,
+    posts: (userId: EntityId) =>
+      [...profileRoot, 'posts', userId] as const,
     preferences: () => [...profileRoot, 'preferences'] as const,
+    summary: () => [...profileRoot, 'organizer-summary'] as const,
   },
   organizer: {
     all: organizerRoot,

@@ -133,7 +133,7 @@ public class ActivityPostServiceImpl extends ServiceImpl<ActivityPostMapper, Act
     public Result queryPosts(Integer current, Integer pageSize, Long activityId, Long userId) {
         int pageNo = normalizePage(current);
         int size = normalizePageSize(pageSize, 20);
-        PageCacheValue cached = readPageCache(pageNo, size, activityId);
+        PageCacheValue cached = userId == null ? readPageCache(pageNo, size, activityId) : null;
         List<ActivityPost> posts;
         long total;
         if (cached != null) {
@@ -144,10 +144,13 @@ public class ActivityPostServiceImpl extends ServiceImpl<ActivityPostMapper, Act
                     new LambdaQueryWrapper<ActivityPost>()
                             .eq(ActivityPost::getStatus, POST_STATUS_NORMAL)
                             .eq(activityId != null, ActivityPost::getActivityId, activityId)
+                            .eq(userId != null, ActivityPost::getUserId, userId)
                             .orderByDesc(ActivityPost::getCreateTime));
             posts = page.getRecords();
             total = page.getTotal();
-            writePageCache(pageNo, size, activityId, posts, total);
+            if (userId == null) {
+                writePageCache(pageNo, size, activityId, posts, total);
+            }
         }
         Long effectiveUserId = userId != null ? userId : currentUserIdOrNull();
         List<ActivityPostVO> result = buildPostVOs(posts, effectiveUserId);

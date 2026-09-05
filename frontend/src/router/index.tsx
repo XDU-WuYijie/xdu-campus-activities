@@ -6,10 +6,13 @@ import {
 } from '../pages/RoutePlaceholder'
 import { ActivityDetailPage } from '../pages/ActivityDetailPage'
 import { ActivityPortalPage } from '../pages/ActivityPortalPage'
+import { ActivityPreferencesPage } from '../pages/ActivityPreferencesPage'
 import { LoginPage } from '../pages/LoginPage'
 import { M2PreviewPage } from '../pages/M2PreviewPage'
 import { MyFavoritesPage } from '../pages/MyFavoritesPage'
 import { MyRegistrationsPage } from '../pages/MyRegistrationsPage'
+import { ProfileEditPage } from '../pages/ProfileEditPage'
+import { ProfilePage } from '../pages/ProfilePage'
 import { AuthenticatedRoute, RoleRoute } from './guards'
 
 const ACTIVITY_ADMIN_ROLE = 'ACTIVITY_ADMIN'
@@ -65,24 +68,16 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: '/me',
+        element: <ProfilePage />,
+      },
+      {
         path: '/me/profile',
-        element: (
-          <RoutePlaceholder
-            description="个人资料将在 M6 迁移。"
-            showBack
-            title="个人资料"
-          />
-        ),
+        element: <ProfileEditPage />,
       },
       {
         path: '/me/preferences',
-        element: (
-          <RoutePlaceholder
-            description="活动偏好将在 M6 迁移。"
-            showBack
-            title="活动偏好"
-          />
-        ),
+        element: <ActivityPreferencesPage />,
       },
       {
         path: '/me/registrations',

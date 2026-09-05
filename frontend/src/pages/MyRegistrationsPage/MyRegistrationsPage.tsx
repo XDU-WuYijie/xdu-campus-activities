@@ -36,6 +36,7 @@ import {
   type RegistrationRecord,
 } from '../../features/registration'
 import { formatActivityTime } from '../../features/activities'
+import { safeReturnTo } from '../../router/returnTo'
 import './MyRegistrationsPage.css'
 
 const PAGE_SIZE = 10
@@ -142,6 +143,10 @@ export function MyRegistrationsPage() {
   const [renderedAt] = useState(Date.now)
   const [voucherRecord, setVoucherRecord] =
     useState<RegistrationRecord | null>(null)
+  const returnTo = safeReturnTo(
+    new URLSearchParams(location.search).get('returnTo'),
+    '/me',
+  )
   const queryParams = useMemo(
     () => ({ filter, keyword: keyword || undefined, pageSize: PAGE_SIZE }),
     [filter, keyword],
@@ -230,7 +235,10 @@ export function MyRegistrationsPage() {
   return (
     <AppShell>
       <AppPage className="my-registration-page">
-        <PageHeader onBack={() => navigate('/')} title="我的报名" />
+        <PageHeader
+          onBack={() => navigate(returnTo, { replace: true })}
+          title="我的报名"
+        />
         <section
           aria-label="报名记录搜索与筛选"
           className="my-registration-page__filters"

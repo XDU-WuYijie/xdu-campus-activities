@@ -38,6 +38,7 @@ import {
   getActivityStatus,
 } from '../../features/activities'
 import { useAuth } from '../../features/auth'
+import { safeReturnTo, withReturnTo } from '../../router/returnTo'
 import {
   cancelRegistration,
   fetchRegistrationStatus,
@@ -54,14 +55,6 @@ const PLATFORM_ADMIN_ROLE = 'PLATFORM_ADMIN'
 const ACTIVITY_CREATE_PERMISSION = 'activity:create'
 
 type DetailTab = 'detail' | 'faq' | 'flow'
-
-function safeReturnTo(value: string | null): string {
-  if (!value || !value.startsWith('/') || value.startsWith('//')) {
-    return '/'
-  }
-
-  return value
-}
 
 export function ActivityDetailPage() {
   const queryClient = useQueryClient()
@@ -585,7 +578,14 @@ export function ActivityDetailPage() {
             {registered ? (
               <CampusButton
                 color="primary"
-                onClick={() => navigate('/me/registrations')}
+                onClick={() =>
+                  navigate(
+                    withReturnTo(
+                      '/me/registrations',
+                      `${location.pathname}${location.search}`,
+                    ),
+                  )
+                }
               >
                 查看我的报名
               </CampusButton>

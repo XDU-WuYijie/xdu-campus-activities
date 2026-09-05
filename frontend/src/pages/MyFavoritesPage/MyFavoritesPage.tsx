@@ -27,6 +27,7 @@ import {
   fetchMyFavorites,
   unfavoriteActivity,
 } from '../../features/favorites'
+import { safeReturnTo } from '../../router/returnTo'
 import './MyFavoritesPage.css'
 
 const PAGE_SIZE = 10
@@ -37,6 +38,10 @@ export function MyFavoritesPage() {
   const queryClient = useQueryClient()
   const [keywordDraft, setKeywordDraft] = useState('')
   const [keyword, setKeyword] = useState('')
+  const returnTo = safeReturnTo(
+    new URLSearchParams(location.search).get('returnTo'),
+    '/me',
+  )
   const queryParams = useMemo(
     () => ({ keyword: keyword || undefined, pageSize: PAGE_SIZE }),
     [keyword],
@@ -94,7 +99,10 @@ export function MyFavoritesPage() {
   return (
     <AppShell>
       <AppPage className="my-favorites-page">
-        <PageHeader onBack={() => navigate('/')} title="我的收藏" />
+        <PageHeader
+          onBack={() => navigate(returnTo, { replace: true })}
+          title="我的收藏"
+        />
         <div className="my-favorites-page__search">
           <SearchBar
             onChange={setKeywordDraft}
