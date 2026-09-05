@@ -210,10 +210,10 @@ export const router = createBrowserRouter([
         path: '/403',
         element: <ForbiddenPage />,
       },
-      {
-        path: '*',
-        element: <NotFoundPage />,
-      },
     ],
+  },
+  {
+    path: '*',
+    element: <NotFoundPage />,
   },
 ])
