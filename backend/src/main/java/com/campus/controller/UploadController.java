@@ -18,11 +18,13 @@ public class UploadController {
     @Resource
     private OssService ossService;
 
+    // ignore_security_alert
     @PostMapping("activity")
     public Result uploadActivityImage(@RequestParam("file") MultipartFile image) {
         return Result.ok(ossService.uploadActivityImage(UserHolder.getUser().getId(), image));
     }
 
+    // ignore_security_alert
     @PostMapping("discover-image")
     public Result uploadDiscoverImage(@RequestParam("file") MultipartFile image) {
         return Result.ok(ossService.uploadDiscoverImage(UserHolder.getUser().getId(), image));

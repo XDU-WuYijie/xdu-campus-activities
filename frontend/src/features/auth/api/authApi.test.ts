@@ -2,7 +2,12 @@ import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import type { ApiError } from '../../../api/ApiError'
 import { server } from '../../../test/server'
-import { fetchCurrentUser, requestLogout } from './authApi'
+import {
+  fetchCurrentUser,
+  requestLogin,
+  requestLogout,
+  sendLoginCode,
+} from './authApi'
 import { setAccessToken } from '../model'
 
 describe('authApi', () => {
@@ -66,5 +71,44 @@ describe('authApi', () => {
     await requestLogout()
 
     expect(logoutCalled).toBe(true)
+  })
+
+  it('sends a login code with the phone query parameter', async () => {
+    server.use(
+      http.post('*/api/user/code', ({ request }) => {
+        expect(new URL(request.url).searchParams.get('phone')).toBe(
+          '13800138000',
+        )
+        return HttpResponse.json({
+          data: null,
+          errorMsg: null,
+          success: true,
+          total: null,
+        })
+      }),
+    )
+
+    await expect(sendLoginCode('13800138000')).resolves.toBeNull()
+  })
+
+  it('submits password login credentials and returns the token', async () => {
+    server.use(
+      http.post('*/api/user/login', async ({ request }) => {
+        await expect(request.json()).resolves.toEqual({
+          password: '123456',
+          phone: 'admin',
+        })
+        return HttpResponse.json({
+          data: 'admin-token',
+          errorMsg: null,
+          success: true,
+          total: null,
+        })
+      }),
+    )
+
+    await expect(
+      requestLogin({ password: '123456', phone: 'admin' }),
+    ).resolves.toBe('admin-token')
   })
 })

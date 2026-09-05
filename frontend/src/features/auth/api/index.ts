@@ -1,1 +1,7 @@
-export { fetchCurrentUser, requestLogout } from './authApi'
+export {
+  fetchCurrentUser,
+  requestLogin,
+  requestLogout,
+  sendLoginCode,
+  type LoginPayload,
+} from './authApi'

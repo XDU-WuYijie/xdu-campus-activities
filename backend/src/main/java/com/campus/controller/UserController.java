@@ -29,13 +29,6 @@ import java.util.concurrent.TimeUnit;
 import static com.campus.utils.RedisConstants.LOGIN_USER_KEY;
 import static com.campus.utils.RedisConstants.LOGIN_USER_TTL;
 
-/**
- * <p>
- * 前端控制器
- * </p>
- *
- * @author 虎哥
- */
 @Slf4j
 @RestController
 @RequestMapping("/user")

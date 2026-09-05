@@ -4,6 +4,7 @@ import {
   NotFoundPage,
   RoutePlaceholder,
 } from '../pages/RoutePlaceholder'
+import { LoginPage } from '../pages/LoginPage'
 import { M2PreviewPage } from '../pages/M2PreviewPage'
 import { AuthenticatedRoute, RoleRoute } from './guards'
 
@@ -14,12 +15,7 @@ const ACTIVITY_CREATE_PERMISSION = 'activity:create'
 export const router = createBrowserRouter([
   {
     path: '/login',
-    element: (
-      <RoutePlaceholder
-        description="登录页面将在 M3 迁移。"
-        title="登录"
-      />
-    ),
+    element: <LoginPage />,
   },
   {
     element: <AuthenticatedRoute />,
