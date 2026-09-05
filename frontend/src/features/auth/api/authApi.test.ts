@@ -1,9 +1,9 @@
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
-import type { ApiError } from '../../api/ApiError'
-import { server } from '../../test/server'
+import type { ApiError } from '../../../api/ApiError'
+import { server } from '../../../test/server'
 import { fetchCurrentUser, requestLogout } from './authApi'
-import { setAccessToken } from './authSession'
+import { setAccessToken } from '../model'
 
 describe('authApi', () => {
   it('fetches and normalizes the current user with authentication', async () => {

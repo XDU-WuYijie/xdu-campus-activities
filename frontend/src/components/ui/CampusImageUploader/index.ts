@@ -1,0 +1,1 @@
+export { CampusImageUploader } from './CampusImageUploader'

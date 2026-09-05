@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type PropsWithChildren } from 'react'
-import { ErrorState } from './StateFeedback'
+import { ErrorState } from '../StateFeedback'
 
 interface AppErrorBoundaryState {
   hasError: boolean

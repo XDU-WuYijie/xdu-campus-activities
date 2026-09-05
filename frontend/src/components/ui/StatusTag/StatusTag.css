@@ -1,0 +1,36 @@
+.status-tag.adm-tag {
+  --border-radius: var(--campus-radius-full);
+
+  min-height: 24px;
+  padding: 2px var(--campus-space-2);
+  border-color: var(--campus-color-border-strong);
+  background: var(--campus-color-surface-subtle);
+  color: var(--campus-color-text-secondary);
+  font-size: var(--campus-font-size-xs);
+  font-weight: var(--campus-font-weight-semibold);
+  line-height: var(--campus-line-height-normal);
+}
+
+.status-tag--primary.adm-tag {
+  border-color: var(--campus-color-primary);
+  background: var(--campus-color-primary-soft);
+  color: var(--campus-color-primary);
+}
+
+.status-tag--success.adm-tag {
+  border-color: var(--campus-color-success);
+  background: var(--campus-color-success-soft);
+  color: var(--campus-color-success);
+}
+
+.status-tag--warning.adm-tag {
+  border-color: var(--campus-color-warning);
+  background: var(--campus-color-warning-soft);
+  color: var(--campus-color-warning);
+}
+
+.status-tag--danger.adm-tag {
+  border-color: var(--campus-color-danger);
+  background: var(--campus-color-danger-soft);
+  color: var(--campus-color-danger);
+}

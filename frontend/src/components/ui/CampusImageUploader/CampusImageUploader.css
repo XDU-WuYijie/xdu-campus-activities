@@ -1,0 +1,32 @@
+.campus-image-uploader {
+  --cell-size: 88px;
+  --gap: var(--campus-space-2);
+}
+
+.campus-image-uploader .adm-image-uploader-cell {
+  overflow: hidden;
+  border: 1px solid var(--campus-color-border);
+  border-radius: var(--campus-radius-md);
+  background: var(--campus-color-surface-subtle);
+}
+
+.campus-image-uploader .adm-image-uploader-upload-button {
+  color: var(--campus-color-text-secondary);
+  background: transparent;
+}
+
+.campus-image-uploader__trigger {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-content: center;
+  justify-items: center;
+  color: var(--campus-color-text-secondary);
+  gap: var(--campus-space-1);
+  font-size: var(--campus-font-size-xs);
+}
+
+.campus-image-uploader__trigger > svg {
+  color: var(--campus-color-primary);
+  font-size: 24px;
+}

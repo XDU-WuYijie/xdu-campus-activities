@@ -1,0 +1,81 @@
+.campus-dialog {
+  --border-radius: var(--campus-radius-dialog);
+  --max-width: 318px;
+  --min-width: min(318px, calc(100vw - 32px));
+  --z-index: var(--campus-z-popup);
+}
+
+.campus-dialog .adm-center-popup-wrap {
+  align-items: flex-start;
+  padding-top: max(11vh, calc(var(--campus-safe-top) + var(--campus-space-6)));
+}
+
+.campus-dialog .adm-dialog-body {
+  overflow: hidden;
+  border: 1px solid var(--campus-color-border);
+  background: var(--campus-color-surface);
+  box-shadow: var(--campus-shadow-lg);
+}
+
+.campus-dialog .adm-dialog-title {
+  padding-top: var(--campus-space-5);
+  color: var(--campus-color-text);
+  font-size: var(--campus-font-size-xl);
+  font-weight: var(--campus-font-weight-bold);
+}
+
+.campus-dialog .adm-dialog-content {
+  color: var(--campus-color-text-secondary);
+  font-size: var(--campus-font-size-md);
+  line-height: var(--campus-line-height-relaxed);
+}
+
+.campus-dialog .adm-dialog-action-row {
+  border-color: var(--campus-color-border);
+}
+
+.campus-popup {
+  right: 0;
+  left: 0;
+  width: 100%;
+  max-width: var(--campus-app-width);
+  max-height: min(78vh, 680px);
+  margin: 0 auto;
+  overflow: auto;
+  border-radius: var(--campus-radius-dialog) var(--campus-radius-dialog) 0 0;
+  background: var(--campus-color-surface);
+  box-shadow: var(--campus-shadow-lg);
+}
+
+.campus-popup__title {
+  min-height: 56px;
+  margin: 0;
+  padding: var(--campus-space-4) 52px var(--campus-space-3)
+    var(--campus-space-4);
+  border-bottom: 1px solid var(--campus-color-border);
+  color: var(--campus-color-text);
+  font-size: var(--campus-font-size-xl);
+  line-height: var(--campus-line-height-tight);
+}
+
+.campus-popup__content {
+  padding: var(--campus-space-4);
+  color: var(--campus-color-text);
+}
+
+.campus-popup .adm-popup-close-icon {
+  top: var(--campus-space-3);
+  right: var(--campus-space-3);
+  display: grid;
+  width: var(--campus-touch-target);
+  height: var(--campus-touch-target);
+  place-items: center;
+  color: var(--campus-color-text-secondary);
+  font-size: 20px;
+}
+
+.adm-toast-mask .adm-toast-main {
+  max-width: min(320px, calc(100vw - 32px));
+  border-radius: var(--campus-radius-md);
+  font-size: var(--campus-font-size-md);
+}

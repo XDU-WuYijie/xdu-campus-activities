@@ -4,14 +4,14 @@ import userEvent from '@testing-library/user-event'
 import type { PropsWithChildren } from 'react'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
-import { server } from '../../test/server'
+import { server } from '../../../test/server'
 import { AuthProvider } from './AuthProvider'
 import {
   getAccessToken,
   getStoredUser,
   setAccessToken,
-} from './authSession'
-import { useAuth } from './useAuth'
+  useAuth,
+} from '../model'
 
 function createTestQueryClient() {
   return new QueryClient({

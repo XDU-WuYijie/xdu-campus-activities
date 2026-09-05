@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { Button, DotLoading, ErrorBlock } from 'antd-mobile'
+import { DotLoading, ErrorBlock } from 'antd-mobile'
+import { CampusButton } from '../CampusButton'
 import './StateFeedback.css'
 
 interface StateFeedbackProps {
@@ -53,9 +54,9 @@ export function ErrorState({
   const retryAction =
     action ??
     (onRetry ? (
-      <Button color="primary" fill="outline" onClick={onRetry}>
+      <CampusButton color="primary" fill="outline" onClick={onRetry}>
         重试
-      </Button>
+      </CampusButton>
     ) : null)
 
   return (

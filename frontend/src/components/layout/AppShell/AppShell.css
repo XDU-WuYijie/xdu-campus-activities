@@ -1,0 +1,40 @@
+.app-shell {
+  width: 100%;
+  min-width: 320px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--campus-color-page);
+}
+
+.app-page {
+  width: 100%;
+  min-width: 0;
+  max-width: var(--campus-app-width);
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0 auto;
+  background: var(--campus-color-surface);
+}
+
+.app-page--wide {
+  max-width: var(--campus-wide-page-width);
+}
+
+.app-page--padded {
+  padding-right: calc(var(--campus-page-gutter) + var(--campus-safe-right));
+  padding-left: calc(var(--campus-page-gutter) + var(--campus-safe-left));
+}
+
+.app-page--with-bottom-nav {
+  padding-bottom: calc(
+    var(--campus-tabbar-height) + var(--campus-safe-bottom)
+  );
+}
+
+@media (min-width: 640px) {
+  .app-page:not(.app-page--wide) {
+    border-right: 1px solid var(--campus-color-border);
+    border-left: 1px solid var(--campus-color-border);
+    box-shadow: var(--campus-shadow-sm);
+  }
+}

@@ -1,0 +1,42 @@
+.campus-image {
+  display: block;
+  overflow: hidden;
+  background: var(--campus-color-surface-subtle);
+}
+
+.campus-image__fallback,
+.campus-image__placeholder {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: 72px;
+  place-content: center;
+  justify-items: center;
+  color: var(--campus-color-text-tertiary);
+  gap: var(--campus-space-1);
+}
+
+.campus-image__fallback {
+  font-size: var(--campus-font-size-xs);
+}
+
+.campus-image__fallback > svg,
+.campus-image__placeholder > svg {
+  font-size: 24px;
+}
+
+.campus-image__preview-trigger {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.campus-image__preview-trigger:focus-visible {
+  outline: 2px solid var(--campus-color-primary);
+  outline-offset: 2px;
+}
