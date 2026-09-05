@@ -64,7 +64,7 @@ function renderPortal(initialEntry = '/') {
             }
           />
           <Route
-            path="/activities/categories/:categorySlug"
+            path="/activities/categories/:categoryId"
             element={
               <>
                 <ActivityPortalPage />
@@ -140,7 +140,7 @@ describe('ActivityPortalPage', () => {
 
     expect(await screen.findByText('人工智能公开课')).toBeInTheDocument()
     expect(screen.getByLabelText('current URL')).toHaveTextContent(
-      '/activities/categories/academic-lectures',
+      '/activities/categories/10',
     )
     expect(screen.getByLabelText('current URL')).not.toHaveTextContent(
       '%E5%AD%A6%E6%9C%AF%E8%AE%B2%E5%BA%A7',
@@ -157,7 +157,7 @@ describe('ActivityPortalPage', () => {
   it('restores URL filters and updates search state', async () => {
     const user = userEvent.setup()
     renderPortal(
-      '/activities/categories/academic-lectures?stageFilter=REGISTRATION_OPEN&sortBy=startTimeAsc',
+      '/activities/categories/10?stageFilter=REGISTRATION_OPEN&sortBy=startTimeAsc',
     )
 
     await screen.findByText('人工智能公开课')
@@ -185,7 +185,7 @@ describe('ActivityPortalPage', () => {
 
     await waitFor(() => {
       expect(screen.getByLabelText('current URL')).toHaveTextContent(
-        '/activities/categories/academic-lectures?stageFilter=REGISTRATION_OPEN',
+        '/activities/categories/10?stageFilter=REGISTRATION_OPEN',
       )
     })
   })

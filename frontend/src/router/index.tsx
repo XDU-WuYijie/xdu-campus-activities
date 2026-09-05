@@ -29,7 +29,7 @@ export const router = createBrowserRouter([
         element: <ActivityPortalPage />,
       },
       {
-        path: '/activities/categories/:categorySlug',
+        path: '/activities/categories/:categoryId',
         element: <ActivityPortalPage />,
       },
       {

@@ -47,8 +47,7 @@ import {
 import {
   fetchActivities,
   fetchActivityCategories,
-  getCategorySlug,
-  getKnownCategorySlug,
+  getCategoryPathSegment,
   PortalActivityCard,
   resolveCategoryName,
 } from '../../features/activities'
@@ -148,7 +147,7 @@ function ActivitySearchBar({
 export function ActivityPortalPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { categorySlug = '' } = useParams()
+  const { categoryId = '' } = useParams()
   const { currentUser } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const legacyCategory = searchParams.get('category') ?? ''
@@ -181,11 +180,11 @@ export function ActivityPortalPage() {
   })
   const selectedCategory =
     legacyCategory ||
-    resolveCategoryName(categorySlug, categoriesQuery.data) ||
+    resolveCategoryName(categoryId, categoriesQuery.data) ||
     ''
-  const categoryRouteRequested = Boolean(categorySlug || legacyCategory)
+  const categoryRouteRequested = Boolean(categoryId || legacyCategory)
   const categoryNotFound =
-    Boolean(categorySlug) &&
+    Boolean(categoryId) &&
     categoriesQuery.isSuccess &&
     !selectedCategory
 
@@ -197,10 +196,7 @@ export function ActivityPortalPage() {
     const category = categoriesQuery.data?.find(
       (item) => item.name === legacyCategory,
     )
-    const slug =
-      getKnownCategorySlug(legacyCategory) ||
-      (category ? getCategorySlug(category) : '')
-    if (!slug) {
+    if (!category) {
       return
     }
 
@@ -208,7 +204,7 @@ export function ActivityPortalPage() {
     nextSearch.delete('category')
     navigate(
       {
-        pathname: `/activities/categories/${slug}`,
+        pathname: `/activities/categories/${getCategoryPathSegment(category)}`,
         search: nextSearch.toString(),
       },
       { replace: true },
@@ -355,7 +351,7 @@ export function ActivityPortalPage() {
                       key={category.id}
                       onClick={() =>
                         navigate(
-                          `/activities/categories/${getCategorySlug(category)}`,
+                          `/activities/categories/${getCategoryPathSegment(category)}`,
                         )
                       }
                       type="button"

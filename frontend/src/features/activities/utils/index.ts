@@ -6,7 +6,6 @@ export {
   getActivityStatus,
 } from './activityFormatting'
 export {
-  getCategorySlug,
-  getKnownCategorySlug,
+  getCategoryPathSegment,
   resolveCategoryName,
-} from './categorySlug'
+} from './categoryRoute'

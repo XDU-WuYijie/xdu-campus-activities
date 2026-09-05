@@ -20,7 +20,6 @@ export {
   getActivityCategory,
   getActivityImages,
   getActivityStatus,
-  getCategorySlug,
-  getKnownCategorySlug,
+  getCategoryPathSegment,
   resolveCategoryName,
 } from './utils'

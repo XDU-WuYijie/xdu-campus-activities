@@ -59,7 +59,7 @@ function renderDetail(initialEntry: string) {
             element={<ActivityDetailPage />}
           />
           <Route
-            path="/activities/categories/:categorySlug"
+            path="/activities/categories/:categoryId"
             element={<LocationProbe />}
           />
           <Route path="/" element={<LocationProbe />} />
@@ -123,7 +123,7 @@ describe('ActivityDetailPage', () => {
   it('shows detail tabs and returns to the encoded source URL', async () => {
     const user = userEvent.setup()
     renderDetail(
-      '/activities/30?returnTo=%2Factivities%2Fcategories%2Facademic-lectures%3FsortBy%3DstartTimeAsc',
+      '/activities/30?returnTo=%2Factivities%2Fcategories%2F10%3FsortBy%3DstartTimeAsc',
     )
 
     expect(await screen.findByText('人工智能公开课')).toBeInTheDocument()
@@ -143,7 +143,7 @@ describe('ActivityDetailPage', () => {
 
     await user.click(screen.getByRole('button', { name: '返回' }))
     expect(screen.getByLabelText('returned URL')).toHaveTextContent(
-      '/activities/categories/academic-lectures?sortBy=startTimeAsc',
+      '/activities/categories/10?sortBy=startTimeAsc',
     )
   })
 
