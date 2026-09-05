@@ -15,11 +15,29 @@ export interface AccessRequirement {
 }
 
 function readStorageValue(key: string): string | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
   return localStorage.getItem(key) ?? sessionStorage.getItem(key)
+}
+
+function removeStorageValue(key: string) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  localStorage.removeItem(key)
+  sessionStorage.removeItem(key)
 }
 
 export function getAccessToken(): string | null {
   return readStorageValue(TOKEN_STORAGE_KEY)
+}
+
+export function clearStoredSession() {
+  removeStorageValue(TOKEN_STORAGE_KEY)
+  removeStorageValue(USER_STORAGE_KEY)
 }
 
 export function getStoredUser(): SessionUser | null {
@@ -37,8 +55,7 @@ export function getStoredUser(): SessionUser | null {
       permissions: Array.isArray(user.permissions) ? user.permissions : [],
     }
   } catch {
-    localStorage.removeItem(USER_STORAGE_KEY)
-    sessionStorage.removeItem(USER_STORAGE_KEY)
+    removeStorageValue(USER_STORAGE_KEY)
     return null
   }
 }
