@@ -1,0 +1,91 @@
+.portal-activity-card {
+  display: block;
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--campus-color-border);
+  border-radius: var(--campus-radius-md);
+  color: var(--campus-color-text);
+  background: var(--campus-color-surface);
+  box-shadow: var(--campus-shadow-md);
+  cursor: pointer;
+  text-align: left;
+}
+
+.portal-activity-card:focus-visible {
+  outline: 2px solid var(--campus-color-primary);
+  outline-offset: 2px;
+}
+
+.portal-activity-card__cover {
+  width: 100%;
+  height: 112px;
+  overflow: hidden;
+  background: var(--campus-color-surface-subtle);
+}
+
+.portal-activity-card__cover .campus-image {
+  transition: transform 180ms ease;
+}
+
+.portal-activity-card:active .campus-image {
+  transform: scale(1.02);
+}
+
+.portal-activity-card__body {
+  padding: 10px var(--campus-space-3) var(--campus-space-3);
+}
+
+.portal-activity-card__tags {
+  display: flex;
+  margin-bottom: var(--campus-space-2);
+  flex-wrap: wrap;
+  gap: var(--campus-space-2);
+}
+
+.portal-activity-card h2 {
+  margin: 0 0 var(--campus-space-2);
+  color: var(--campus-color-text);
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.portal-activity-card p {
+  display: -webkit-box;
+  min-height: 40px;
+  margin: 0 0 var(--campus-space-3);
+  overflow: hidden;
+  color: var(--campus-color-text-secondary);
+  font-size: var(--campus-font-size-xs);
+  line-height: 1.7;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.portal-activity-card dl {
+  display: grid;
+  margin: 0;
+  color: var(--campus-color-text-secondary);
+  gap: var(--campus-space-1);
+  font-size: 11px;
+}
+
+.portal-activity-card dl > div {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--campus-space-1);
+}
+
+.portal-activity-card dt::after {
+  content: "：";
+}
+
+.portal-activity-card dd {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

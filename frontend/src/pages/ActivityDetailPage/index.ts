@@ -1,0 +1,1 @@
+export { ActivityDetailPage } from './ActivityDetailPage'

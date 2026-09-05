@@ -4,6 +4,8 @@ import {
   NotFoundPage,
   RoutePlaceholder,
 } from '../pages/RoutePlaceholder'
+import { ActivityDetailPage } from '../pages/ActivityDetailPage'
+import { ActivityPortalPage } from '../pages/ActivityPortalPage'
 import { LoginPage } from '../pages/LoginPage'
 import { M2PreviewPage } from '../pages/M2PreviewPage'
 import { AuthenticatedRoute, RoleRoute } from './guards'
@@ -22,22 +24,11 @@ export const router = createBrowserRouter([
     children: [
       {
         path: '/',
-        element: (
-          <RoutePlaceholder
-            description="活动门户将在 M4 迁移。"
-            title="校园活动"
-          />
-        ),
+        element: <ActivityPortalPage />,
       },
       {
         path: '/activities/:activityId',
-        element: (
-          <RoutePlaceholder
-            description="活动详情将在 M4 迁移。"
-            showBack
-            title="活动详情"
-          />
-        ),
+        element: <ActivityDetailPage />,
       },
       {
         path: '/discover',
