@@ -304,14 +304,17 @@ AI 推荐流程
 
 ```text
 xdu-campus-activities
+├── doc                          # 设计文档与页面展示图
+├── docker                       # MySQL、Redis、RocketMQ、Elasticsearch 配置
 ├── backend                      # Spring Boot 后端工程
 │   ├── pom.xml
 │   └── src
-├── frontend                     # React + TypeScript 新前端工程
-│   ├── src
-│   └── server                   # 生产静态托管及 API/WS 代理
-├── docker                       # RocketMQ、MySQL 等基础设施配置
-├── doc                          # 设计文档与页面展示图
+├── frontend                     # React + TypeScript 前端工程
+│   ├── public                   # 静态资源源文件
+│   ├── scripts                  # TypeScript 工程校验脚本
+│   ├── server                   # TypeScript 生产托管及 API/WS 代理
+│   └── src                      # 前端业务源码
+├── scripts                      # 项目初始化与生产启动脚本
 └── docker-compose.yml           # 本地基础设施编排
 ```
 
