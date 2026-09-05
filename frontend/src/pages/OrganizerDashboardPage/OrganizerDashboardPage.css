@@ -1,0 +1,17 @@
+.organizer-dashboard { min-height: 100vh; background: var(--campus-color-page); }
+.organizer-dashboard__hero { padding: 22px 16px; color: #fff; background: #1769e0; }
+.organizer-dashboard__hero h1 { margin: 0 0 5px; font-size: 20px; }
+.organizer-dashboard__hero p { margin: 0 0 16px; font-size: 12px; }
+.organizer-dashboard__hero > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.organizer-dashboard__hero span { text-align: center; font-size: 10px; }
+.organizer-dashboard__hero strong { display: block; margin-bottom: 3px; font-size: 20px; }
+.organizer-dashboard__quick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px; background: #fff; }
+.organizer-dashboard__section { padding: 12px; }
+.organizer-dashboard__section > h2 { margin: 2px 0 10px; font-size: 15px; }
+.organizer-dashboard__section article { margin-bottom: 10px; padding: 12px; border: 1px solid var(--campus-color-border); border-radius: 8px; background: #fff; }
+.organizer-dashboard__section article header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.organizer-dashboard__section article p { margin: 5px 0; color: var(--campus-color-text-secondary); font-size: 11px; }
+.organizer-dashboard__section article > div { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
+.organizer-dashboard__section article > div span { padding: 9px; border-radius: 6px; background: var(--campus-color-surface-subtle); color: var(--campus-color-text-secondary); font-size: 11px; }
+.organizer-dashboard__section article > div strong { display: block; color: var(--campus-color-primary); font-size: 19px; }
+.organizer-dashboard__section footer { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }

@@ -73,10 +73,13 @@ export interface Activity {
   registrationRequestId?: string
   registrationStartTime?: ApiDateTime
   registrationStatus?: RegistrationStatus
+  reviewRemark?: string
   status?: number
   summary?: string
   tags: ActivityTag[]
+  tagIds?: EntityId[]
   title: string
+  updateTime?: ApiDateTime
   voucherCheckedInTime?: ApiDateTime
   voucherDisplayCode?: string
   voucherId?: EntityId

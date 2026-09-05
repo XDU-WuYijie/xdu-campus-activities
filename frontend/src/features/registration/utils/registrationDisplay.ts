@@ -6,7 +6,7 @@ export function getRegistrationRecordDescription(
   if (record.status === 1) {
     return '已受理'
   }
-  if (record.failReason) {
+  if (record.status === 2 && record.failReason) {
     return record.failReason
   }
   return record.status === 0 ? '系统确认中，请稍候刷新。' : '已受理'

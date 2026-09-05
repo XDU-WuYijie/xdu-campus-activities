@@ -65,6 +65,14 @@ npm run lint
 
 仅检查目录结构可执行 `npm run lint:structure`。
 
+## 测试
+
+```bash
+npm test
+```
+
+`npm test` 运行 Vitest 单元与组件测试。
+
 ## 生产构建
 
 ```bash
@@ -73,4 +81,10 @@ npm start
 ```
 
 Node 托管服务默认监听 `3000`。可通过 `PORT` 修改监听端口，通过
-`BACKEND_URL` 修改后端地址。
+`BACKEND_URL` 修改后端地址。该服务同时提供 SPA fallback、`/api`
+HTTP 代理和 `/api/ws` WebSocket 升级，是迁移完成后的默认生产入口。
+
+在仓库根目录可执行 `./scripts/start-frontend.sh`，一次完成锁定依赖
+安装、生产构建和 Node 服务启动。该脚本用于生产模式，不提供 Vite
+开发热更新；日常开发仍使用 `npm run dev`。`dist/` 是可重建产物，
+不提交 Git。

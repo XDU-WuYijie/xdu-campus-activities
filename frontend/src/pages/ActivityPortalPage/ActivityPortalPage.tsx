@@ -58,6 +58,8 @@ import type {
   ActivityStage,
 } from '../../features/activities'
 import { useAuth } from '../../features/auth'
+import { useNotification } from '../../features/notification'
+import { withReturnTo } from '../../router/returnTo'
 import './ActivityPortalPage.css'
 
 const PAGE_SIZE = 6
@@ -149,6 +151,7 @@ export function ActivityPortalPage() {
   const location = useLocation()
   const { categoryId = '' } = useParams()
   const { currentUser } = useAuth()
+  const { unreadCount } = useNotification()
   const [searchParams, setSearchParams] = useSearchParams()
   const legacyCategory = searchParams.get('category') ?? ''
   const keyword = searchParams.get('keyword') ?? ''
@@ -278,13 +281,19 @@ export function ActivityPortalPage() {
     const routes: Record<string, string> = {
       discover: canManageActivities ? '/organizer/dashboard' : '/discover',
       home: '/',
-      messages: '/notifications',
+      messages: withReturnTo(
+        '/notifications',
+        `${location.pathname}${location.search}`,
+      ),
       me: currentUser?.roleCodes.includes(PLATFORM_ADMIN_ROLE)
         ? '/admin'
         : '/me',
       publish: canManageActivities
         ? '/organizer/activities/new'
-        : '/discover/create',
+        : withReturnTo(
+            '/discover/create',
+            `${location.pathname}${location.search}`,
+          ),
     }
     navigate(routes[key] ?? '/')
   }
@@ -525,7 +534,12 @@ export function ActivityPortalPage() {
               key: 'publish',
               label: '发布',
             },
-            { icon: <MessageOutline />, key: 'messages', label: '消息' },
+            {
+              badge: unreadCount || undefined,
+              icon: <MessageOutline />,
+              key: 'messages',
+              label: '消息',
+            },
             { icon: <UserOutline />, key: 'me', label: '我的' },
           ]}
           onChange={handleBottomNav}

@@ -1,0 +1,427 @@
+.discover-page {
+  padding: 12px 12px 24px;
+  background:
+    linear-gradient(rgb(35 136 255 / 4%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(35 136 255 / 4%) 1px, transparent 1px),
+    var(--campus-color-page);
+  background-size: 38px 38px;
+}
+
+.discover-page__hero {
+  display: flex;
+  min-height: 104px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px;
+  overflow: hidden;
+  border-radius: 8px;
+  background:
+    linear-gradient(rgb(15 60 126 / 28%), rgb(15 60 126 / 52%)),
+    url("/assets/spring-campus-hero.png") center / cover;
+  box-shadow: var(--campus-shadow-md);
+  color: white;
+}
+
+.discover-page__hero h1 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.discover-page__hero .adm-button {
+  padding: 0 14px;
+  border: 0;
+  background: rgb(255 255 255 / 24%);
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.discover-page__tabs {
+  margin: 12px 0 14px;
+  padding: 4px;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 94%);
+  box-shadow: var(--campus-shadow-sm);
+  --active-line-color: transparent;
+  --active-title-color: var(--campus-color-primary);
+  --title-font-size: 13px;
+}
+
+.discover-page__tabs .adm-tabs-tab {
+  width: 100%;
+  padding: 11px;
+  border-radius: 8px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.discover-page__tabs .adm-tabs-header {
+  border-bottom: 0;
+}
+
+.discover-page__tabs .adm-tabs-tab-list {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.discover-page__tabs .adm-tabs-tab-wrapper {
+  display: block;
+  width: 100%;
+  padding: 0;
+}
+
+.discover-page__tabs .adm-tabs-tab-active {
+  background: linear-gradient(
+    135deg,
+    rgb(35 136 255 / 12%),
+    rgb(32 201 143 / 10%)
+  );
+}
+
+.discover-page__tabs .adm-tabs-content {
+  display: none;
+}
+
+.discover-page__post,
+.discover-page__recommendation {
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid rgb(255 255 255 / 76%);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: var(--campus-shadow-md);
+}
+
+.discover-page__post-head,
+.discover-page__author {
+  display: flex;
+  align-items: center;
+}
+
+.discover-page__post-head {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.discover-page__author {
+  min-width: 0;
+  gap: 12px;
+}
+
+.discover-page__avatar {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 50%;
+}
+
+.discover-page__avatar .adm-image,
+.discover-page__avatar .adm-image-img {
+  border-radius: 50%;
+}
+
+.discover-page__author strong,
+.discover-page__author time,
+.discover-page__comments strong,
+.discover-page__comments time {
+  display: block;
+}
+
+.discover-page__author strong {
+  font-size: 15px;
+}
+
+.discover-page__author time,
+.discover-page__comments time {
+  margin-top: 4px;
+  color: var(--campus-color-text-secondary);
+  font-size: 12px;
+}
+
+.discover-page__content {
+  margin: 14px 0 0;
+  font-size: 14px;
+  line-height: 1.9;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.discover-page__images {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.discover-page__images .campus-image,
+.discover-page__images .campus-image__preview-trigger {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+}
+
+.discover-page__images .campus-image {
+  height: 100%;
+  object-fit: cover;
+}
+
+.discover-page__activity {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgb(35 136 255 / 8%);
+  border-radius: 8px;
+  background: linear-gradient(
+    135deg,
+    rgb(35 136 255 / 6%),
+    rgb(32 201 143 / 6%)
+  );
+  color: inherit;
+  text-align: left;
+}
+
+.discover-page__activity .campus-image {
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border-radius: 8px;
+}
+
+.discover-page__activity > span {
+  min-width: 0;
+  flex: 1;
+}
+
+.discover-page__activity strong,
+.discover-page__activity small {
+  display: block;
+}
+
+.discover-page__activity strong {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.discover-page__activity small {
+  margin-top: 3px;
+  color: var(--campus-color-text-secondary);
+  font-size: 10px;
+}
+
+.discover-page__activity em {
+  align-self: flex-start;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: var(--campus-color-primary-soft);
+  color: var(--campus-color-primary);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.discover-page__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.discover-page__actions .adm-button {
+  height: 40px;
+  border-color: rgb(35 136 255 / 12%);
+  border-radius: 999px;
+  color: var(--campus-color-text-secondary);
+  font-size: 13px;
+}
+
+.discover-page__actions .adm-button.is-liked {
+  border-color: rgb(35 136 255 / 20%);
+  background: var(--campus-color-primary-soft);
+  color: var(--campus-color-primary);
+}
+
+.discover-page__quick-comment {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.discover-page__quick-comment .adm-avatar {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 50%;
+}
+
+.discover-page__quick-comment .adm-avatar .adm-image,
+.discover-page__quick-comment .adm-avatar .adm-image-img {
+  border-radius: 50%;
+}
+
+.discover-page__quick-comment .adm-input {
+  height: 36px;
+  min-width: 0;
+  padding: 0 14px;
+  border: 1px solid rgb(35 136 255 / 12%);
+  border-radius: 999px;
+  background: #f9fbff;
+  font-size: 12px;
+}
+
+.discover-page__quick-comment .adm-button {
+  flex: none;
+  border: 0;
+  border-radius: 999px;
+  background: var(--campus-color-primary-soft);
+  color: var(--campus-color-primary);
+}
+
+.discover-page__recommend-tip {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff0eb;
+  color: #a7442b;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.discover-page__recommendation > .campus-image {
+  width: 100%;
+  height: 156px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.discover-page__recommendation header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.discover-page__recommendation h2 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.45;
+}
+
+.discover-page__recommendation header span {
+  flex: none;
+  max-width: 44%;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: linear-gradient(
+    135deg,
+    rgb(35 136 255 / 14%),
+    rgb(32 201 143 / 14%)
+  );
+  color: var(--campus-color-primary);
+  font-size: 11px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.discover-page__recommendation p {
+  margin: 7px 0 0;
+  color: var(--campus-color-text-secondary);
+  font-size: 12px;
+}
+
+.discover-page__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 14px;
+}
+
+.discover-page__tags span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--campus-color-primary-soft);
+  color: var(--campus-color-primary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.discover-page__recommendation > .adm-button {
+  margin-top: 14px;
+}
+
+.discover-page__comments-popup {
+  right: 50%;
+  bottom: auto;
+  left: auto;
+  width: min(318px, calc(100vw - 72px));
+  max-height: 78vh;
+  margin-top: 11vh;
+  transform: translateX(50%);
+  border-radius: 8px;
+}
+
+.discover-page__comments-popup .campus-popup__content {
+  padding: 0 14px 14px;
+  background: #f8fbff;
+}
+
+.discover-page__comments-popup h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+.discover-page__comments {
+  max-height: min(56vh, 420px);
+  overflow-y: auto;
+}
+
+.discover-page__comments article {
+  margin-bottom: 10px;
+  padding: 12px;
+  border: 1px solid #eef3fa;
+  border-radius: 8px;
+  background: white;
+  box-shadow: var(--campus-shadow-sm);
+}
+
+.discover-page__comments article header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.discover-page__comments article header > span {
+  min-width: 0;
+  flex: 1;
+}
+
+.discover-page__comments .adm-avatar {
+  width: 34px;
+  height: 34px;
+  overflow: hidden;
+  border-radius: 50%;
+}
+
+.discover-page__comments .adm-avatar .adm-image,
+.discover-page__comments .adm-avatar .adm-image-img {
+  border-radius: 50%;
+}
+
+
+.discover-page__comments p {
+  margin: 10px 0 0;
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

@@ -7,7 +7,7 @@
 | 分类 | 内容 |
 |---|---|
 | 项目概览 | [项目简介](#项目简介) · [核心功能](#核心功能) · [技术栈](#技术栈) |
-| 系统设计 | [系统架构](#系统架构) · [项目亮点](#项目亮点) · [核心流程](#核心流程) · [新前端迁移计划](doc/新前端迁移计划.md) |
+| 系统设计 | [系统架构](#系统架构) · [项目亮点](#项目亮点) · [核心流程](#核心流程) |
 | 页面展示 | [用户端](#用户端) · [活动负责人端](#活动负责人端) · [平台管理员端](#平台管理员端) |
 | 工程说明 | [项目结构](#项目结构) · [本地运行](#本地运行) · [配置说明](#配置说明) |
 | 扩展规划 | [后续优化](#后续优化) · [项目说明](#项目说明) |
@@ -63,9 +63,9 @@
 
 ### 前端
 
-- 新前端：React 18、TypeScript、Vite、Ant Design Mobile
-- 新前端生产托管：Node.js、Express
-- 迁移期旧前端：原生 HTML、Vue 2、Element UI、Axios
+- React 18、TypeScript、Vite、Ant Design Mobile
+- Node.js、Express 生产托管与反向代理
+- Vitest、Testing Library、MSW
 
 ### 中间件
 
@@ -73,7 +73,6 @@
 - Redis 7.2
 - RocketMQ 4.9
 - Elasticsearch 7.17
-- Nginx（仅迁移期承载旧前端）
 - Docker Compose
 
 ### AI 能力
@@ -89,9 +88,8 @@
 
 系统采用前后端分离架构：
 
-- 新前端在开发环境由 Vite 提供，并代理 `/api` 与 `/api/ws`
-- 新前端生产构建由 Node.js 托管并代理后端请求
-- 迁移期旧前端继续由 Nginx 承载，可与新前端并行访问后端
+- React 前端在开发环境由 Vite 提供，并代理 `/api` 与 `/api/ws`
+- React 生产构建由 Node.js 托管并代理后端请求
 - Spring Boot 提供活动、报名、审核、签到、通知、推荐等业务接口
 - MySQL 负责核心业务数据持久化
 - Redis 负责登录态、活动缓存、报名状态缓存、签到聚合缓存
@@ -312,98 +310,64 @@ xdu-campus-activities
 ├── frontend                     # React + TypeScript 新前端工程
 │   ├── src
 │   └── server                   # 生产静态托管及 API/WS 代理
-├── legacy-frontend              # 迁移期保留的 Vue 2 静态前端
-├── docker                       # Nginx、RocketMQ、MySQL 等容器配置
+├── docker                       # RocketMQ、MySQL 等基础设施配置
 ├── doc                          # 设计文档与页面展示图
-└── docker-compose.yml           # 本地基础设施与旧前端编排
+└── docker-compose.yml           # 本地基础设施编排
 ```
 
 ---
 
 ## 本地运行
 
-### 1. 克隆项目
+### 首次使用
 
 ```bash
 git clone <your-repo-url>
 cd xdu-campus-activities
-```
-
-### 2. 安装前端依赖
-
-```bash
 ./scripts/bootstrap.sh
 ```
 
-脚本校验 Node.js 版本，并严格按照 `frontend/package-lock.json` 执行
-`npm ci`，适合在新机器或干净工作区初始化前端环境。
+`bootstrap.sh` 校验 Node.js 版本，并根据 lockfile 安装前端依赖。每台机器
+首次拉取项目时执行一次即可。
 
-### 3. 配置环境变量
+### 日常开发
 
-请在当前终端、IDE 运行配置或系统环境中直接设置以下变量：
-
-- `OSS_ACCESS_KEY_ID`
-- `OSS_ACCESS_KEY_SECRET`
-- `QWEN_API_KEY`
-- `QWEN_BASE_URL`
-- `QWEN_MODEL`
-- `QWEN_EMBEDDING_MODEL`
-
-示例：
-
-```bash
-export OSS_ACCESS_KEY_ID=xxx
-export OSS_ACCESS_KEY_SECRET=xxx
-export QWEN_API_KEY=xxx
-```
-
-### 4. 启动基础服务
+1. 启动 MySQL、Redis、RocketMQ 和 Elasticsearch：
 
 ```bash
 docker compose up -d
 ```
 
-### 5. 启动 Spring Boot 后端
+2. 在一个终端启动后端：
 
 ```bash
 mvn -f backend/pom.xml spring-boot:run
 ```
 
-### 6. 启动新前端
+3. 在另一个终端启动前端：
 
 ```bash
 npm --prefix frontend run dev
 ```
 
-默认访问地址：
+打开 `http://127.0.0.1:5173`。这是本项目默认的本地开发方式。
 
-- React 新前端：`http://127.0.0.1:5173`
-- Vue 2 旧前端：`http://127.0.0.1:8080/index.html`
-- Spring Boot API：`http://127.0.0.1:8081`
+### 生产运行（可选）
 
-新前端生产构建与本地托管：
+后端已启动时，在仓库根目录执行：
 
 ```bash
-npm --prefix frontend run build
-npm --prefix frontend start
+./scripts/start-frontend.sh
 ```
 
-生产托管默认监听 `3000`，可通过 `PORT` 修改端口，通过 `BACKEND_URL` 指定后端地址。
+该脚本自动安装依赖、构建前端并启动 Node.js 托管，访问地址为
+`http://127.0.0.1:3000`。它不提供开发热更新，日常开发不要使用。
 
-### 7. 常用命令
+### 可选配置
 
-```bash
-docker compose ps
-docker compose logs -f
-docker compose down
-```
-
-### 7. 补充说明
-
-- MySQL 首次启动会自动执行 `backend/src/main/resources/db/init` 下的初始化脚本
-- Spring Boot、新前端和旧前端可以独立启动
-- 新前端通过同源 `/api` 和 `/api/ws` 代理访问后端，无需后端开放 CORS
-- 旧前端仅用于迁移期间的功能对照与回归验证
+OSS 上传和 AI 功能需要在后端运行环境中配置
+`OSS_ACCESS_KEY_ID`、`OSS_ACCESS_KEY_SECRET`、`QWEN_API_KEY`、
+`QWEN_BASE_URL`、`QWEN_MODEL` 和 `QWEN_EMBEDDING_MODEL`。
 
 ---
 
@@ -469,6 +433,4 @@ docker compose down
 
 - 默认平台管理员账号：`admin / 123456`
 - 默认活动负责人账号：`test / 123456`
-- 项目文档入口：
-  - [doc/功能模块设计.md](doc/功能模块设计.md)
-  - [doc/工程进展.md](doc/工程进展.md)
+- 项目文档入口：[doc/功能模块设计.md](doc/功能模块设计.md)

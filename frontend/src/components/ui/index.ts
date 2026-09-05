@@ -6,6 +6,7 @@ export {
   CampusDialog,
   CampusPopup,
   confirmAction,
+  promptText,
   showToast,
   type ToastTone,
 } from './Feedback'

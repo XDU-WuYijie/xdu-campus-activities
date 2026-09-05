@@ -1,19 +1,29 @@
-import { createBrowserRouter, Outlet } from 'react-router-dom'
+import {
+  createBrowserRouter,
+  Outlet,
+} from 'react-router-dom'
 import {
   ForbiddenPage,
   NotFoundPage,
-  RoutePlaceholder,
 } from '../pages/RoutePlaceholder'
 import { ActivityDetailPage } from '../pages/ActivityDetailPage'
+import { ActivityEditorPage } from '../pages/ActivityEditorPage'
 import { ActivityPortalPage } from '../pages/ActivityPortalPage'
 import { ActivityPreferencesPage } from '../pages/ActivityPreferencesPage'
+import { DiscoverCreatePage } from '../pages/DiscoverCreatePage'
+import { DiscoverPage } from '../pages/DiscoverPage'
 import { LoginPage } from '../pages/LoginPage'
 import { M2PreviewPage } from '../pages/M2PreviewPage'
 import { MyFavoritesPage } from '../pages/MyFavoritesPage'
 import { MyRegistrationsPage } from '../pages/MyRegistrationsPage'
+import { NotificationPage } from '../pages/NotificationPage'
+import { OrganizerDashboardPage } from '../pages/OrganizerDashboardPage'
+import { CheckInPage } from '../pages/CheckInPage'
 import { ProfileEditPage } from '../pages/ProfileEditPage'
 import { ProfilePage } from '../pages/ProfilePage'
+import { AdminPage } from '../pages/AdminPage'
 import { AuthenticatedRoute, RoleRoute } from './guards'
+import { LegacyOrganizerActivitiesRedirect } from './LegacyOrganizerActivitiesRedirect'
 
 const ACTIVITY_ADMIN_ROLE = 'ACTIVITY_ADMIN'
 const PLATFORM_ADMIN_ROLE = 'PLATFORM_ADMIN'
@@ -41,31 +51,15 @@ export const router = createBrowserRouter([
       },
       {
         path: '/discover',
-        element: (
-          <RoutePlaceholder
-            description="校园圈将在 M7 迁移。"
-            title="校园圈"
-          />
-        ),
+        element: <DiscoverPage />,
       },
       {
         path: '/discover/create',
-        element: (
-          <RoutePlaceholder
-            description="动态发布将在 M7 迁移。"
-            showBack
-            title="发布动态"
-          />
-        ),
+        element: <DiscoverCreatePage />,
       },
       {
         path: '/notifications',
-        element: (
-          <RoutePlaceholder
-            description="通知中心将在 M8 迁移。"
-            title="消息"
-          />
-        ),
+        element: <NotificationPage />,
       },
       {
         path: '/me',
@@ -100,60 +94,27 @@ export const router = createBrowserRouter([
         children: [
           {
             path: 'activities',
-            element: (
-              <RoutePlaceholder
-                description="主办方活动列表将在 M9 迁移。"
-                title="我发起的活动"
-              />
-            ),
+            element: <LegacyOrganizerActivitiesRedirect fallbackTab="created" />,
           },
           {
             path: 'activities/new',
-            element: (
-              <RoutePlaceholder
-                description="活动创建将在 M9 迁移。"
-                showBack
-                title="发起活动"
-              />
-            ),
+            element: <ActivityEditorPage />,
           },
           {
             path: 'activities/:activityId/edit',
-            element: (
-              <RoutePlaceholder
-                description="活动编辑将在 M9 迁移。"
-                showBack
-                title="编辑活动"
-              />
-            ),
+            element: <ActivityEditorPage />,
           },
           {
             path: 'activities/:activityId/check-in',
-            element: (
-              <RoutePlaceholder
-                description="签到管理将在 M9 迁移。"
-                showBack
-                title="签到管理"
-              />
-            ),
+            element: <CheckInPage />,
           },
           {
             path: 'reviews',
-            element: (
-              <RoutePlaceholder
-                description="审核历史将在 M9 迁移。"
-                title="审核历史"
-              />
-            ),
+            element: <LegacyOrganizerActivitiesRedirect fallbackTab="reviews" />,
           },
           {
             path: 'dashboard',
-            element: (
-              <RoutePlaceholder
-                description="主办方数据看板将在 M9 迁移。"
-                title="数据看板"
-              />
-            ),
+            element: <OrganizerDashboardPage />,
           },
         ],
       },
@@ -167,21 +128,11 @@ export const router = createBrowserRouter([
         children: [
           {
             index: true,
-            element: (
-              <RoutePlaceholder
-                description="平台管理后台将在 M10 迁移。"
-                title="平台管理"
-              />
-            ),
+            element: <AdminPage />,
           },
           {
             path: '*',
-            element: (
-              <RoutePlaceholder
-                description="平台管理子页面将在 M10 迁移。"
-                title="平台管理"
-              />
-            ),
+            element: <AdminPage />,
           },
         ],
       },

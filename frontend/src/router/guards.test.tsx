@@ -168,4 +168,21 @@ describe('RoleRoute', () => {
 
     expect(screen.getByText('forbidden')).toBeInTheDocument()
   })
+
+  it('redirects users that have the role but lack the permission', () => {
+    mockUseAuth.mockReturnValue(
+      authValue({
+        currentUser: {
+          permissions: ['activity:view'],
+          roleCodes: ['USER', 'ACTIVITY_ADMIN'],
+        },
+        status: 'authenticated',
+        token: 'token',
+      }),
+    )
+
+    renderRoleRoute()
+
+    expect(screen.getByText('forbidden')).toBeInTheDocument()
+  })
 })

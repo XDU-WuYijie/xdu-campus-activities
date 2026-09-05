@@ -74,7 +74,7 @@ html:root {
   --campus-shadow-nav: 0 -8px 26px rgb(32 94 156 / 6%);
 
   /* Stable mobile layout dimensions */
-  --campus-app-width: 390px;
+  --campus-app-width: 430px;
   --campus-wide-page-width: 1120px;
   --campus-page-gutter: 16px;
   --campus-header-height: 52px;

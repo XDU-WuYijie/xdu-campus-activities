@@ -49,5 +49,3 @@ docker/redis/data/
 docker/rocketmq/logs/
 docker/rocketmq/store/
 docker/elasticsearch/data
-# temporary tool output
-.playwright-mcp/

@@ -72,6 +72,7 @@ function renderPortal(initialEntry = '/') {
               </>
             }
           />
+          <Route path="/discover/create" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -188,5 +189,19 @@ describe('ActivityPortalPage', () => {
         '/activities/categories/10?stageFilter=REGISTRATION_OPEN',
       )
     })
+  })
+
+  it('passes the complete category URL to the publish page', async () => {
+    const user = userEvent.setup()
+    renderPortal(
+      '/activities/categories/10?stageFilter=REGISTRATION_OPEN',
+    )
+
+    await screen.findByText('人工智能公开课')
+    await user.click(screen.getByText('发布'))
+
+    expect(screen.getByLabelText('current URL')).toHaveTextContent(
+      '/discover/create?returnTo=%2Factivities%2Fcategories%2F10%3FstageFilter%3DREGISTRATION_OPEN',
+    )
   })
 })

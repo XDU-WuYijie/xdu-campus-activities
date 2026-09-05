@@ -232,7 +232,7 @@
   margin: 0 auto;
   padding: 10px var(--campus-page-gutter)
     calc(10px + var(--campus-safe-bottom));
-  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-columns: 58px 68px minmax(0, 1fr);
   align-items: center;
   border-top: 1px solid var(--campus-color-border);
   background: var(--campus-color-surface-glass);

@@ -36,18 +36,25 @@ import {
 import { formatActivityTime } from '../../features/activities'
 import { useAuth } from '../../features/auth'
 import { fetchMyFavorites } from '../../features/favorites'
+import { useNotification } from '../../features/notification'
 import {
   deleteMyPost,
   fetchMyPosts,
-  fetchOrganizerSummary,
   fetchPreferenceTags,
   fetchUserProfile,
   type ProfilePost,
 } from '../../features/profile'
 import {
+  fetchManagedActivities,
+  fetchRegistrationReviews,
+  fetchReviewHistory,
+  OrganizerProfileTabs,
+} from '../../features/organizer'
+import {
   fetchMyRegistrations,
   type RegistrationRecord,
 } from '../../features/registration'
+import { withReturnTo } from '../../router/returnTo'
 import './ProfilePage.css'
 
 const ACTIVITY_CREATE_PERMISSION = 'activity:create'
@@ -112,12 +119,16 @@ export function ProfilePage() {
   const location = useLocation()
   const queryClient = useQueryClient()
   const { currentUser } = useAuth()
+  const { unreadCount } = useNotification()
   const userId = currentUser?.id ?? ''
   const canManageActivities =
     currentUser?.permissions.includes(ACTIVITY_CREATE_PERMISSION) &&
     !currentUser.roleCodes.includes(PLATFORM_ADMIN_ROLE)
   const [postsVisible, setPostsVisible] = useState(false)
-  const [activityTab, setActivityTab] = useState('registrations')
+  const [organizerPageSize, setOrganizerPageSize] = useState(20)
+  const [activityTab, setActivityTab] = useState(
+    canManageActivities ? 'created' : 'registrations',
+  )
 
   const profileQuery = useQuery({
     enabled: Boolean(userId),
@@ -146,8 +157,22 @@ export function ProfilePage() {
   })
   const organizerSummaryQuery = useQuery({
     enabled: Boolean(canManageActivities),
-    queryFn: fetchOrganizerSummary,
-    queryKey: queryKeys.profile.summary(),
+    queryFn: async () => {
+      const [activities, reviews, history] = await Promise.all([
+        fetchManagedActivities({ current: 1, pageSize: organizerPageSize }),
+        fetchRegistrationReviews(1, 20),
+        fetchReviewHistory('ACTIVITY_ADMIN', 1, 20),
+      ])
+      return {
+        activities,
+        createdActivityTotal: activities.total,
+        history,
+        pendingReviewTotal: reviews.total,
+        reviewHistoryTotal: history.total,
+        reviews,
+      }
+    },
+    queryKey: [...queryKeys.profile.summary(), organizerPageSize],
   })
   const postsQuery = useInfiniteQuery<
     PageResult<ProfilePost>,
@@ -191,11 +216,17 @@ export function ProfilePage() {
     const routes: Record<string, string> = {
       discover: canManageActivities ? '/organizer/dashboard' : '/discover',
       home: '/',
-      messages: '/notifications',
+      messages: withReturnTo(
+        '/notifications',
+        `${location.pathname}${location.search}`,
+      ),
       me: '/me',
       publish: canManageActivities
         ? '/organizer/activities/new'
-        : '/discover/create',
+        : withReturnTo(
+            '/discover/create',
+            `${location.pathname}${location.search}`,
+          ),
     }
     navigate(routes[key] ?? '/')
   }
@@ -262,28 +293,25 @@ export function ProfilePage() {
             </button>
 
             <section aria-label="个人统计" className="profile-page__stats">
+              {canManageActivities ? (
+                <button disabled type="button">
+                  <strong>{summary?.createdActivityTotal ?? 0}</strong>
+                  <span>发起活动</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => navigate('/me/registrations')}
+                  type="button"
+                >
+                  <strong>{registrationsQuery.data?.total ?? 0}</strong>
+                  <span>我报名的</span>
+                </button>
+              )}
               <button
                 onClick={() =>
                   navigate(
                     canManageActivities
-                      ? '/organizer/activities'
-                      : '/me/registrations',
-                  )
-                }
-                type="button"
-              >
-                <strong>
-                  {canManageActivities
-                    ? (summary?.createdActivityTotal ?? 0)
-                    : (registrationsQuery.data?.total ?? 0)}
-                </strong>
-                <span>{canManageActivities ? '发起活动' : '我报名的'}</span>
-              </button>
-              <button
-                onClick={() =>
-                  navigate(
-                    canManageActivities
-                      ? '/organizer/activities?tab=reviews'
+                      ? '/me?tab=reviews'
                       : '/me/registrations',
                   )
                 }
@@ -300,7 +328,7 @@ export function ProfilePage() {
                 onClick={() =>
                   navigate(
                     canManageActivities
-                      ? '/organizer/reviews'
+                      ? '/me?tab=history'
                       : '/me/favorites',
                   )
                 }
@@ -311,7 +339,7 @@ export function ProfilePage() {
                     ? (summary?.reviewHistoryTotal ?? 0)
                     : (favoritesQuery.data?.total ?? 0)}
                 </strong>
-                <span>{canManageActivities ? '历史活动' : '收藏活动'}</span>
+                <span>{canManageActivities ? '审核历史' : '收藏活动'}</span>
               </button>
               <button onClick={() => setPostsVisible(true)} type="button">
                 <strong>{postTotal}</strong>
@@ -320,29 +348,15 @@ export function ProfilePage() {
             </section>
 
             {canManageActivities ? (
-              <section className="profile-page__organizer-links">
-                <button
-                  onClick={() => navigate('/organizer/activities')}
-                  type="button"
-                >
-                  <span><strong>我发起的活动</strong><small>管理活动与签到</small></span>
-                  <RightOutline />
-                </button>
-                <button
-                  onClick={() => navigate('/organizer/activities?tab=reviews')}
-                  type="button"
-                >
-                  <span><strong>待审核请求</strong><small>处理报名与退出申请</small></span>
-                  <RightOutline />
-                </button>
-                <button
-                  onClick={() => navigate('/organizer/reviews')}
-                  type="button"
-                >
-                  <span><strong>审核历史</strong><small>查看已完成的审核记录</small></span>
-                  <RightOutline />
-                </button>
-              </section>
+              <OrganizerProfileTabs
+                activities={summary?.activities ?? { items: [], total: 0 }}
+                history={summary?.history ?? { items: [], total: 0 }}
+                loadingMore={organizerSummaryQuery.isFetching}
+                onLoadMore={() =>
+                  setOrganizerPageSize((current) => current + 20)
+                }
+                reviews={summary?.reviews ?? { items: [], total: 0 }}
+              />
             ) : (
               <>
                 <section className="profile-page__preferences">
@@ -409,7 +423,12 @@ export function ProfilePage() {
               label: canManageActivities ? '数据' : '发现',
             },
             { icon: <AddCircleOutline />, key: 'publish', label: '发布' },
-            { icon: <MessageOutline />, key: 'messages', label: '消息' },
+            {
+              badge: unreadCount || undefined,
+              icon: <MessageOutline />,
+              key: 'messages',
+              label: '消息',
+            },
             { icon: <UserOutline />, key: 'me', label: '我的' },
           ]}
           onChange={handleBottomNav}
@@ -480,11 +499,13 @@ interface PreviewItem {
 }
 
 function PreviewSection({
+  allLabel = '全部活动',
   empty,
   items,
   onAll,
   onOpen,
 }: {
+  allLabel?: string
   empty: string
   items: PreviewItem[]
   onAll: () => void
@@ -495,7 +516,7 @@ function PreviewSection({
       <header>
         <span>最近记录</span>
         <button onClick={onAll} type="button">
-          全部活动 <RightOutline aria-hidden />
+          {allLabel} <RightOutline aria-hidden />
         </button>
       </header>
       {items.length ? (

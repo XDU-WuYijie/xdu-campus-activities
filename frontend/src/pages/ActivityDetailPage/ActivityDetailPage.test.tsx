@@ -63,6 +63,7 @@ function renderDetail(initialEntry: string) {
             element={<LocationProbe />}
           />
           <Route path="/me/registrations" element={<LocationProbe />} />
+          <Route path="/discover/create" element={<LocationProbe />} />
           <Route path="/" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>
@@ -210,6 +211,21 @@ describe('ActivityDetailPage', () => {
 
     expect(screen.getByLabelText('returned URL')).toHaveTextContent(
       '/me/registrations?returnTo=%2Factivities%2F30%3FreturnTo%3D%252Factivities%252Fcategories%252F10',
+    )
+  })
+
+  it('opens discover publishing with the activity and full return URL', async () => {
+    const user = userEvent.setup()
+    renderDetail(
+      '/activities/30?returnTo=%2Factivities%2Fcategories%2F10',
+    )
+
+    await user.click(
+      await screen.findByRole('button', { name: '分享' }),
+    )
+
+    expect(screen.getByLabelText('returned URL')).toHaveTextContent(
+      '/discover/create?activityId=30&returnTo=%2Factivities%2F30%3FreturnTo%3D%252Factivities%252Fcategories%252F10',
     )
   })
 })

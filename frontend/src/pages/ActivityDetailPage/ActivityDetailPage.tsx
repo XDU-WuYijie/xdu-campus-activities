@@ -575,6 +575,19 @@ export function ActivityDetailPage() {
               )}
               <span>{activity.favorited ? '已收藏' : '收藏'}</span>
             </button>
+            <CampusButton
+              fill="outline"
+              onClick={() =>
+                navigate(
+                  `/discover/create?${new URLSearchParams({
+                    activityId: activity.id,
+                    returnTo: `${location.pathname}${location.search}`,
+                  }).toString()}`,
+                )
+              }
+            >
+              分享
+            </CampusButton>
             {registered ? (
               <CampusButton
                 color="primary"
