@@ -1,0 +1,38 @@
+.route-page {
+  display: grid;
+  min-height: 100vh;
+  padding: 24px;
+  place-items: center;
+}
+
+.route-panel {
+  width: min(100%, 390px);
+  padding: 32px 24px;
+  border: 1px solid #dce3ea;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgb(22 36 50 / 8%);
+}
+
+.route-status {
+  color: #287a56;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.route-status--warning {
+  color: #b56a16;
+}
+
+.route-panel h1 {
+  margin: 12px 0 8px;
+  color: #17212b;
+  font-size: 28px;
+}
+
+.route-panel p {
+  margin: 0 0 24px;
+  color: #586675;
+  line-height: 1.7;
+}
