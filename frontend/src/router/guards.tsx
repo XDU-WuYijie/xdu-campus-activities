@@ -1,10 +1,11 @@
 import type { PropsWithChildren } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import {
-  getAccessToken,
-  getStoredUser,
-  hasRequiredAccess,
-} from '../features/auth/authSession'
+  ErrorState,
+  LoadingState,
+} from '../components/ui/StateFeedback'
+import { hasRequiredAccess } from '../features/auth/authSession'
+import { useAuth } from '../features/auth/useAuth'
 
 interface RoleRouteProps extends PropsWithChildren {
   requiredPermission?: string
@@ -13,8 +14,24 @@ interface RoleRouteProps extends PropsWithChildren {
 
 export function AuthenticatedRoute() {
   const location = useLocation()
+  const { restoreSession, status } = useAuth()
 
-  if (!getAccessToken()) {
+  if (status === 'checking') {
+    return <LoadingState description="正在恢复登录状态" fullPage />
+  }
+
+  if (status === 'error') {
+    return (
+      <ErrorState
+        description="请检查网络后重试"
+        fullPage
+        onRetry={() => void restoreSession()}
+        title="暂时无法验证登录状态"
+      />
+    )
+  }
+
+  if (status === 'anonymous') {
     const returnTo = `${location.pathname}${location.search}${location.hash}`
     return <Navigate replace state={{ returnTo }} to="/login" />
   }
@@ -27,9 +44,11 @@ export function RoleRoute({
   requiredPermission,
   requiredRole,
 }: RoleRouteProps) {
-  const user = getStoredUser()
+  const { currentUser } = useAuth()
 
-  if (!hasRequiredAccess(user, { requiredPermission, requiredRole })) {
+  if (
+    !hasRequiredAccess(currentUser, { requiredPermission, requiredRole })
+  ) {
     return <Navigate replace to="/403" />
   }
 
