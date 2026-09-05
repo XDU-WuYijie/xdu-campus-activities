@@ -1,0 +1,34 @@
+.my-favorites-page {
+  background: var(--campus-color-page);
+}
+
+.my-favorites-page__search {
+  padding: var(--campus-space-3) var(--campus-page-gutter);
+  border-bottom: 1px solid var(--campus-color-border);
+  background: var(--campus-color-surface);
+}
+
+.my-favorites-page__list {
+  display: grid;
+  padding: var(--campus-space-3) var(--campus-page-gutter)
+    var(--campus-space-6);
+  gap: var(--campus-space-3);
+}
+
+.my-favorites-page__count {
+  margin: 0;
+  color: var(--campus-color-text-tertiary);
+  font-size: var(--campus-font-size-xs);
+}
+
+.my-favorites-page__actions {
+  display: flex;
+  margin-top: var(--campus-space-3);
+  justify-content: flex-end;
+  gap: var(--campus-space-2);
+}
+
+.my-favorites-page__actions .adm-button {
+  min-width: 88px;
+  min-height: 36px;
+}

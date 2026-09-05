@@ -28,10 +28,11 @@ import {
   UserOutline,
 } from 'antd-mobile-icons'
 import type { ComponentType, SVGProps } from 'react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   useLocation,
   useNavigate,
+  useParams,
   useSearchParams,
 } from 'react-router-dom'
 import { queryKeys } from '../../api/queryKeys'
@@ -46,7 +47,10 @@ import {
 import {
   fetchActivities,
   fetchActivityCategories,
+  getCategorySlug,
+  getKnownCategorySlug,
   PortalActivityCard,
+  resolveCategoryName,
 } from '../../features/activities'
 import type {
   Activity,
@@ -144,9 +148,10 @@ function ActivitySearchBar({
 export function ActivityPortalPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { categorySlug = '' } = useParams()
   const { currentUser } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
-  const selectedCategory = searchParams.get('category') ?? ''
+  const legacyCategory = searchParams.get('category') ?? ''
   const keyword = searchParams.get('keyword') ?? ''
   const stageFilter =
     (searchParams.get('stageFilter') as ActivityStage | null) ?? ''
@@ -174,6 +179,46 @@ export function ActivityPortalPage() {
     queryKey: queryKeys.activities.categories(),
     staleTime: 5 * 60_000,
   })
+  const selectedCategory =
+    legacyCategory ||
+    resolveCategoryName(categorySlug, categoriesQuery.data) ||
+    ''
+  const categoryRouteRequested = Boolean(categorySlug || legacyCategory)
+  const categoryNotFound =
+    Boolean(categorySlug) &&
+    categoriesQuery.isSuccess &&
+    !selectedCategory
+
+  useEffect(() => {
+    if (!legacyCategory) {
+      return
+    }
+
+    const category = categoriesQuery.data?.find(
+      (item) => item.name === legacyCategory,
+    )
+    const slug =
+      getKnownCategorySlug(legacyCategory) ||
+      (category ? getCategorySlug(category) : '')
+    if (!slug) {
+      return
+    }
+
+    const nextSearch = new URLSearchParams(searchParams)
+    nextSearch.delete('category')
+    navigate(
+      {
+        pathname: `/activities/categories/${slug}`,
+        search: nextSearch.toString(),
+      },
+      { replace: true },
+    )
+  }, [
+    categoriesQuery.data,
+    legacyCategory,
+    navigate,
+    searchParams,
+  ])
 
   const listQueryParams = useMemo<Omit<ActivityListParams, 'current'>>(
     () => ({
@@ -254,13 +299,13 @@ export function ActivityPortalPage() {
   }
 
   const resetToCategories = () => {
-    setSearchParams({}, { replace: true })
+    navigate('/')
   }
 
   return (
     <AppShell>
       <AppPage className="activity-portal" hasBottomNav>
-        {!selectedCategory ? (
+        {!categoryRouteRequested ? (
           <>
             <header className="activity-portal__header">
               <div>
@@ -309,9 +354,8 @@ export function ActivityPortalPage() {
                       className="activity-portal__category"
                       key={category.id}
                       onClick={() =>
-                        setSearchParams(
-                          { category: category.name },
-                          { replace: false },
+                        navigate(
+                          `/activities/categories/${getCategorySlug(category)}`,
                         )
                       }
                       type="button"
@@ -344,8 +388,20 @@ export function ActivityPortalPage() {
               >
                 ‹
               </button>
-              <h1>{selectedCategory}活动</h1>
+              <h1>
+                {selectedCategory
+                  ? `${selectedCategory}活动`
+                  : '活动分类'}
+              </h1>
             </header>
+            {categoryNotFound ? (
+              <ErrorState
+                description="该活动分类不存在或已停用"
+                onRetry={resetToCategories}
+                title="分类不可用"
+              />
+            ) : (
+              <>
             <section
               aria-label="活动搜索与筛选"
               className="activity-portal__filters"
@@ -454,6 +510,8 @@ export function ActivityPortalPage() {
                   {activitiesQuery.hasNextPage ? '继续上滑加载' : null}
                 </InfiniteScroll>
               </section>
+            )}
+              </>
             )}
           </>
         )}

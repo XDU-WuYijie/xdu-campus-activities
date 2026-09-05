@@ -37,7 +37,12 @@ const mockUseAuth = vi.mocked(useAuth)
 
 function LocationProbe() {
   const location = useLocation()
-  return <output aria-label="current URL">{location.search}</output>
+  return (
+    <output aria-label="current URL">
+      {location.pathname}
+      {location.search}
+    </output>
+  )
 }
 
 function renderPortal(initialEntry = '/') {
@@ -51,6 +56,15 @@ function renderPortal(initialEntry = '/') {
         <Routes>
           <Route
             path="/"
+            element={
+              <>
+                <ActivityPortalPage />
+                <LocationProbe />
+              </>
+            }
+          />
+          <Route
+            path="/activities/categories/:categorySlug"
             element={
               <>
                 <ActivityPortalPage />
@@ -126,7 +140,10 @@ describe('ActivityPortalPage', () => {
 
     expect(await screen.findByText('人工智能公开课')).toBeInTheDocument()
     expect(screen.getByLabelText('current URL')).toHaveTextContent(
-      'category=%E5%AD%A6%E6%9C%AF%E8%AE%B2%E5%BA%A7',
+      '/activities/categories/academic-lectures',
+    )
+    expect(screen.getByLabelText('current URL')).not.toHaveTextContent(
+      '%E5%AD%A6%E6%9C%AF%E8%AE%B2%E5%BA%A7',
     )
     expect(mockFetchActivities).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -140,7 +157,7 @@ describe('ActivityPortalPage', () => {
   it('restores URL filters and updates search state', async () => {
     const user = userEvent.setup()
     renderPortal(
-      '/?category=%E5%AD%A6%E6%9C%AF%E8%AE%B2%E5%BA%A7&stageFilter=REGISTRATION_OPEN&sortBy=startTimeAsc',
+      '/activities/categories/academic-lectures?stageFilter=REGISTRATION_OPEN&sortBy=startTimeAsc',
     )
 
     await screen.findByText('人工智能公开课')
@@ -157,6 +174,18 @@ describe('ActivityPortalPage', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('current URL')).toHaveTextContent(
         'keyword=%E5%A4%A7%E6%A8%A1%E5%9E%8B',
+      )
+    })
+  })
+
+  it('redirects a legacy Chinese category query to the canonical slug', async () => {
+    renderPortal(
+      '/?category=%E5%AD%A6%E6%9C%AF%E8%AE%B2%E5%BA%A7&stageFilter=REGISTRATION_OPEN',
+    )
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('current URL')).toHaveTextContent(
+        '/activities/categories/academic-lectures?stageFilter=REGISTRATION_OPEN',
       )
     })
   })

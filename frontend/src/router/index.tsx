@@ -8,6 +8,8 @@ import { ActivityDetailPage } from '../pages/ActivityDetailPage'
 import { ActivityPortalPage } from '../pages/ActivityPortalPage'
 import { LoginPage } from '../pages/LoginPage'
 import { M2PreviewPage } from '../pages/M2PreviewPage'
+import { MyFavoritesPage } from '../pages/MyFavoritesPage'
+import { MyRegistrationsPage } from '../pages/MyRegistrationsPage'
 import { AuthenticatedRoute, RoleRoute } from './guards'
 
 const ACTIVITY_ADMIN_ROLE = 'ACTIVITY_ADMIN'
@@ -24,6 +26,10 @@ export const router = createBrowserRouter([
     children: [
       {
         path: '/',
+        element: <ActivityPortalPage />,
+      },
+      {
+        path: '/activities/categories/:categorySlug',
         element: <ActivityPortalPage />,
       },
       {
@@ -80,21 +86,11 @@ export const router = createBrowserRouter([
       },
       {
         path: '/me/registrations',
-        element: (
-          <RoutePlaceholder
-            description="报名记录将在 M6 迁移。"
-            title="我的报名"
-          />
-        ),
+        element: <MyRegistrationsPage />,
       },
       {
         path: '/me/favorites',
-        element: (
-          <RoutePlaceholder
-            description="收藏列表将在 M6 迁移。"
-            title="我的收藏"
-          />
-        ),
+        element: <MyFavoritesPage />,
       },
       {
         path: '/organizer',

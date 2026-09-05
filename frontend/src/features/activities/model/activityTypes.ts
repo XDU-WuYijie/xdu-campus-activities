@@ -14,6 +14,20 @@ export type ActivitySort =
   | 'signupCountDesc'
   | 'startTimeAsc'
 
+export type RegistrationMode =
+  | 'AUDIT_REQUIRED'
+  | 'FIRST_COME_FIRST_SERVED'
+  | 'REVIEW'
+
+export type RegistrationStatus =
+  | 'CANCELED'
+  | 'CANCEL_PENDING'
+  | 'FAILED'
+  | 'NOT_REGISTERED'
+  | 'PENDING_CONFIRM'
+  | 'PENDING_REVIEW'
+  | 'SUCCESS'
+
 export interface ActivityTag {
   categoryId: EntityId
   categoryName: string
@@ -33,6 +47,7 @@ export interface Activity {
   activityFlow?: string
   canManage: boolean
   category?: string
+  checkedIn?: boolean
   contactInfo?: string
   content?: string
   coverImage?: string
@@ -51,13 +66,22 @@ export interface Activity {
   registered: boolean
   registeredCount: number
   registrationEndTime?: ApiDateTime
-  registrationMode?: 'FIRST_COME_FIRST_SERVED' | 'REVIEW'
+  registrationFailReason?: string
+  registrationMessage?: string
+  registrationMode?: RegistrationMode
   registrationOpen: boolean
+  registrationRequestId?: string
   registrationStartTime?: ApiDateTime
+  registrationStatus?: RegistrationStatus
   status?: number
   summary?: string
   tags: ActivityTag[]
   title: string
+  voucherCheckedInTime?: ApiDateTime
+  voucherDisplayCode?: string
+  voucherId?: EntityId
+  voucherIssuedTime?: ApiDateTime
+  voucherStatus?: string
 }
 
 export interface ActivityListParams {

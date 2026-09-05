@@ -4,6 +4,7 @@ import { ConfigProvider } from 'antd-mobile'
 import zhCN from 'antd-mobile/es/locales/zh-CN'
 import { AppErrorBoundary } from '../components/ui'
 import { AuthProvider } from '../features/auth/providers'
+import { RegistrationRealtimeProvider } from '../features/registration/providers'
 import { queryClient } from './queryClient'
 
 export function AppProviders({ children }: PropsWithChildren) {
@@ -11,7 +12,11 @@ export function AppProviders({ children }: PropsWithChildren) {
     <QueryClientProvider client={queryClient}>
       <ConfigProvider locale={zhCN}>
         <AppErrorBoundary>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <RegistrationRealtimeProvider>
+              {children}
+            </RegistrationRealtimeProvider>
+          </AuthProvider>
         </AppErrorBoundary>
       </ConfigProvider>
     </QueryClientProvider>

@@ -24,6 +24,7 @@ interface RawActivity
   extends Omit<
     Activity,
     | 'canManage'
+    | 'checkedIn'
     | 'creatorId'
     | 'favorited'
     | 'id'
@@ -31,8 +32,10 @@ interface RawActivity
     | 'registeredCount'
     | 'registrationOpen'
     | 'tags'
+    | 'voucherId'
   > {
   canManage?: boolean
+  checkedIn?: boolean
   creatorId: RawEntityId
   favorited?: boolean
   id: RawEntityId
@@ -40,6 +43,7 @@ interface RawActivity
   registeredCount?: number
   registrationOpen?: boolean
   tags?: RawActivityTag[]
+  voucherId?: RawEntityId
 }
 
 function normalizeTag(tag: RawActivityTag): ActivityTag {
@@ -54,6 +58,7 @@ function normalizeActivity(activity: RawActivity): Activity {
   return {
     ...activity,
     canManage: Boolean(activity.canManage),
+    checkedIn: Boolean(activity.checkedIn),
     creatorId: String(activity.creatorId),
     favorited: Boolean(activity.favorited),
     id: String(activity.id),
@@ -62,8 +67,14 @@ function normalizeActivity(activity: RawActivity): Activity {
     registeredCount: activity.registeredCount ?? 0,
     registrationOpen: Boolean(activity.registrationOpen),
     tags: (activity.tags ?? []).map(normalizeTag),
+    voucherId:
+      activity.voucherId === null || activity.voucherId === undefined
+        ? undefined
+        : String(activity.voucherId),
   }
 }
+
+export { normalizeActivity }
 
 export async function fetchActivityCategories(): Promise<ActivityCategory[]> {
   const categories = await apiClient.get<RawActivityCategory[]>(

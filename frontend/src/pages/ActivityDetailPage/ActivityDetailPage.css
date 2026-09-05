@@ -1,6 +1,6 @@
 .activity-detail {
   position: relative;
-  padding-bottom: var(--campus-space-5);
+  padding-bottom: calc(84px + var(--campus-safe-bottom));
   background: var(--campus-color-surface);
 }
 
@@ -160,7 +160,132 @@
 }
 
 .activity-detail__content {
-  margin: 0 14px;
+  margin: 0 14px 14px;
+}
+
+.activity-detail__registration.adm-card {
+  margin: 0 14px 14px;
+  border: 1px solid var(--campus-color-border);
+  border-radius: var(--campus-radius-md);
+  background: var(--campus-color-surface);
+  box-shadow: none;
+}
+
+.activity-detail__registration .adm-card-body {
+  padding: 14px;
+}
+
+.activity-detail__section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--campus-space-3);
+}
+
+.activity-detail__section-heading > div {
+  min-width: 0;
+}
+
+.activity-detail__section-heading h2 {
+  margin: 0;
+  font-size: var(--campus-font-size-lg);
+}
+
+.activity-detail__section-heading p,
+.activity-detail__notice,
+.activity-detail__failure {
+  margin: var(--campus-space-2) 0 0;
+  color: var(--campus-color-text-secondary);
+  font-size: var(--campus-font-size-sm);
+  line-height: var(--campus-line-height-relaxed);
+}
+
+.activity-detail__notice {
+  padding: var(--campus-space-3);
+  border-radius: var(--campus-radius-sm);
+  background: var(--campus-color-surface-subtle);
+}
+
+.activity-detail__failure {
+  color: var(--campus-color-danger);
+}
+
+.activity-detail__registration-actions {
+  display: flex;
+  margin-top: var(--campus-space-3);
+  gap: var(--campus-space-2);
+}
+
+.activity-detail__registration-actions .adm-button {
+  flex: 1;
+}
+
+.activity-detail__bottom-actions {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: var(--campus-z-navigation);
+  display: grid;
+  width: min(100%, var(--campus-app-width));
+  min-height: 68px;
+  margin: 0 auto;
+  padding: 10px var(--campus-page-gutter)
+    calc(10px + var(--campus-safe-bottom));
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: center;
+  border-top: 1px solid var(--campus-color-border);
+  background: var(--campus-color-surface-glass);
+  box-shadow: var(--campus-shadow-nav);
+  gap: var(--campus-space-3);
+}
+
+.activity-detail__bottom-actions .adm-button {
+  height: var(--campus-touch-target);
+}
+
+.activity-detail__favorite {
+  display: grid;
+  height: var(--campus-touch-target);
+  padding: 0;
+  place-items: center;
+  border: 0;
+  color: var(--campus-color-text-secondary);
+  background: transparent;
+  font-size: var(--campus-font-size-xs);
+}
+
+.activity-detail__favorite svg {
+  font-size: 21px;
+}
+
+.activity-detail__favorite--active {
+  color: var(--campus-color-warning);
+}
+
+.activity-detail__favorite:disabled {
+  opacity: 0.5;
+}
+
+.activity-detail__voucher {
+  display: grid;
+  justify-items: center;
+  padding: var(--campus-space-3) 0;
+  text-align: center;
+  gap: var(--campus-space-3);
+}
+
+.activity-detail__voucher strong {
+  color: var(--campus-color-primary);
+  font-size: 30px;
+  letter-spacing: 0;
+}
+
+.activity-detail__voucher p,
+.activity-detail__voucher small {
+  margin: 0;
+  color: var(--campus-color-text-secondary);
+  line-height: var(--campus-line-height-relaxed);
 }
 
 .activity-detail__content .adm-tabs-header {

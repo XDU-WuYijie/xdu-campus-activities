@@ -1,0 +1,170 @@
+.my-registration-page {
+  background: var(--campus-color-page);
+}
+
+.my-registration-page__filters {
+  padding: var(--campus-space-3) var(--campus-page-gutter) 0;
+  border-bottom: 1px solid var(--campus-color-border);
+  background: var(--campus-color-surface);
+}
+
+.my-registration-page__search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  align-items: center;
+  gap: 10px;
+}
+
+.my-registration-page__search-row .adm-search-bar {
+  min-width: 0;
+}
+
+.my-registration-page__search-row .adm-button {
+  height: 34px;
+  min-height: 34px;
+  border-radius: var(--campus-radius-full);
+}
+
+.my-registration-page__filters .adm-dropdown {
+  margin-top: var(--campus-space-3);
+}
+
+.my-registration-page__filters .adm-dropdown-item {
+  min-width: 0;
+}
+
+.my-registration-page__filters .adm-dropdown-item-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.my-registration-page__filters .adm-selector {
+  padding: var(--campus-space-3) var(--campus-page-gutter);
+}
+
+.my-registration-page__list {
+  display: grid;
+  padding: var(--campus-space-3) var(--campus-page-gutter)
+    var(--campus-space-6);
+  gap: var(--campus-space-3);
+}
+
+.my-registration-page__count {
+  margin: 0;
+  color: var(--campus-color-text-tertiary);
+  font-size: var(--campus-font-size-xs);
+}
+
+.registration-record-card.adm-card {
+  border: 1px solid var(--campus-color-border);
+  border-radius: 12px;
+  background: var(--campus-color-surface);
+  box-shadow: var(--campus-shadow-sm);
+}
+
+.registration-record-card .adm-card-body {
+  padding: 10px;
+}
+
+.registration-record-card__main {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+}
+
+.registration-record-card__cover {
+  width: 76px;
+  height: 68px;
+  overflow: hidden;
+  border-radius: 9px;
+  background: var(--campus-color-primary-soft);
+}
+
+.registration-record-card__content {
+  min-width: 0;
+}
+
+.registration-record-card__title-row {
+  display: grid;
+  margin-bottom: var(--campus-space-1);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--campus-space-2);
+}
+
+.registration-record-card__title-row h2 {
+  margin: 0;
+  overflow: hidden;
+  color: var(--campus-color-text);
+  font-size: var(--campus-font-size-sm);
+  font-weight: var(--campus-font-weight-bold);
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.registration-record-card__title-row .status-tag {
+  padding: 3px var(--campus-space-2);
+  font-size: 10px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.registration-record-card__content p {
+  margin: 0;
+  overflow: hidden;
+  color: var(--campus-color-text-secondary);
+  font-size: 11px;
+  line-height: 1.6;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.registration-record-card__content strong {
+  color: var(--campus-color-text-tertiary);
+  font-weight: var(--campus-font-weight-semibold);
+}
+
+.registration-record-card__actions {
+  display: grid;
+  margin-top: 9px;
+  padding-left: 86px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--campus-space-2);
+}
+
+.registration-record-card__actions .adm-button {
+  min-width: 0;
+  min-height: 28px;
+  padding: 0;
+  border-radius: var(--campus-radius-full);
+  font-size: 11px;
+}
+
+.my-registration-page__voucher {
+  display: grid;
+  justify-items: center;
+  padding: var(--campus-space-4) 0;
+  text-align: center;
+  gap: var(--campus-space-2);
+}
+
+.my-registration-page__voucher strong {
+  color: var(--campus-color-primary);
+  font-size: 30px;
+  letter-spacing: 0;
+}
+
+.my-registration-page__voucher p,
+.my-registration-page__voucher small {
+  margin: 0;
+  color: var(--campus-color-text-secondary);
+}
+
+@media (max-width: 359px) {
+  .registration-record-card__actions {
+    padding-left: 0;
+  }
+}

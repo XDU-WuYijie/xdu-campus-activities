@@ -8,6 +8,8 @@ export type {
   Activity,
   ActivityCategory,
   ActivityListParams,
+  RegistrationMode,
+  RegistrationStatus,
   ActivitySort,
   ActivityStage,
   ActivityTag,
@@ -18,4 +20,7 @@ export {
   getActivityCategory,
   getActivityImages,
   getActivityStatus,
+  getCategorySlug,
+  getKnownCategorySlug,
+  resolveCategoryName,
 } from './utils'
