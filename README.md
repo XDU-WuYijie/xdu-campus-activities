@@ -7,7 +7,7 @@
 | 分类 | 内容 |
 |---|---|
 | 项目概览 | [项目简介](#项目简介) · [核心功能](#核心功能) · [技术栈](#技术栈) |
-| 系统设计 | [系统架构](#系统架构) · [项目亮点](#项目亮点) · [核心流程](#核心流程) |
+| 系统设计 | [系统架构](#系统架构) · [项目亮点](#项目亮点) · [核心流程](#核心流程) · [新前端迁移计划](doc/新前端迁移计划.md) |
 | 页面展示 | [用户端](#用户端) · [活动负责人端](#活动负责人端) · [平台管理员端](#平台管理员端) |
 | 工程说明 | [项目结构](#项目结构) · [本地运行](#本地运行) · [配置说明](#配置说明) |
 | 扩展规划 | [后续优化](#后续优化) · [项目说明](#项目说明) |
@@ -63,10 +63,9 @@
 
 ### 前端
 
-- 原生 HTML
-- Vue 2
-- Element UI
-- Axios
+- 新前端：React 18、TypeScript、Vite、Ant Design Mobile
+- 新前端生产托管：Node.js、Express
+- 迁移期旧前端：原生 HTML、Vue 2、Element UI、Axios
 
 ### 中间件
 
@@ -74,7 +73,7 @@
 - Redis 7.2
 - RocketMQ 4.9
 - Elasticsearch 7.17
-- Nginx
+- Nginx（仅迁移期承载旧前端）
 - Docker Compose
 
 ### AI 能力
@@ -90,7 +89,9 @@
 
 系统采用前后端分离架构：
 
-- 前端静态页面由 Nginx 承载
+- 新前端在开发环境由 Vite 提供，并代理 `/api` 与 `/api/ws`
+- 新前端生产构建由 Node.js 托管并代理后端请求
+- 迁移期旧前端继续由 Nginx 承载，可与新前端并行访问后端
 - Spring Boot 提供活动、报名、审核、签到、通知、推荐等业务接口
 - MySQL 负责核心业务数据持久化
 - Redis 负责登录态、活动缓存、报名状态缓存、签到聚合缓存
@@ -305,13 +306,16 @@ AI 推荐流程
 
 ```text
 xdu-campus-activities
-├── src/main/java                # 后端业务代码
-├── src/main/resources           # 配置、SQL、Lua 脚本
-├── front/html/campus           # 前端静态页面
-├── docker                       # Nginx、RocketMQ、MySQL 等容器辅助文件
+├── backend                      # Spring Boot 后端工程
+│   ├── pom.xml
+│   └── src
+├── frontend                     # React + TypeScript 新前端工程
+│   ├── src
+│   └── server                   # 生产静态托管及 API/WS 代理
+├── legacy-frontend              # 迁移期保留的 Vue 2 静态前端
+├── docker                       # Nginx、RocketMQ、MySQL 等容器配置
 ├── doc                          # 设计文档与页面展示图
-├── docker-compose.yml           # 本地一键运行编排
-├── Dockerfile                   # Spring Boot 镜像构建文件
+└── docker-compose.yml           # 本地基础设施与旧前端编排
 ```
 
 ---
@@ -350,19 +354,35 @@ export QWEN_API_KEY=xxx
 docker compose up -d
 ```
 
-### 4. 启动 Spring Boot
+### 4. 启动 Spring Boot 后端
 
 ```bash
-mvn spring-boot:run
+mvn -f backend/pom.xml spring-boot:run
+```
+
+### 5. 启动新前端
+
+```bash
+npm --prefix frontend install
+npm --prefix frontend run dev
 ```
 
 默认访问地址：
 
-- 首页：`http://127.0.0.1:8080/index.html`
-- 管理员后台：`http://127.0.0.1:8080/admin-dashboard.html`
-- 登录页：`http://127.0.0.1:8080/login.html`
+- React 新前端：`http://127.0.0.1:5173`
+- Vue 2 旧前端：`http://127.0.0.1:8080/index.html`
+- Spring Boot API：`http://127.0.0.1:8081`
 
-### 5. 常用命令
+新前端生产构建与本地托管：
+
+```bash
+npm --prefix frontend run build
+npm --prefix frontend start
+```
+
+生产托管默认监听 `3000`，可通过 `PORT` 修改端口，通过 `BACKEND_URL` 指定后端地址。
+
+### 6. 常用命令
 
 ```bash
 docker compose ps
@@ -370,11 +390,12 @@ docker compose logs -f
 docker compose down
 ```
 
-### 6. 补充说明
+### 7. 补充说明
 
-- MySQL 首次启动会自动执行 `src/main/resources/db/init` 下的初始化脚本
-- Spring Boot 需要在本地单独启动，前端静态资源和后端接口通过本地进程提供
-- 如果需要宿主机调试后端，可在 `mvn spring-boot:run` 之外再单独调整本地配置
+- MySQL 首次启动会自动执行 `backend/src/main/resources/db/init` 下的初始化脚本
+- Spring Boot、新前端和旧前端可以独立启动
+- 新前端通过同源 `/api` 和 `/api/ws` 代理访问后端，无需后端开放 CORS
+- 旧前端仅用于迁移期间的功能对照与回归验证
 
 ---
 
